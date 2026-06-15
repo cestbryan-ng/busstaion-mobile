@@ -1,0 +1,963 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  ActivityIndicator,
+  useColorScheme,
+  RefreshControl,
+  Share,
+} from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { colors } from '../../../../theme/colors';
+import { typography } from '../../../../theme/typography';
+import { spacing } from '../../../../theme/spacing';
+import { API_URL } from '../../../../utils/config';
+import type { RootStackParamList } from '../../../../navigation';
+
+type Passager = {
+  nom: string;
+  telephone: string;
+  carteID: string;
+  age: number;
+  genre: string;
+  siege: string;
+  prixBillet: number;
+};
+
+type ReservationDetail = {
+  idReservation: string;
+  lieuDepart: string;
+  lieuArrive: string;
+  pointDeDepart?: string;
+  pointArrivee?: string;
+  heureDepart: string;
+  heureArrive: string;
+  dateDepart: string;
+  nomAgence: string;
+  statusVoyage: string;
+  photoUrl?: string;
+  passagers: Passager[];
+};
+
+type HistoriqueRaw = {
+  idHistorique: string;
+  statusHistorique: string;
+  dateReservation: string;
+  dateConfirmation?: string;
+  dateAnnulation?: string;
+  causeAnnulation?: string;
+  origineAnnulation?: string;
+  tauxAnnulation?: number;
+  compensation?: number;
+  idReservation: string;
+};
+
+type HistoriqueEnrichi = HistoriqueRaw & {
+  reservation: ReservationDetail | null;
+};
+
+type TabType = 'reservations' | 'annulations';
+type DateFilter = 'all' | 'month' | '3months' | 'year';
+
+const STATUS_COLORS: Record<
+  string,
+  { label: string; labelEn: string; color: string; bg: string }
+> = {
+  TERMINE: {
+    label: 'Terminé',
+    labelEn: 'Completed',
+    color: colors.primary,
+    bg: `${colors.primary}15`,
+  },
+  EN_ATTENTE: {
+    label: 'En attente',
+    labelEn: 'Pending',
+    color: '#d97706',
+    bg: '#fef3c715',
+  },
+  ANNULE: {
+    label: 'Annulé',
+    labelEn: 'Cancelled',
+    color: '#6b7280',
+    bg: '#6b728015',
+  },
+  EN_COURS: {
+    label: 'En cours',
+    labelEn: 'Ongoing',
+    color: colors.success,
+    bg: `${colors.success}15`,
+  },
+};
+
+const ORIGINE_LABELS: Record<
+  string,
+  { fr: string; en: string; color: string }
+> = {
+  client: { fr: 'Client', en: 'Client', color: colors.error },
+  agence: { fr: 'Agence', en: 'Agency', color: '#d97706' },
+};
+
+function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString(
+    lang === 'fr' ? 'fr-FR' : 'en-GB',
+    { day: 'numeric', month: 'long', year: 'numeric' },
+  );
+}
+
+function formatPrice(price: number): string {
+  return price.toLocaleString('fr-FR') + ' FCFA';
+}
+
+function isInDateRange(dateStr: string, filter: DateFilter): boolean {
+  if (filter === 'all') return true;
+  const date = new Date(dateStr);
+  const now = new Date();
+  if (filter === 'month') {
+    return (
+      date.getMonth() === now.getMonth() &&
+      date.getFullYear() === now.getFullYear()
+    );
+  }
+  if (filter === '3months') {
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(now.getMonth() - 3);
+    return date >= threeMonthsAgo;
+  }
+  if (filter === 'year') {
+    return date.getFullYear() === now.getFullYear();
+  }
+  return true;
+}
+
+export default function Historique() {
+  const isDark = useColorScheme() === 'dark';
+  const theme = isDark ? colors.dark : colors.light;
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const [tab, setTab] = useState<TabType>('reservations');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [search, setSearch] = useState('');
+  const [historiques, setHistoriques] = useState<HistoriqueEnrichi[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const t = {
+    fr: {
+      title: 'Historique',
+      searchPlaceholder: 'Rechercher un voyage, une agence...',
+      tabReservations: 'Réservations',
+      tabCancellations: 'Annulations',
+      all: 'Tous',
+      month: 'Ce mois',
+      threeMonths: '3 derniers mois',
+      year: 'Cette année',
+      passengers: (n: number) => `${n} passager${n > 1 ? 's' : ''}`,
+      downloadTicket: 'Télécharger billet',
+      details: 'Détails',
+      noData: 'Aucun historique',
+      cancelledBy: 'Annulé par',
+      compensation: 'Compensation',
+      cancelReason: 'Motif',
+      cancelDate: "Date d'annulation",
+    },
+    en: {
+      title: 'History',
+      searchPlaceholder: 'Search a trip, an agency...',
+      tabReservations: 'Reservations',
+      tabCancellations: 'Cancellations',
+      all: 'All',
+      month: 'This month',
+      threeMonths: 'Last 3 months',
+      year: 'This year',
+      passengers: (n: number) => `${n} passenger${n > 1 ? 's' : ''}`,
+      downloadTicket: 'Download ticket',
+      details: 'Details',
+      noData: 'No history',
+      cancelledBy: 'Cancelled by',
+      compensation: 'Compensation',
+      cancelReason: 'Reason',
+      cancelDate: 'Cancellation date',
+    },
+  }[lang];
+
+  const DATE_FILTERS: { key: DateFilter; label: string }[] = [
+    { key: 'all', label: t.all },
+    { key: 'month', label: t.month },
+    { key: '3months', label: t.threeMonths },
+    { key: 'year', label: t.year },
+  ];
+
+  const loadHistorique = useCallback(async () => {
+    try {
+      const [userRaw, token, storedLang] = await Promise.all([
+        AsyncStorage.getItem('user'),
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      const userId = user?.userId || user?.id;
+      if (!userId) return;
+
+      const res = await fetch(`${API_URL}/historique/reservation/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) return;
+
+      const rawList: HistoriqueRaw[] = await res.json();
+
+      // Enrichissement parallèle
+      const enriched = await Promise.all(
+        rawList.map(async (h): Promise<HistoriqueEnrichi> => {
+          try {
+            const detailRes = await fetch(
+              `${API_URL}/reservation/${h.idReservation}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            );
+            const detail = detailRes.ok ? await detailRes.json() : null;
+            return { ...h, reservation: detail };
+          } catch {
+            return { ...h, reservation: null };
+          }
+        }),
+      );
+
+      setHistoriques(enriched);
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistorique();
+  }, [loadHistorique]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadHistorique();
+    setRefreshing(false);
+  }, [loadHistorique]);
+
+  const filtered = historiques.filter(h => {
+    if (tab === 'reservations' && h.statusHistorique === 'ANNULE') return false;
+    if (tab === 'annulations' && h.statusHistorique !== 'ANNULE') return false;
+    if (!isInDateRange(h.dateReservation, dateFilter)) return false;
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const r = h.reservation;
+      return (
+        r?.lieuDepart?.toLowerCase().includes(q) ||
+        r?.lieuArrive?.toLowerCase().includes(q) ||
+        r?.nomAgence?.toLowerCase().includes(q) ||
+        h.idHistorique.toLowerCase().includes(q) ||
+        r?.passagers?.[0]?.nom?.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const handleShare = async (h: HistoriqueEnrichi) => {
+    const r = h.reservation;
+    if (!r) return;
+    const totalPrice = r.passagers.reduce((sum, p) => sum + p.prixBillet, 0);
+    try {
+      await Share.share({
+        message: `
+🚌 BUS STATION — ${lang === 'fr' ? 'Billet de voyage' : 'Travel ticket'}
+━━━━━━━━━━━━━━━━━━━
+📋 #${h.idHistorique}
+🗺️ ${r.lieuDepart} → ${r.lieuArrive}
+📅 ${formatDate(r.dateDepart, lang)}
+🕐 ${r.heureDepart} - ${r.heureArrive}
+🏢 ${r.nomAgence}
+👥 ${r.passagers.length} passager(s)
+💰 ${formatPrice(totalPrice)}
+        `.trim(),
+        title: lang === 'fr' ? 'Billet de voyage' : 'Travel ticket',
+      });
+    } catch {
+      // silent
+    }
+  };
+
+  const ReservationCard = ({ item }: { item: HistoriqueEnrichi }) => {
+    const r = item.reservation;
+    const status =
+      STATUS_COLORS[item.statusHistorique] || STATUS_COLORS.EN_ATTENTE;
+    const totalPrice =
+      r?.passagers?.reduce((sum, p) => sum + p.prixBillet, 0) || 0;
+
+    return (
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: theme.background, borderColor: theme.border },
+        ]}
+      >
+        {/* Top */}
+        <View style={styles.cardTop}>
+          {/* Image */}
+          <View
+            style={[styles.cardImage, { backgroundColor: theme.backgroundAlt }]}
+          >
+            {r?.photoUrl ? (
+              <Image
+                source={{ uri: r.photoUrl }}
+                style={styles.cardImageInner}
+                resizeMode="cover"
+              />
+            ) : (
+              <Ionicons name="bus-outline" size={28} color={theme.text} />
+            )}
+          </View>
+
+          {/* Info */}
+          <View style={styles.cardInfo}>
+            {/* Agency + status + date */}
+            <View style={styles.cardRow}>
+              <Text
+                style={[styles.agencyName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {r?.nomAgence || '—'}
+              </Text>
+              <View style={[styles.badge, { backgroundColor: status.bg }]}>
+                <Text style={[styles.badgeText, { color: status.color }]}>
+                  {lang === 'fr' ? status.label : status.labelEn}
+                </Text>
+              </View>
+              <Text style={[styles.dateText, { color: theme.text }]}>
+                {formatDate(r?.dateDepart || item.dateReservation, lang)}
+              </Text>
+            </View>
+
+            {/* Route */}
+            <Text
+              style={[styles.route, { color: theme.textStrong }]}
+              numberOfLines={1}
+            >
+              {r?.lieuDepart || '—'} → {r?.lieuArrive || '—'}
+            </Text>
+
+            {/* Time */}
+            {r && (
+              <View style={styles.timeRow}>
+                <Ionicons name="time-outline" size={12} color={theme.text} />
+                <Text style={[styles.timeText, { color: theme.text }]}>
+                  {' '}
+                  {r.heureDepart} - {r.heureArrive}
+                </Text>
+              </View>
+            )}
+
+            {/* Passengers + price */}
+            <View style={styles.cardFooter}>
+              <View style={styles.timeRow}>
+                <Ionicons name="people-outline" size={12} color={theme.text} />
+                <Text style={[styles.timeText, { color: theme.text }]}>
+                  {' '}
+                  {t.passengers(r?.passagers?.length || 0)}
+                </Text>
+              </View>
+              <Text style={[styles.price, { color: colors.primary }]}>
+                {formatPrice(totalPrice)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Actions */}
+        <View style={[styles.cardActions, { borderTopColor: theme.border }]}>
+          <TouchableOpacity
+            style={styles.actionLeft}
+            onPress={() => handleShare(item)}
+          >
+            <Ionicons name="download-outline" size={15} color={theme.text} />
+            <Text style={[styles.actionText, { color: theme.text }]}>
+              {t.downloadTicket}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionRight}
+            onPress={() =>
+              navigation.navigate('BookingDetails', {
+                reservationId: item.idReservation,
+              })
+            }
+          >
+            <Text style={[styles.actionText, { color: theme.textStrong }]}>
+              {t.details}
+            </Text>
+            <Ionicons
+              name="chevron-forward"
+              size={15}
+              color={theme.textStrong}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  const CancellationCard = ({ item }: { item: HistoriqueEnrichi }) => {
+    const r = item.reservation;
+    const status = STATUS_COLORS.ANNULE;
+    const totalPrice =
+      r?.passagers?.reduce((sum, p) => sum + p.prixBillet, 0) || 0;
+    const origine = item.origineAnnulation
+      ? ORIGINE_LABELS[item.origineAnnulation] || null
+      : null;
+
+    return (
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: theme.background, borderColor: theme.border },
+        ]}
+      >
+        {/* Top */}
+        <View style={styles.cardTop}>
+          <View
+            style={[styles.cardImage, { backgroundColor: theme.backgroundAlt }]}
+          >
+            {r?.photoUrl ? (
+              <Image
+                source={{ uri: r.photoUrl }}
+                style={styles.cardImageInner}
+                resizeMode="cover"
+              />
+            ) : (
+              <Ionicons name="bus-outline" size={28} color={theme.text} />
+            )}
+          </View>
+
+          <View style={styles.cardInfo}>
+            <View style={styles.cardRow}>
+              <Text
+                style={[styles.agencyName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {r?.nomAgence || '—'}
+              </Text>
+              <View style={[styles.badge, { backgroundColor: status.bg }]}>
+                <Text style={[styles.badgeText, { color: status.color }]}>
+                  {lang === 'fr' ? status.label : status.labelEn}
+                </Text>
+              </View>
+            </View>
+
+            <Text
+              style={[styles.route, { color: theme.textStrong }]}
+              numberOfLines={1}
+            >
+              {r?.lieuDepart || '—'} → {r?.lieuArrive || '—'}
+            </Text>
+
+            {r && (
+              <View style={styles.timeRow}>
+                <Ionicons name="time-outline" size={12} color={theme.text} />
+                <Text style={[styles.timeText, { color: theme.text }]}>
+                  {' '}
+                  {r.heureDepart} - {r.heureArrive}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.cardFooter}>
+              <View style={styles.timeRow}>
+                <Ionicons name="people-outline" size={12} color={theme.text} />
+                <Text style={[styles.timeText, { color: theme.text }]}>
+                  {' '}
+                  {t.passengers(r?.passagers?.length || 0)}
+                </Text>
+              </View>
+              <Text style={[styles.price, { color: colors.primary }]}>
+                {formatPrice(totalPrice)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Cancellation details */}
+        <View
+          style={[
+            styles.cancelDetails,
+            {
+              borderTopColor: theme.border,
+              backgroundColor: theme.backgroundAlt,
+            },
+          ]}
+        >
+          {origine && (
+            <View style={styles.cancelRow}>
+              <Text style={[styles.cancelLabel, { color: theme.text }]}>
+                {t.cancelledBy}
+              </Text>
+              <View
+                style={[
+                  styles.origineBadge,
+                  { backgroundColor: origine.color + '15' },
+                ]}
+              >
+                <Text style={[styles.origineText, { color: origine.color }]}>
+                  {lang === 'fr' ? origine.fr : origine.en}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {item.dateAnnulation && (
+            <View style={styles.cancelRow}>
+              <Text style={[styles.cancelLabel, { color: theme.text }]}>
+                {t.cancelDate}
+              </Text>
+              <Text style={[styles.cancelValue, { color: theme.textStrong }]}>
+                {formatDate(item.dateAnnulation, lang)}
+              </Text>
+            </View>
+          )}
+
+          {item.causeAnnulation && (
+            <View style={styles.cancelRow}>
+              <Text style={[styles.cancelLabel, { color: theme.text }]}>
+                {t.cancelReason}
+              </Text>
+              <Text
+                style={[styles.cancelValue, { color: theme.textStrong }]}
+                numberOfLines={2}
+              >
+                {item.causeAnnulation}
+              </Text>
+            </View>
+          )}
+
+          {item.compensation !== undefined && item.compensation > 0 && (
+            <View style={styles.cancelRow}>
+              <Text style={[styles.cancelLabel, { color: theme.text }]}>
+                {t.compensation}
+              </Text>
+              <Text
+                style={[styles.compensationValue, { color: colors.success }]}
+              >
+                {formatPrice(item.compensation)}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Actions */}
+        <View style={[styles.cardActions, { borderTopColor: theme.border }]}>
+          <View style={styles.actionLeft} />
+          <TouchableOpacity
+            style={styles.actionRight}
+            onPress={() =>
+              navigation.navigate('BookingDetails', {
+                reservationId: item.idReservation,
+              })
+            }
+          >
+            <Text style={[styles.actionText, { color: theme.textStrong }]}>
+              {t.details}
+            </Text>
+            <Ionicons
+              name="chevron-forward"
+              size={15}
+              color={theme.textStrong}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.loading, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {/* Header */}
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: theme.background,
+            borderBottomColor: theme.border,
+          },
+        ]}
+      >
+        <Text style={[styles.title, { color: theme.textStrong }]}>
+          {t.title}
+        </Text>
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* Search */}
+        <View style={[styles.searchRow, { backgroundColor: theme.background }]}>
+          <View
+            style={[
+              styles.searchInput,
+              {
+                borderColor: theme.border,
+                backgroundColor: theme.backgroundAlt,
+              },
+            ]}
+          >
+            <Ionicons name="search-outline" size={16} color={theme.text} />
+            <TextInput
+              style={[styles.searchText, { color: theme.textStrong }]}
+              placeholder={t.searchPlaceholder}
+              placeholderTextColor={theme.text}
+              value={search}
+              onChangeText={setSearch}
+            />
+          </View>
+        </View>
+
+        {/* Tabs */}
+        <View
+          style={[
+            styles.tabs,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
+          ]}
+        >
+          {(['reservations', 'annulations'] as TabType[]).map(t2 => (
+            <TouchableOpacity
+              key={t2}
+              style={[
+                styles.tab,
+                tab === t2 && {
+                  borderBottomColor: colors.primary,
+                  borderBottomWidth: 2,
+                },
+              ]}
+              onPress={() => setTab(t2)}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: tab === t2 ? colors.primary : theme.text },
+                ]}
+              >
+                {t2 === 'reservations' ? t.tabReservations : t.tabCancellations}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Date filters */}
+        <View style={styles.dateFiltersRow}>
+          {DATE_FILTERS.map(f => (
+            <TouchableOpacity
+              key={f.key}
+              style={[
+                styles.dateChip,
+                {
+                  borderColor:
+                    dateFilter === f.key ? colors.primary : theme.border,
+                  backgroundColor:
+                    dateFilter === f.key ? colors.primary : 'transparent',
+                },
+              ]}
+              onPress={() => setDateFilter(f.key)}
+            >
+              <Text
+                style={[
+                  styles.dateChipText,
+                  { color: dateFilter === f.key ? '#fff' : theme.text },
+                ]}
+              >
+                {f.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+
+          <TouchableOpacity
+            style={[styles.calendarBtn, { borderColor: theme.border }]}
+          >
+            <Ionicons
+              name="calendar-outline"
+              size={18}
+              color={theme.textStrong}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* List */}
+        <View style={styles.list}>
+          {filtered.length === 0 ? (
+            <View style={styles.empty}>
+              <Ionicons name="time-outline" size={48} color={theme.text} />
+              <Text style={[styles.emptyText, { color: theme.text }]}>
+                {t.noData}
+              </Text>
+            </View>
+          ) : (
+            filtered.map(item =>
+              tab === 'reservations' ? (
+                <ReservationCard key={item.idHistorique} item={item} />
+              ) : (
+                <CancellationCard key={item.idHistorique} item={item} />
+              ),
+            )
+          )}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    alignItems: 'center',
+  },
+  title: {
+    ...typography.heading,
+    fontSize: typography.sizes.xl,
+  },
+  searchRow: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  searchInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    height: 44,
+    gap: spacing.sm,
+  },
+  searchText: {
+    ...typography.body,
+    flex: 1,
+    fontSize: typography.sizes.sm,
+  },
+  tabs: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  tabText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+  },
+  dateFiltersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  dateChip: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  dateChipText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+  },
+  calendarBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 4,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 'auto',
+  },
+  list: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  card: {
+    borderWidth: 1,
+    borderRadius: 4,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
+  },
+  cardTop: {
+    flexDirection: 'row',
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  cardImage: {
+    width: 80,
+    height: 90,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  cardImageInner: {
+    width: '100%',
+    height: '100%',
+  },
+  cardInfo: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  agencyName: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+  },
+  badge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  badgeText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.xs,
+  },
+  dateText: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+    marginLeft: 'auto',
+  },
+  route: {
+    ...typography.heading,
+    fontSize: typography.sizes.md,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timeText: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs,
+  },
+  price: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+  },
+  actionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  actionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  actionText: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+  },
+
+  // Cancellation
+  cancelDetails: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  cancelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  cancelLabel: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+  },
+  cancelValue: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.xs,
+    flex: 1,
+    textAlign: 'right',
+  },
+  origineBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  origineText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.xs,
+  },
+  compensationValue: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+  },
+
+  empty: {
+    alignItems: 'center',
+    paddingVertical: spacing.xxl,
+    gap: spacing.md,
+  },
+  emptyText: {
+    ...typography.body,
+    fontSize: typography.sizes.md,
+  },
+});

@@ -1,0 +1,1174 @@
+// screens/client/trips/trips-list.tsx
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  ActivityIndicator,
+  useColorScheme,
+  RefreshControl,
+} from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { colors } from '../../../../theme/colors';
+import { typography } from '../../../../theme/typography';
+import { spacing } from '../../../../theme/spacing';
+import { API_URL } from '../../../../utils/config';
+import type { RootStackParamList } from '../../../../navigation';
+import type { TripFilters } from './trips-filter';
+
+type Trip = {
+  idVoyage: string;
+  lieuDepart: string;
+  lieuArrive: string;
+  dateDepartPrev: string;
+  heureDepart?: string;
+  statusVoyage: string;
+  class: string;
+  amenities: string[];
+  prix: number;
+  durationHours: number;
+  seatsAvailable: number;
+  photoUrl?: string;
+  nomAgence?: string;
+};
+
+type ViewMode = 'grid' | 'list';
+type SortType = 'price_asc' | 'price_desc' | 'duration_asc' | 'seats_desc';
+
+const CLASS_COLORS: Record<string, string> = {
+  VIP: '#1e3a8a',
+  PREMIUM: '#7c3aed',
+  STANDARD: '#16a34a',
+  ECONOMY: '#6b7280',
+};
+
+const AMENITY_ICONS: Record<string, string> = {
+  WIFI: 'wifi-outline',
+  AC: 'snow-outline',
+  USB: 'phone-portrait-outline',
+  SNACKS: 'fast-food-outline',
+  TOILETTES: 'water-outline',
+  DIVERTISSEMENT: 'tv-outline',
+  BOISSONS: 'cafe-outline',
+};
+
+function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
+  return new Date(dateStr).toLocaleDateString(
+    lang === 'fr' ? 'fr-FR' : 'en-GB',
+    { day: 'numeric', month: 'long', year: 'numeric' },
+  );
+}
+
+function formatDuration(hours: number): string {
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h 00m`;
+}
+
+function formatPrice(price: number): string {
+  return price.toLocaleString('fr-FR') + ' FCFA';
+}
+
+export default function TripsList() {
+  const isDark = useColorScheme() === 'dark';
+  const theme = isDark ? colors.dark : colors.light;
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'TripsList'>>();
+  const initialFilters = route.params?.filters;
+
+  const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [sortBy, setSortBy] = useState<SortType>('price_asc');
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalElements, setTotalElements] = useState(0);
+
+  // Search state (editable in this page)
+  const [departure, setDeparture] = useState(initialFilters?.departure || '');
+  const [arrival, setArrival] = useState(initialFilters?.arrival || '');
+  const [date, setDate] = useState(initialFilters?.date || '');
+
+  // Active filters from filter page
+  const [activeFilters, setActiveFilters] = useState<TripFilters>(
+    initialFilters || {
+      departure: '',
+      arrival: '',
+      date: null,
+      classes: [],
+      amenities: [],
+    },
+  );
+
+  const t = {
+    fr: {
+      title: 'Voyages disponibles',
+      departurePlaceholder: 'Lieu de départ',
+      arrivalPlaceholder: "Lieu d'arrivée",
+      datePlaceholder: 'Date de départ',
+      searchBtn: 'Rechercher',
+      allDepartures: 'Tous les départs',
+      allArrivals: 'Toutes les arrivées',
+      sortBy: 'Trier par',
+      grid: 'Grille',
+      list: 'Liste',
+      results: (n: number) =>
+        `${n} voyage${n > 1 ? 's' : ''} trouvé${n > 1 ? 's' : ''}`,
+      seats: (n: number) =>
+        `${n} siège${n > 1 ? 's' : ''} disponible${n > 1 ? 's' : ''}`,
+      noTrips: 'Aucun voyage trouvé',
+      sortOptions: {
+        price_asc: 'Prix croissant',
+        price_desc: 'Prix décroissant',
+        duration_asc: 'Durée croissante',
+        seats_desc: 'Sièges disponibles',
+      },
+    },
+    en: {
+      title: 'Available trips',
+      departurePlaceholder: 'Departure',
+      arrivalPlaceholder: 'Arrival',
+      datePlaceholder: 'Departure date',
+      searchBtn: 'Search',
+      allDepartures: 'All departures',
+      allArrivals: 'All arrivals',
+      sortBy: 'Sort by',
+      grid: 'Grid',
+      list: 'List',
+      results: (n: number) => `${n} trip${n > 1 ? 's' : ''} found`,
+      seats: (n: number) => `${n} seat${n > 1 ? 's' : ''} available`,
+      noTrips: 'No trips found',
+      sortOptions: {
+        price_asc: 'Price: low to high',
+        price_desc: 'Price: high to low',
+        duration_asc: 'Shortest duration',
+        seats_desc: 'Most seats',
+      },
+    },
+  }[lang];
+
+  // Keep filters in sync with route params (filter page result)
+  useEffect(() => {
+    if (route.params?.filters) {
+      const f = route.params.filters;
+      setActiveFilters(f);
+      if (f.departure) setDeparture(f.departure);
+      if (f.arrival) setArrival(f.arrival);
+      if (f.date) setDate(f.date);
+    }
+  }, [route.params?.filters]);
+
+  const loadTrips = useCallback(async (page = 0) => {
+    try {
+      const [token, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+
+      const res = await fetch(`${API_URL}/voyage?page=${page}&size=10`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const published = (data.content || []).filter(
+          (t: Trip) => t.statusVoyage === 'PUBLIE',
+        );
+        setTrips(published);
+        setTotalPages(data.totalPages || 1);
+        setTotalElements(data.totalElements || published.length);
+        setCurrentPage(page);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTrips();
+  }, [loadTrips]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadTrips(0);
+    setRefreshing(false);
+  }, [loadTrips]);
+
+  const filtered = trips
+    .filter(trip => {
+      if (
+        departure &&
+        !trip.lieuDepart.toLowerCase().includes(departure.toLowerCase())
+      )
+        return false;
+      if (
+        arrival &&
+        !trip.lieuArrive.toLowerCase().includes(arrival.toLowerCase())
+      )
+        return false;
+      if (date && !trip.dateDepartPrev.startsWith(date)) return false;
+      if (
+        activeFilters.classes.length > 0 &&
+        !activeFilters.classes.includes(trip.class)
+      )
+        return false;
+      if (activeFilters.amenities.length > 0) {
+        const hasAmenity = activeFilters.amenities.some(a =>
+          trip.amenities?.includes(a),
+        );
+        if (!hasAmenity) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'price_asc') return a.prix - b.prix;
+      if (sortBy === 'price_desc') return b.prix - a.prix;
+      if (sortBy === 'duration_asc') return a.durationHours - b.durationHours;
+      if (sortBy === 'seats_desc') return b.seatsAvailable - a.seatsAvailable;
+      return 0;
+    });
+
+  const ListCard = ({ item }: { item: Trip }) => {
+    const classColor = CLASS_COLORS[item.class] || colors.primary;
+    const visibleAmenities = item.amenities?.slice(0, 5) || [];
+    const extraCount = Math.max(0, (item.amenities?.length || 0) - 5);
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.listCard,
+          { backgroundColor: theme.background, borderColor: theme.border },
+        ]}
+        activeOpacity={0.85}
+        onPress={() =>
+          navigation.navigate('TripDetail', { tripId: item.idVoyage })
+        }
+      >
+        {/* Top row */}
+        <View style={styles.listCardTop}>
+          {/* Image */}
+          <View
+            style={[
+              styles.listCardImage,
+              { backgroundColor: theme.backgroundAlt },
+            ]}
+          >
+            {item.photoUrl ? (
+              <Image
+                source={{ uri: item.photoUrl }}
+                style={styles.listCardImageInner}
+                resizeMode="cover"
+              />
+            ) : (
+              <Ionicons name="bus-outline" size={28} color={theme.text} />
+            )}
+          </View>
+
+          {/* Info */}
+          <View style={styles.listCardInfo}>
+            {/* Class + Route */}
+            <View style={styles.listCardRouteRow}>
+              <View
+                style={[styles.classBadge, { backgroundColor: classColor }]}
+              >
+                <Text style={styles.classBadgeText}>{item.class}</Text>
+              </View>
+              <Text style={[styles.listCardRoute, { color: theme.textStrong }]}>
+                {item.lieuDepart} → {item.lieuArrive}
+              </Text>
+            </View>
+
+            {/* Date + Hour */}
+            <View style={styles.metaRow}>
+              <Ionicons name="calendar-outline" size={12} color={theme.text} />
+              <Text style={[styles.metaText, { color: theme.text }]}>
+                {' '}
+                {formatDate(item.dateDepartPrev, lang)}
+                {item.heureDepart ? ` • ${item.heureDepart}` : ''}
+              </Text>
+            </View>
+
+            {/* Duration + Price */}
+            <View style={styles.listCardPriceRow}>
+              <View style={styles.metaRow}>
+                <Ionicons
+                  name="hourglass-outline"
+                  size={12}
+                  color={theme.text}
+                />
+                <Text style={[styles.metaText, { color: theme.text }]}>
+                  {' '}
+                  {formatDuration(item.durationHours)}
+                </Text>
+              </View>
+              <Text style={[styles.price, { color: colors.primary }]}>
+                {formatPrice(item.prix)}
+              </Text>
+            </View>
+
+            {/* Agency */}
+            {item.nomAgence && (
+              <Text style={[styles.agencyName, { color: theme.text }]}>
+                {item.nomAgence}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        {/* Bottom: amenities + seats */}
+        <View style={[styles.listCardBottom, { borderTopColor: theme.border }]}>
+          <View style={styles.amenitiesRow}>
+            {visibleAmenities.map(a => (
+              <Ionicons
+                key={a}
+                name={AMENITY_ICONS[a] || 'ellipse-outline'}
+                size={14}
+                color={theme.text}
+                style={{ marginRight: spacing.xs }}
+              />
+            ))}
+            {extraCount > 0 && (
+              <Text style={[styles.extraCount, { color: theme.text }]}>
+                +{extraCount}
+              </Text>
+            )}
+          </View>
+          <Text style={[styles.seatsText, { color: colors.primary }]}>
+            {t.seats(item.seatsAvailable)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const GridCard = ({ item }: { item: Trip }) => {
+    const classColor = CLASS_COLORS[item.class] || colors.primary;
+    const visibleAmenities = item.amenities?.slice(0, 4) || [];
+    const extraCount = Math.max(0, (item.amenities?.length || 0) - 4);
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.gridCard,
+          { backgroundColor: theme.background, borderColor: theme.border },
+        ]}
+        activeOpacity={0.85}
+        onPress={() =>
+          navigation.navigate('TripDetail', { tripId: item.idVoyage })
+        }
+      >
+        {/* Image */}
+        <View
+          style={[
+            styles.gridCardImage,
+            { backgroundColor: theme.backgroundAlt },
+          ]}
+        >
+          {item.photoUrl ? (
+            <Image
+              source={{ uri: item.photoUrl }}
+              style={styles.gridCardImageInner}
+              resizeMode="cover"
+            />
+          ) : (
+            <Ionicons name="bus-outline" size={32} color={theme.text} />
+          )}
+          <View
+            style={[
+              styles.classBadge,
+              styles.classBadgeAbsolute,
+              { backgroundColor: classColor },
+            ]}
+          >
+            <Text style={styles.classBadgeText}>{item.class}</Text>
+          </View>
+        </View>
+
+        {/* Content */}
+        <View style={styles.gridCardContent}>
+          <Text
+            style={[styles.gridCardRoute, { color: theme.textStrong }]}
+            numberOfLines={1}
+          >
+            {item.lieuDepart} → {item.lieuArrive}
+          </Text>
+          <View style={styles.metaRow}>
+            <Ionicons name="calendar-outline" size={11} color={theme.text} />
+            <Text
+              style={[styles.metaText, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {' '}
+              {new Date(item.dateDepartPrev).toLocaleDateString(
+                lang === 'fr' ? 'fr-FR' : 'en-GB',
+                { day: 'numeric', month: 'short' },
+              )}
+              {item.heureDepart ? ` • ${item.heureDepart}` : ''}
+            </Text>
+          </View>
+          <View style={styles.metaRow}>
+            <Ionicons name="hourglass-outline" size={11} color={theme.text} />
+            <Text style={[styles.metaText, { color: theme.text }]}>
+              {' '}
+              {formatDuration(item.durationHours)}
+            </Text>
+          </View>
+
+          <View style={styles.amenitiesRow}>
+            {visibleAmenities.map(a => (
+              <Ionicons
+                key={a}
+                name={AMENITY_ICONS[a] || 'ellipse-outline'}
+                size={12}
+                color={theme.text}
+                style={{ marginRight: 3 }}
+              />
+            ))}
+            {extraCount > 0 && (
+              <Text style={[styles.extraCount, { color: theme.text }]}>
+                +{extraCount}
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.gridCardFooter}>
+            {item.nomAgence && (
+              <Text
+                style={[styles.agencyName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {item.nomAgence}
+              </Text>
+            )}
+            <Text style={[styles.price, { color: colors.primary }]}>
+              {formatPrice(item.prix)}
+            </Text>
+          </View>
+
+          <Text style={[styles.seatsText, { color: colors.primary }]}>
+            {t.seats(item.seatsAvailable)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const Pagination = () => {
+    if (totalPages <= 1) return null;
+    const pages = Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i);
+    return (
+      <View style={styles.pagination}>
+        <TouchableOpacity
+          style={[
+            styles.pageBtn,
+            { borderColor: theme.border, opacity: currentPage === 0 ? 0.4 : 1 },
+          ]}
+          onPress={() => currentPage > 0 && loadTrips(currentPage - 1)}
+          disabled={currentPage === 0}
+        >
+          <Ionicons name="chevron-back" size={16} color={theme.textStrong} />
+        </TouchableOpacity>
+        {pages.map(p => (
+          <TouchableOpacity
+            key={p}
+            style={[
+              styles.pageBtn,
+              { borderColor: theme.border },
+              currentPage === p && {
+                backgroundColor: colors.primary,
+                borderColor: colors.primary,
+              },
+            ]}
+            onPress={() => loadTrips(p)}
+          >
+            <Text
+              style={[
+                styles.pageBtnText,
+                { color: currentPage === p ? '#fff' : theme.textStrong },
+              ]}
+            >
+              {p + 1}
+            </Text>
+          </TouchableOpacity>
+        ))}
+        {totalPages > 5 && (
+          <Text
+            style={[
+              styles.pageBtnText,
+              { color: theme.text, paddingHorizontal: spacing.xs },
+            ]}
+          >
+            ...
+          </Text>
+        )}
+        <TouchableOpacity
+          style={[
+            styles.pageBtn,
+            {
+              borderColor: theme.border,
+              opacity: currentPage === totalPages - 1 ? 0.4 : 1,
+            },
+          ]}
+          onPress={() =>
+            currentPage < totalPages - 1 && loadTrips(currentPage + 1)
+          }
+          disabled={currentPage === totalPages - 1}
+        >
+          <Ionicons name="chevron-forward" size={16} color={theme.textStrong} />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.loading, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {/* Header */}
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: theme.background,
+            borderBottomColor: theme.border,
+          },
+        ]}
+      >
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: theme.textStrong }]}>
+          {t.title}
+        </Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* ── Search Card ── */}
+        <View
+          style={[
+            styles.searchCard,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+        >
+          {/* Departure + Arrival */}
+          <View style={styles.searchRow}>
+            <View
+              style={[
+                styles.searchField,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                  flex: 1,
+                },
+              ]}
+            >
+              <Ionicons name="time-outline" size={14} color={theme.text} />
+              <TextInput
+                style={[styles.searchFieldLabel, { color: theme.textStrong }]}
+                placeholder={t.departurePlaceholder}
+                placeholderTextColor={theme.text}
+                value={departure}
+                onChangeText={setDeparture}
+              />
+            </View>
+            <View
+              style={[
+                styles.searchField,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                  flex: 1,
+                },
+              ]}
+            >
+              <Ionicons name="location-outline" size={14} color={theme.text} />
+              <TextInput
+                style={[styles.searchFieldLabel, { color: theme.textStrong }]}
+                placeholder={t.arrivalPlaceholder}
+                placeholderTextColor={theme.text}
+                value={arrival}
+                onChangeText={setArrival}
+              />
+            </View>
+          </View>
+
+          {/* Date */}
+          <View
+            style={[
+              styles.searchField,
+              styles.searchFieldFull,
+              {
+                borderColor: theme.border,
+                backgroundColor: theme.backgroundAlt,
+              },
+            ]}
+          >
+            <Ionicons name="options-outline" size={14} color={theme.text} />
+            <TextInput
+              style={[
+                styles.searchFieldLabel,
+                { color: theme.textStrong, flex: 1 },
+              ]}
+              placeholder={t.datePlaceholder}
+              placeholderTextColor={theme.text}
+              value={date}
+              onChangeText={setDate}
+            />
+            <Ionicons name="calendar-outline" size={16} color={theme.text} />
+          </View>
+
+          {/* Search button */}
+          <TouchableOpacity
+            style={[styles.searchBtn, { backgroundColor: colors.primary }]}
+            onPress={() => loadTrips(0)}
+          >
+            <Text style={styles.searchBtnText}>{t.searchBtn}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Filter dropdowns ── */}
+        <View
+          style={[
+            styles.filterBar,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={[styles.dropdown, { borderColor: theme.border }]}
+            onPress={() =>
+              navigation.navigate('TripsFilter', { filters: activeFilters })
+            }
+          >
+            <Text
+              style={[styles.dropdownText, { color: theme.textStrong }]}
+              numberOfLines={1}
+            >
+              {activeFilters.departure || t.allDepartures}
+            </Text>
+            <Ionicons name="chevron-down" size={14} color={theme.text} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.dropdown, { borderColor: theme.border }]}
+            onPress={() =>
+              navigation.navigate('TripsFilter', { filters: activeFilters })
+            }
+          >
+            <Text
+              style={[styles.dropdownText, { color: theme.textStrong }]}
+              numberOfLines={1}
+            >
+              {activeFilters.arrival || t.allArrivals}
+            </Text>
+            <Ionicons name="chevron-down" size={14} color={theme.text} />
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Sort + View mode ── */}
+        <View
+          style={[
+            styles.sortBar,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
+          ]}
+        >
+          {/* Sort */}
+          <TouchableOpacity
+            style={styles.sortBtn}
+            onPress={() => setShowSortMenu(!showSortMenu)}
+          >
+            <Text style={[styles.sortLabel, { color: theme.text }]}>
+              {t.sortBy}
+            </Text>
+            <Ionicons
+              name="swap-vertical-outline"
+              size={16}
+              color={theme.textStrong}
+            />
+          </TouchableOpacity>
+
+          {/* View toggle */}
+          <View style={styles.viewToggle}>
+            <TouchableOpacity
+              style={[
+                styles.viewBtn,
+                { borderColor: theme.border },
+                viewMode === 'grid' && {
+                  backgroundColor: colors.primary,
+                  borderColor: colors.primary,
+                },
+              ]}
+              onPress={() => setViewMode('grid')}
+            >
+              <Ionicons
+                name="grid-outline"
+                size={14}
+                color={viewMode === 'grid' ? '#fff' : theme.text}
+              />
+              <Text
+                style={[
+                  styles.viewBtnText,
+                  { color: viewMode === 'grid' ? '#fff' : theme.text },
+                ]}
+              >
+                {t.grid}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.viewBtn,
+                { borderColor: theme.border },
+                viewMode === 'list' && styles.viewBtnActive,
+              ]}
+              onPress={() => setViewMode('list')}
+            >
+              <Ionicons
+                name="list-outline"
+                size={14}
+                color={viewMode === 'list' ? '#fff' : theme.text}
+              />
+              <Text
+                style={[
+                  styles.viewBtnText,
+                  { color: viewMode === 'list' ? '#fff' : theme.text },
+                ]}
+              >
+                {t.list}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Sort menu */}
+        {showSortMenu && (
+          <View
+            style={[
+              styles.sortMenu,
+              { backgroundColor: theme.background, borderColor: theme.border },
+            ]}
+          >
+            {(Object.keys(t.sortOptions) as SortType[]).map(key => (
+              <TouchableOpacity
+                key={key}
+                style={[
+                  styles.sortMenuItem,
+                  { borderBottomColor: theme.border },
+                ]}
+                onPress={() => {
+                  setSortBy(key);
+                  setShowSortMenu(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.sortMenuText,
+                    {
+                      color: sortBy === key ? colors.primary : theme.textStrong,
+                    },
+                  ]}
+                >
+                  {t.sortOptions[key]}
+                </Text>
+                {sortBy === key && (
+                  <Ionicons name="checkmark" size={16} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Results count */}
+        <Text style={[styles.resultsCount, { color: theme.textStrong }]}>
+          {t.results(filtered.length || totalElements)}
+        </Text>
+
+        {/* ── List ── */}
+        {filtered.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="bus-outline" size={48} color={theme.text} />
+            <Text style={[styles.emptyText, { color: theme.text }]}>
+              {t.noTrips}
+            </Text>
+          </View>
+        ) : viewMode === 'list' ? (
+          <View style={styles.listContainer}>
+            {filtered.map(item => (
+              <ListCard key={item.idVoyage} item={item} />
+            ))}
+          </View>
+        ) : (
+          <View style={styles.gridContainer}>
+            {filtered.map(item => (
+              <GridCard key={item.idVoyage} item={item} />
+            ))}
+          </View>
+        )}
+
+        <Pagination />
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+  },
+  title: {
+    ...typography.heading,
+    fontSize: typography.sizes.lg,
+  },
+
+  // Search
+  searchCard: {
+    margin: spacing.lg,
+    borderWidth: 1,
+    borderRadius: 4,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  searchField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    height: 44,
+    gap: spacing.xs,
+  },
+  searchFieldFull: {
+    flex: 1,
+  },
+  searchFieldLabel: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    flex: 1,
+  },
+  searchBtn: {
+    height: 48,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchBtnText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+    color: '#ffffff',
+    letterSpacing: 0.3,
+  },
+
+  // Filter bar
+  filterBar: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+  },
+  dropdown: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    height: 40,
+    gap: spacing.xs,
+  },
+  dropdownText: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    flex: 1,
+  },
+
+  // Sort bar
+  sortBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+  },
+  sortBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  sortLabel: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  viewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    gap: 4,
+  },
+  viewBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  viewBtnText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.xs,
+  },
+
+  // Sort menu
+  sortMenu: {
+    marginHorizontal: spacing.lg,
+    borderWidth: 1,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  sortMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+  },
+  sortMenuText: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+  },
+
+  resultsCount: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+
+  // List
+  listContainer: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+  },
+  listCard: {
+    borderWidth: 1,
+    borderRadius: 4,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
+  },
+  listCardTop: {
+    flexDirection: 'row',
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  listCardImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  listCardImageInner: {
+    width: '100%',
+    height: '100%',
+  },
+  listCardInfo: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  listCardRouteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  listCardRoute: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+    flex: 1,
+  },
+  listCardPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  listCardBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+  },
+
+  // Grid
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+  },
+  gridCard: {
+    width: '47%',
+    borderWidth: 1,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  gridCardImage: {
+    height: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  gridCardImageInner: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  gridCardContent: {
+    padding: spacing.sm,
+    gap: spacing.xs,
+  },
+  gridCardRoute: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+  },
+  gridCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  // Shared
+  classBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  classBadgeAbsolute: {
+    position: 'absolute',
+    top: spacing.xs,
+    left: spacing.xs,
+  },
+  classBadgeText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.xs,
+    color: '#ffffff',
+    letterSpacing: 0.3,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaText: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+  },
+  price: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+  },
+  agencyName: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+  },
+  amenitiesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  extraCount: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+  },
+  seatsText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.xs,
+  },
+
+  // Pagination
+  pagination: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
+  pageBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 4,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pageBtnText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+  },
+
+  empty: {
+    alignItems: 'center',
+    paddingVertical: spacing.xxl,
+    gap: spacing.md,
+  },
+  emptyText: {
+    ...typography.body,
+    fontSize: typography.sizes.md,
+  },
+});
