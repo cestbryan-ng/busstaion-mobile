@@ -21,8 +21,8 @@ stationnement et ainsi que la gestion des reservations de voyage pour les client
 Pour compiler le projet suivez ces instructions
 
 ```bash
-git clone https://github.com/cestbryan-ng/busstation.git
-cd busstation
+git clone https://github.com/cestbryan-ng/busstation-mobile.git
+cd busstation-mobile
 
 # Installer les dépendances
 npm install
