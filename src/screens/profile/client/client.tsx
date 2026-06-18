@@ -23,7 +23,7 @@ const TAB_ICONS: Record<string, { active: string; inactive: string }> = {
   Profil: { active: 'person', inactive: 'person-outline' },
 };
 
-export default function ClientHome() {
+export default function ClientMain() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
   const [drawerOpen, setDrawerOpen] = useState(false);

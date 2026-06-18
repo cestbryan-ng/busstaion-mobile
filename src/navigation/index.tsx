@@ -15,7 +15,7 @@ import SignUpSuccess from '../screens/auth/signup-success';
 import SignUpError from '../screens/auth/signup-error';
 import PinSetup from '../screens/pin/setup';
 import PinVerify from '../screens/pin/verify';
-import ClientHome from '../screens/profile/client/client';
+import ClientMain from '../screens/profile/client/client';
 import BookingDetails from '../screens/profile/client/bookings/booking-details';
 import TripsList from '../screens/profile/client/trips/trips-list';
 import TripsFilter from '../screens/profile/client/trips/trips-filter';
@@ -39,7 +39,7 @@ export type RootStackParamList = {
   SignUpError: undefined;
   PinSetup: { fromSettings?: boolean };
   PinVerify: undefined;
-  ClientHome: undefined;
+  ClientMain: undefined;
   BookingDetails: { reservationId: string };
   TripsList: { filters?: TripFilters };
   TripsFilter: { filters?: TripFilters };
@@ -49,8 +49,8 @@ export type RootStackParamList = {
   ProfileSettings: undefined;
   Dashboard: undefined;
   Coupons: undefined;
-  AgencyDashboard: undefined;
-  BsmDashboard: undefined;
+  AgencyMain: undefined;
+  BsmMain: undefined;
 };
 
 const Stack = createNativeStackNavigator();
@@ -80,7 +80,7 @@ export default function Navigation() {
         <Stack.Screen name="SignUpError" component={SignUpError} />
         <Stack.Screen name="PinSetup" component={PinSetup} />
         <Stack.Screen name="PinVerify" component={PinVerify} />
-        <Stack.Screen name="ClientHome" component={ClientHome} />
+        <Stack.Screen name="ClientMain" component={ClientMain} />
         <Stack.Screen name="BookingDetails" component={BookingDetails} />
         <Stack.Screen name="TripsList" component={TripsList} />
         <Stack.Screen name="TripsFilter" component={TripsFilter} />

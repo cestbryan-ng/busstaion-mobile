@@ -159,11 +159,11 @@ export default function Login() {
 
           if (pinEnabled === 'true') {
             if (roles.includes('BUS_STATION_MANAGER')) {
-              navigation.replace('BsmDashboard');
+              navigation.replace('BsmMain');
             } else if (roles.includes('AGENCE_VOYAGE')) {
-              navigation.replace('AgencyDashboard');
+              navigation.replace('AgencyMain');
             } else {
-              navigation.replace('ClientHome');
+              navigation.replace('ClientMain');
             }
           } else {
             navigation.replace('PinSetup', { fromSettings: false });

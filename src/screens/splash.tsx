@@ -41,11 +41,11 @@ export default function Splash() {
           const user = userRaw ? JSON.parse(userRaw) : null;
           const roles: string[] = user?.role ?? [];
           if (roles.includes('BUS_STATION_MANAGER')) {
-            navigation.replace('BsmDashboard');
+            navigation.replace('BsmMain');
           } else if (roles.includes('AGENCE_VOYAGE')) {
-            navigation.replace('AgencyDashboard');
+            navigation.replace('AgencyMain');
           } else {
-            navigation.replace('ClientHome');
+            navigation.replace('ClientMain');
           }
         }
       } else {
