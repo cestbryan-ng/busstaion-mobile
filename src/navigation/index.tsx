@@ -25,6 +25,14 @@ import StationDetail from '../screens/profile/client/explore/station-detail';
 import ProfileSettings from '../screens/profile/client/profile/settings';
 import Dashboard from '../screens/profile/client/profile/dashboard';
 import CouponsScreen from '../screens/profile/client/profile/coupons';
+import AgencyMain from '../screens/profile/agency/agency';
+import AgencyPlanning from '../screens/profile/agency/planning/planning';
+import AgencyTripDetail from '../screens/profile/agency/trips/trip-detail';
+import AgencyTripBookings from '../screens/profile/agency/trips/trip-bookings';
+import AgencyNewTrip from '../screens/profile/agency/trips/new-trip';
+import AgencyCalendarDay from '../screens/profile/agency/calendar/calendar-day';
+import AgencyInfo from '../screens/profile/agency/profile/agency-info';
+import AgencySubscription from '../screens/profile/agency/profile/subscription';
 
 import type { TripFilters } from '../screens/profile/client/trips/trips-filter';
 
@@ -50,6 +58,13 @@ export type RootStackParamList = {
   Dashboard: undefined;
   Coupons: undefined;
   AgencyMain: undefined;
+  AgencyPlanning: undefined;
+  AgencyTripDetail: { tripId: string };
+  AgencyTripBookings: { tripId: string; tripTitle?: string };
+  AgencyNewTrip: { editTripId?: string };
+  AgencyCalendarDay: { dateStr: string; trips: any[] };
+  AgencyInfo: undefined;
+  AgencySubscription: undefined;
   BsmMain: undefined;
 };
 
@@ -90,6 +105,20 @@ export default function Navigation() {
         <Stack.Screen name="ProfileSettings" component={ProfileSettings} />
         <Stack.Screen name="Dashboard" component={Dashboard} />
         <Stack.Screen name="Coupons" component={CouponsScreen} />
+        <Stack.Screen name="AgencyMain" component={AgencyMain} />
+        <Stack.Screen name="AgencyPlanning" component={AgencyPlanning} />
+        <Stack.Screen name="AgencyTripDetail" component={AgencyTripDetail} />
+        <Stack.Screen
+          name="AgencyTripBookings"
+          component={AgencyTripBookings}
+        />
+        <Stack.Screen name="AgencyNewTrip" component={AgencyNewTrip} />
+        <Stack.Screen name="AgencyCalendarDay" component={AgencyCalendarDay} />
+        <Stack.Screen name="AgencyInfo" component={AgencyInfo} />
+        <Stack.Screen
+          name="AgencySubscription"
+          component={AgencySubscription}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
