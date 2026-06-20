@@ -206,7 +206,7 @@ export default function AgencyTripBookings() {
     setCancelling(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      await fetch(`${API_URL}/reservation/annuler-by-agence`, {
+      await fetch(`${API_URL}/reservation/agence/annuler-voyage`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -323,8 +323,8 @@ export default function AgencyDashboard({
 
       // Parallel requests
       const [statsRes, evolutionRes, bookingsRes] = await Promise.allSettled([
-        fetch(`${API_URL}/statistics/agence/${agencyId}/general`, { headers }),
-        fetch(`${API_URL}/statistics/agence/${agencyId}/evolution`, {
+        fetch(`${API_URL}/statistiques/agence/${agencyId}/general`, { headers }),
+        fetch(`${API_URL}/statistiques/agence/${agencyId}/evolution`, {
           headers,
         }),
         fetch(`${API_URL}/reservation/agence/${agencyId}`, { headers }),

@@ -212,7 +212,7 @@ export default function AgencyNewTrip() {
           fetch(`${API_URL}/vehicule/agence/${agencyData.agencyId}`, {
             headers,
           }),
-          fetch(`${API_URL}/chauffeur/chauffeurs/${agencyData.agencyId}`, {
+          fetch(`${API_URL}/chauffeur/agence/${agencyData.agencyId}`, {
             headers,
           }),
           fetch(`${API_URL}/class-voyage/agence/${agencyData.agencyId}`, {
@@ -229,7 +229,7 @@ export default function AgencyNewTrip() {
 
         // Edit mode: load existing trip
         if (editTripId) {
-          const tripRes = await fetch(`${API_URL}/voyage/byId/${editTripId}`, {
+          const tripRes = await fetch(`${API_URL}/voyage/${editTripId}`, {
             headers,
           });
           if (tripRes.ok) {
@@ -311,7 +311,7 @@ export default function AgencyNewTrip() {
 
       const url = isEdit
         ? `${API_URL}/voyage/${editTripId}`
-        : `${API_URL}/voyage/create`;
+        : `${API_URL}/voyage`;
       const method = isEdit ? 'PUT' : 'POST';
 
       const res = await fetch(url, {

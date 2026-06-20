@@ -156,6 +156,7 @@ export default function AgencySubscription() {
         if (!agencyRes.ok) return;
         const agency = await agencyRes.json();
 
+        // TODO: ces endpoints ne sont pas encore définis
         const [plansRes, billingRes] = await Promise.allSettled([
           fetch(`${API_URL}/abonnement/plans/agence/${agency.agencyId}`, {
             headers,
