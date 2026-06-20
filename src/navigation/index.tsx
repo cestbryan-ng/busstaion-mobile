@@ -33,6 +33,11 @@ import AgencyNewTrip from '../screens/profile/agency/trips/new-trip';
 import AgencyCalendarDay from '../screens/profile/agency/calendar/calendar-day';
 import AgencyInfo from '../screens/profile/agency/profile/agency-info';
 import AgencySubscription from '../screens/profile/agency/profile/subscription';
+import BsmMain from '../screens/profile/bsm/bsm';
+import StationDetailBsm from '../screens/profile/bsm/stations/station-detail';
+import AgencyDetailBsm from '../screens/profile/bsm/agencies/agency-detail';
+import AgencyTripsBsm from '../screens/profile/bsm/agencies/agency-trips';
+import TaxDetailBsm from '../screens/profile/bsm/tax/tax-detail';
 
 import type { TripFilters } from '../screens/profile/client/trips/trips-filter';
 
@@ -66,6 +71,10 @@ export type RootStackParamList = {
   AgencyInfo: undefined;
   AgencySubscription: undefined;
   BsmMain: undefined;
+  StationDetailBsm: undefined;
+  AgencyDetailBsm: { agencyId: string };
+  AgencyTripsBsm: { agencyId: string; agencyName?: string };
+  TaxDetailBsm: { itemId: string };
 };
 
 const Stack = createNativeStackNavigator();
@@ -119,6 +128,11 @@ export default function Navigation() {
           name="AgencySubscription"
           component={AgencySubscription}
         />
+        <Stack.Screen name="BsmMain" component={BsmMain} />
+        <Stack.Screen name="StationDetailBsm" component={StationDetailBsm} />
+        <Stack.Screen name="AgencyDetailBsm" component={AgencyDetailBsm} />
+        <Stack.Screen name="AgencyTripsBsm" component={AgencyTripsBsm} />
+        <Stack.Screen name="TaxDetailBsm" component={TaxDetailBsm} />
       </Stack.Navigator>
     </NavigationContainer>
   );
