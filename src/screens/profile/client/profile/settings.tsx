@@ -210,14 +210,6 @@ export default function ProfileSettings() {
               </View>
             }
           />
-          <MenuItem
-            icon="keypad-outline"
-            label={t.pinCode}
-            desc={t.pinDesc}
-            onPress={() =>
-              navigation.navigate('PinSetup', { fromSettings: true })
-            }
-          />
         </Section>
 
         {/* Account */}

@@ -34,6 +34,7 @@ export default function AgencyProfil() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const [pinEnabled, setPinEnabled] = useState(false);
   const [agency, setAgency] = useState<Agency | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -78,11 +79,14 @@ export default function AgencyProfil() {
 
   const loadAgency = useCallback(async () => {
     try {
-      const [token, userRaw, storedLang] = await Promise.all([
+      const [token, userRaw, storedLang, pinVal] = await Promise.all([
         AsyncStorage.getItem('token'),
         AsyncStorage.getItem('user'),
         AsyncStorage.getItem('app_lang'),
+        AsyncStorage.getItem('pin_enabled'),
       ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+      setPinEnabled(pinVal === 'true');
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
       const user = userRaw ? JSON.parse(userRaw) : null;
@@ -269,13 +273,58 @@ export default function AgencyProfil() {
           ]}
         >
           <MenuItem
-            icon="lock-closed-outline"
+            icon="keypad-outline"
             iconColor={colors.success}
             iconBg={`${colors.success}15`}
             label={t.security}
-            desc={t.securityDesc}
+            desc={
+              pinEnabled
+                ? lang === 'fr'
+                  ? 'Code PIN activé'
+                  : 'PIN enabled'
+                : lang === 'fr'
+                ? 'Code PIN non configuré'
+                : 'PIN not configured'
+            }
             onPress={() =>
               navigation.navigate('PinSetup', { fromSettings: true })
+            }
+            rightEl={
+              <View
+                style={[
+                  styles.pinStatus,
+                  {
+                    backgroundColor: pinEnabled
+                      ? `${colors.success}15`
+                      : `${colors.error}15`,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.pinDot,
+                    {
+                      backgroundColor: pinEnabled
+                        ? colors.success
+                        : colors.error,
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.pinStatusText,
+                    { color: pinEnabled ? colors.success : colors.error },
+                  ]}
+                >
+                  {pinEnabled
+                    ? lang === 'fr'
+                      ? 'Actif'
+                      : 'Active'
+                    : lang === 'fr'
+                    ? 'Inactif'
+                    : 'Inactive'}
+                </Text>
+              </View>
             }
           />
           <MenuItem
@@ -428,6 +477,16 @@ const styles = StyleSheet.create({
   },
   logoutText: { ...typography.bodyBold, fontSize: typography.sizes.md },
 
+  pinStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  pinDot: { width: 6, height: 6, borderRadius: 3 },
+  pinStatusText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
   langBadge: {
     borderWidth: 1.5,
     borderRadius: 4,
