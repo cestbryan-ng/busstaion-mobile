@@ -314,13 +314,12 @@ export default function BookingDetails() {
     setCancelling(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`${API_URL}/reservation/annuler-by-agence`, {
+      const res = await fetch(`${API_URL}/reservation/annuler/${reservation.idReservation}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ idReservation: reservation.idReservation }),
       });
       if (res.ok) {
         setCancelModalVisible(false);

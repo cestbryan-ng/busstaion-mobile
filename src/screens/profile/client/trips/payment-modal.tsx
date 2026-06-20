@@ -102,8 +102,8 @@ export default function PaymentModal({
 
       const user = userRaw ? JSON.parse(userRaw) : null;
 
-      const response = await fetch(`${API_URL}/reservation/payer`, {
-        method: 'PUT',
+      const response = await fetch(`${API_URL}/reservation/reserver`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -111,8 +111,13 @@ export default function PaymentModal({
         body: JSON.stringify({
           idVoyage: trip.idVoyage,
           idUser: user?.userId || user?.id,
-          sieges: selectedSeats,
-          methodePaiement: paymentMethod.toUpperCase(),
+          nbrPassager: selectedSeats.length,
+          montantPaye: totalPrice,
+          passagerDTO: selectedSeats.map(s => ({
+            nom: user?.last_name || '',
+            prenom: user?.first_name || '',
+            cni: '',
+          })),
         }),
       });
 

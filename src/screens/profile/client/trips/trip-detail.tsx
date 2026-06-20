@@ -226,7 +226,7 @@ export default function TripDetailScreen() {
         ]);
         if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const res = await fetch(`${API_URL}/voyage/byId/${tripId}`, {
+        const res = await fetch(`${API_URL}/voyage/${tripId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) setTrip(await res.json());
