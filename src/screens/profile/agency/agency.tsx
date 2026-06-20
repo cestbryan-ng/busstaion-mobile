@@ -11,7 +11,7 @@ import AgencyDashboard from './tabs/dashboard';
 import AgencyTrips from './tabs/trips';
 import AgencyCalendar from './tabs/calendar';
 import AgencyResources from './tabs/resources';
-import AgencyProfil from './tabs/profil';
+import AgencyProfil from './tabs/profile';
 
 const Tab = createBottomTabNavigator();
 

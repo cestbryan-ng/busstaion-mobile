@@ -47,7 +47,9 @@ export default function AgencyProfil() {
       subscription: 'Abonnement',
       subscriptionDesc: 'Gérer mon abonnement',
       security: 'Sécurité',
-      securityDesc: 'Mot de passe et confidentialité',
+      securityDesc: 'Code PIN',
+      changeLanguage: 'Changer de langue',
+      currentLang: 'Français (FR)',
       help: 'Aide & support',
       helpDesc: "Centre d'aide et contact",
       about: 'À propos',
@@ -63,7 +65,9 @@ export default function AgencyProfil() {
       subscription: 'Subscription',
       subscriptionDesc: 'Manage my subscription',
       security: 'Security',
-      securityDesc: 'Password and privacy',
+      securityDesc: 'PIN code',
+      changeLanguage: 'Change language',
+      currentLang: 'English (EN)',
       help: 'Help & support',
       helpDesc: 'Help center and contact',
       about: 'About',
@@ -100,6 +104,12 @@ export default function AgencyProfil() {
     loadAgency();
   }, [loadAgency]);
 
+  const handleLangChange = async () => {
+    const newLang = lang === 'fr' ? 'en' : 'fr';
+    await AsyncStorage.setItem('app_lang', newLang);
+    setLang(newLang);
+  };
+
   const MenuItem = ({
     icon,
     iconColor,
@@ -107,6 +117,7 @@ export default function AgencyProfil() {
     label,
     desc,
     onPress,
+    rightEl,
     danger = false,
   }: {
     icon: string;
@@ -115,6 +126,7 @@ export default function AgencyProfil() {
     label: string;
     desc?: string;
     onPress: () => void;
+    rightEl?: React.ReactNode;
     danger?: boolean;
   }) => (
     <TouchableOpacity
@@ -138,7 +150,9 @@ export default function AgencyProfil() {
           <Text style={[styles.menuDesc, { color: theme.text }]}>{desc}</Text>
         )}
       </View>
-      <Ionicons name="chevron-forward" size={18} color={theme.text} />
+      {rightEl ?? (
+        <Ionicons name="chevron-forward" size={18} color={theme.text} />
+      )}
     </TouchableOpacity>
   );
 
@@ -262,6 +276,21 @@ export default function AgencyProfil() {
             desc={t.securityDesc}
             onPress={() =>
               navigation.navigate('PinSetup', { fromSettings: true })
+            }
+          />
+          <MenuItem
+            icon="language-outline"
+            iconColor={colors.success}
+            iconBg={`${colors.success}15`}
+            label={t.changeLanguage}
+            desc={t.currentLang}
+            onPress={handleLangChange}
+            rightEl={
+              <View style={[styles.langBadge, { borderColor: colors.primary }]}>
+                <Text style={[styles.langBadgeText, { color: colors.primary }]}>
+                  {lang.toUpperCase()}
+                </Text>
+              </View>
             }
           />
           <MenuItem
@@ -398,4 +427,12 @@ const styles = StyleSheet.create({
     height: 52,
   },
   logoutText: { ...typography.bodyBold, fontSize: typography.sizes.md },
+
+  langBadge: {
+    borderWidth: 1.5,
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  langBadgeText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
 });

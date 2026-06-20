@@ -200,7 +200,7 @@ export default function ProfileSettings() {
           <MenuItem
             icon="language-outline"
             label={t.changeLanguage}
-            desc={lang === 'fr' ? 'Français (FR)' : 'English (EN)'}
+            desc={t.currentLang}
             onPress={handleLangChange}
             rightEl={
               <View style={[styles.langBadge, { borderColor: colors.primary }]}>
@@ -295,11 +295,7 @@ export default function ProfileSettings() {
             icon="information-circle-outline"
             label={t.about}
             desc={t.version}
-            onPress={() =>
-              Linking.openURL(
-                CGU_URL,
-              )
-            }
+            onPress={() => Linking.openURL(CGU_URL)}
           />
         </Section>
 
