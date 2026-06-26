@@ -26,6 +26,8 @@ import ProfileSettings from '../screens/profile/client/profile/settings';
 import Dashboard from '../screens/profile/client/profile/dashboard';
 import CouponsScreen from '../screens/profile/client/profile/coupons';
 import AgencyMain from '../screens/profile/agency/agency';
+import CreateAgency from '../screens/profile/agency/creation/create-agency';
+import CreateAgencySuccess from '../screens/profile/agency/creation/create-agency-success';
 import AgencyPlanning from '../screens/profile/agency/planning/planning';
 import AgencyTripDetail from '../screens/profile/agency/trips/trip-detail';
 import AgencyTripBookings from '../screens/profile/agency/trips/trip-bookings';
@@ -63,6 +65,8 @@ export type RootStackParamList = {
   Dashboard: undefined;
   Coupons: undefined;
   AgencyMain: undefined;
+  CreateAgency: undefined;
+  CreateAgencySuccess: undefined;
   AgencyPlanning: undefined;
   AgencyTripDetail: { tripId: string };
   AgencyTripBookings: { tripId: string; tripTitle?: string };
@@ -115,6 +119,11 @@ export default function Navigation() {
         <Stack.Screen name="Dashboard" component={Dashboard} />
         <Stack.Screen name="Coupons" component={CouponsScreen} />
         <Stack.Screen name="AgencyMain" component={AgencyMain} />
+        <Stack.Screen name="CreateAgency" component={CreateAgency} />
+        <Stack.Screen
+          name="CreateAgencySuccess"
+          component={CreateAgencySuccess}
+        />
         <Stack.Screen name="AgencyPlanning" component={AgencyPlanning} />
         <Stack.Screen name="AgencyTripDetail" component={AgencyTripDetail} />
         <Stack.Screen

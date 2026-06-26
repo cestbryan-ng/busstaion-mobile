@@ -274,6 +274,7 @@ export default function AgencyDashboard({
       planning: 'Planning',
       myTrips: 'Mes voyages',
       resources: 'Ressources',
+      newAgency: 'Nouvelle agence',
     },
     en: {
       title: 'Dashboard',
@@ -293,6 +294,7 @@ export default function AgencyDashboard({
       planning: 'Planning',
       myTrips: 'My trips',
       resources: 'Resources',
+      newAgency: 'New agency',
     },
   }[lang];
 
@@ -323,7 +325,9 @@ export default function AgencyDashboard({
 
       // Parallel requests
       const [statsRes, evolutionRes, bookingsRes] = await Promise.allSettled([
-        fetch(`${API_URL}/statistiques/agence/${agencyId}/general`, { headers }),
+        fetch(`${API_URL}/statistiques/agence/${agencyId}/general`, {
+          headers,
+        }),
         fetch(`${API_URL}/statistiques/agence/${agencyId}/evolution`, {
           headers,
         }),
@@ -672,6 +676,32 @@ export default function AgencyDashboard({
             {t.quickActions}
           </Text>
           <View style={styles.quickActions}>
+            <TouchableOpacity
+              style={[
+                styles.quickBtn,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.border,
+                },
+              ]}
+              onPress={() => navigation.navigate('CreateAgency')}
+            >
+              <View
+                style={[
+                  styles.quickBtnIcon,
+                  { backgroundColor: `${colors.error}15` },
+                ]}
+              >
+                <Ionicons
+                  name="business-outline"
+                  size={22}
+                  color={colors.error}
+                />
+              </View>
+              <Text style={[styles.quickBtnText, { color: theme.textStrong }]}>
+                {t.newAgency}
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.quickBtn,
