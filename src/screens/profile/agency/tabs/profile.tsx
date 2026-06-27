@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  RefreshControl,
   useColorScheme,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -37,6 +38,7 @@ export default function AgencyProfil() {
   const [pinEnabled, setPinEnabled] = useState(false);
   const [agency, setAgency] = useState<Agency | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -103,6 +105,12 @@ export default function AgencyProfil() {
       setLoading(false);
     }
   }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadAgency();
+    setRefreshing(false);
+  }, [loadAgency]);
 
   useEffect(() => {
     loadAgency();
@@ -191,7 +199,17 @@ export default function AgencyProfil() {
         />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
         {/* Agency card */}
         <TouchableOpacity
           style={[
