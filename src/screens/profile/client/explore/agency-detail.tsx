@@ -19,6 +19,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { EmptyState } from '../../../../components/empty-state';
 
 type Agency = {
   agencyId: string;
@@ -416,11 +417,11 @@ export default function AgencyDetail() {
           </Text>
 
           {trips.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={[styles.emptyText, { color: theme.text }]}>
-                {t.noTrips}
-              </Text>
-            </View>
+            <EmptyState
+              type="result"
+              message={t.noTrips}
+              textColor={theme.text}
+            />
           ) : (
             trips.map(trip => {
               const classColor = CLASS_COLORS[trip.class] || colors.primary;

@@ -12,6 +12,8 @@ import {
   ActivityIndicator,
   useColorScheme,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,6 +25,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import type { TripFilters } from './trips-filter';
+import { EmptyState } from '../../../../components/empty-state';
 
 type Trip = {
   idVoyage: string;
@@ -95,6 +98,7 @@ export default function TripsList() {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [totalElements, setTotalElements] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Search state (editable in this page)
   const [departure, setDeparture] = useState(initialFilters?.departure || '');
@@ -170,7 +174,8 @@ export default function TripsList() {
     }
   }, [route.params?.filters]);
 
-  const loadTrips = useCallback(async (page = 0) => {
+  const loadTrips = useCallback(async (page = 0, reset = true) => {
+    if (!reset) setLoadingMore(true);
     try {
       const [token, storedLang] = await Promise.all([
         AsyncStorage.getItem('token'),
@@ -187,7 +192,7 @@ export default function TripsList() {
         const published = (data.content || []).filter(
           (t: Trip) => t.statusVoyage === 'PUBLIE',
         );
-        setTrips(published);
+        setTrips(prev => (reset ? published : [...prev, ...published]));
         setTotalPages(data.totalPages || 1);
         setTotalElements(data.totalElements || published.length);
         setCurrentPage(page);
@@ -196,6 +201,7 @@ export default function TripsList() {
       // silent
     } finally {
       setLoading(false);
+      if (!reset) setLoadingMore(false);
     }
   }, []);
 
@@ -205,9 +211,14 @@ export default function TripsList() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadTrips(0);
+    await loadTrips(0, true);
     setRefreshing(false);
   }, [loadTrips]);
+
+  const loadMore = useCallback(() => {
+    if (loadingMore || currentPage >= totalPages - 1) return;
+    loadTrips(currentPage + 1, false);
+  }, [loadingMore, currentPage, totalPages, loadTrips]);
 
   const filtered = trips
     .filter(trip => {
@@ -468,73 +479,6 @@ export default function TripsList() {
     );
   };
 
-  const Pagination = () => {
-    if (totalPages <= 1) return null;
-    const pages = Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i);
-    return (
-      <View style={styles.pagination}>
-        <TouchableOpacity
-          style={[
-            styles.pageBtn,
-            { borderColor: theme.border, opacity: currentPage === 0 ? 0.4 : 1 },
-          ]}
-          onPress={() => currentPage > 0 && loadTrips(currentPage - 1)}
-          disabled={currentPage === 0}
-        >
-          <Ionicons name="chevron-back" size={16} color={theme.textStrong} />
-        </TouchableOpacity>
-        {pages.map(p => (
-          <TouchableOpacity
-            key={p}
-            style={[
-              styles.pageBtn,
-              { borderColor: theme.border },
-              currentPage === p && {
-                backgroundColor: colors.primary,
-                borderColor: colors.primary,
-              },
-            ]}
-            onPress={() => loadTrips(p)}
-          >
-            <Text
-              style={[
-                styles.pageBtnText,
-                { color: currentPage === p ? '#fff' : theme.textStrong },
-              ]}
-            >
-              {p + 1}
-            </Text>
-          </TouchableOpacity>
-        ))}
-        {totalPages > 5 && (
-          <Text
-            style={[
-              styles.pageBtnText,
-              { color: theme.text, paddingHorizontal: spacing.xs },
-            ]}
-          >
-            ...
-          </Text>
-        )}
-        <TouchableOpacity
-          style={[
-            styles.pageBtn,
-            {
-              borderColor: theme.border,
-              opacity: currentPage === totalPages - 1 ? 0.4 : 1,
-            },
-          ]}
-          onPress={() =>
-            currentPage < totalPages - 1 && loadTrips(currentPage + 1)
-          }
-          disabled={currentPage === totalPages - 1}
-        >
-          <Ionicons name="chevron-forward" size={16} color={theme.textStrong} />
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
   if (loading) {
     return (
       <View style={[styles.loading, { backgroundColor: theme.background }]}>
@@ -544,305 +488,341 @@ export default function TripsList() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
-      {/* Header */}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
-        ]}
+        style={[styles.container, { backgroundColor: theme.backgroundAlt }]}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.textStrong }]}>
-          {t.title}
-        </Text>
-        <View style={{ width: 24 }} />
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {/* ── Search Card ── */}
+        {/* Header */}
         <View
           style={[
-            styles.searchCard,
-            { backgroundColor: theme.background, borderColor: theme.border },
-          ]}
-        >
-          {/* Departure + Arrival */}
-          <View style={styles.searchRow}>
-            <View
-              style={[
-                styles.searchField,
-                {
-                  borderColor: theme.border,
-                  backgroundColor: theme.backgroundAlt,
-                  flex: 1,
-                },
-              ]}
-            >
-              <Ionicons name="time-outline" size={14} color={theme.text} />
-              <TextInput
-                style={[styles.searchFieldLabel, { color: theme.textStrong }]}
-                placeholder={t.departurePlaceholder}
-                placeholderTextColor={theme.text}
-                value={departure}
-                onChangeText={setDeparture}
-              />
-            </View>
-            <View
-              style={[
-                styles.searchField,
-                {
-                  borderColor: theme.border,
-                  backgroundColor: theme.backgroundAlt,
-                  flex: 1,
-                },
-              ]}
-            >
-              <Ionicons name="location-outline" size={14} color={theme.text} />
-              <TextInput
-                style={[styles.searchFieldLabel, { color: theme.textStrong }]}
-                placeholder={t.arrivalPlaceholder}
-                placeholderTextColor={theme.text}
-                value={arrival}
-                onChangeText={setArrival}
-              />
-            </View>
-          </View>
-
-          {/* Date */}
-          <View
-            style={[
-              styles.searchField,
-              styles.searchFieldFull,
-              {
-                borderColor: theme.border,
-                backgroundColor: theme.backgroundAlt,
-              },
-            ]}
-          >
-            <Ionicons name="options-outline" size={14} color={theme.text} />
-            <TextInput
-              style={[
-                styles.searchFieldLabel,
-                { color: theme.textStrong, flex: 1 },
-              ]}
-              placeholder={t.datePlaceholder}
-              placeholderTextColor={theme.text}
-              value={date}
-              onChangeText={setDate}
-            />
-            <Ionicons name="calendar-outline" size={16} color={theme.text} />
-          </View>
-
-          {/* Search button */}
-          <TouchableOpacity
-            style={[styles.searchBtn, { backgroundColor: colors.primary }]}
-            onPress={() => loadTrips(0)}
-          >
-            <Text style={styles.searchBtnText}>{t.searchBtn}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Filter dropdowns ── */}
-        <View
-          style={[
-            styles.filterBar,
+            styles.header,
             {
               backgroundColor: theme.background,
               borderBottomColor: theme.border,
             },
           ]}
         >
-          <TouchableOpacity
-            style={[styles.dropdown, { borderColor: theme.border }]}
-            onPress={() =>
-              navigation.navigate('TripsFilter', { filters: activeFilters })
-            }
-          >
-            <Text
-              style={[styles.dropdownText, { color: theme.textStrong }]}
-              numberOfLines={1}
-            >
-              {activeFilters.departure || t.allDepartures}
-            </Text>
-            <Ionicons name="chevron-down" size={14} color={theme.text} />
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.dropdown, { borderColor: theme.border }]}
-            onPress={() =>
-              navigation.navigate('TripsFilter', { filters: activeFilters })
-            }
-          >
-            <Text
-              style={[styles.dropdownText, { color: theme.textStrong }]}
-              numberOfLines={1}
-            >
-              {activeFilters.arrival || t.allArrivals}
-            </Text>
-            <Ionicons name="chevron-down" size={14} color={theme.text} />
-          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.textStrong }]}>
+            {t.title}
+          </Text>
+          <View style={{ width: 24 }} />
         </View>
 
-        {/* ── Sort + View mode ── */}
-        <View
-          style={[
-            styles.sortBar,
-            {
-              backgroundColor: theme.background,
-              borderBottomColor: theme.border,
-            },
-          ]}
-        >
-          {/* Sort */}
-          <TouchableOpacity
-            style={styles.sortBtn}
-            onPress={() => setShowSortMenu(!showSortMenu)}
-          >
-            <Text style={[styles.sortLabel, { color: theme.text }]}>
-              {t.sortBy}
-            </Text>
-            <Ionicons
-              name="swap-vertical-outline"
-              size={16}
-              color={theme.textStrong}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          scrollEventThrottle={400}
+          onScroll={({ nativeEvent }) => {
+            const { layoutMeasurement, contentOffset, contentSize } =
+              nativeEvent;
+            if (
+              layoutMeasurement.height + contentOffset.y >=
+              contentSize.height - 100
+            ) {
+              loadMore();
+            }
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
             />
-          </TouchableOpacity>
-
-          {/* View toggle */}
-          <View style={styles.viewToggle}>
-            <TouchableOpacity
-              style={[
-                styles.viewBtn,
-                { borderColor: theme.border },
-                viewMode === 'grid' && {
-                  backgroundColor: colors.primary,
-                  borderColor: colors.primary,
-                },
-              ]}
-              onPress={() => setViewMode('grid')}
-            >
-              <Ionicons
-                name="grid-outline"
-                size={14}
-                color={viewMode === 'grid' ? '#fff' : theme.text}
-              />
-              <Text
-                style={[
-                  styles.viewBtnText,
-                  { color: viewMode === 'grid' ? '#fff' : theme.text },
-                ]}
-              >
-                {t.grid}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.viewBtn,
-                { borderColor: theme.border },
-                viewMode === 'list' && styles.viewBtnActive,
-              ]}
-              onPress={() => setViewMode('list')}
-            >
-              <Ionicons
-                name="list-outline"
-                size={14}
-                color={viewMode === 'list' ? '#fff' : theme.text}
-              />
-              <Text
-                style={[
-                  styles.viewBtnText,
-                  { color: viewMode === 'list' ? '#fff' : theme.text },
-                ]}
-              >
-                {t.list}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Sort menu */}
-        {showSortMenu && (
+          }
+        >
+          {/* ── Search Card ── */}
           <View
             style={[
-              styles.sortMenu,
+              styles.searchCard,
               { backgroundColor: theme.background, borderColor: theme.border },
             ]}
           >
-            {(Object.keys(t.sortOptions) as SortType[]).map(key => (
-              <TouchableOpacity
-                key={key}
+            {/* Departure + Arrival */}
+            <View style={styles.searchRow}>
+              <View
                 style={[
-                  styles.sortMenuItem,
-                  { borderBottomColor: theme.border },
+                  styles.searchField,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: theme.backgroundAlt,
+                    flex: 1,
+                  },
                 ]}
-                onPress={() => {
-                  setSortBy(key);
-                  setShowSortMenu(false);
-                }}
               >
+                <Ionicons name="time-outline" size={14} color={theme.text} />
+                <TextInput
+                  style={[styles.searchFieldLabel, { color: theme.textStrong }]}
+                  placeholder={t.departurePlaceholder}
+                  placeholderTextColor={theme.text}
+                  value={departure}
+                  onChangeText={setDeparture}
+                />
+              </View>
+              <View
+                style={[
+                  styles.searchField,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: theme.backgroundAlt,
+                    flex: 1,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="location-outline"
+                  size={14}
+                  color={theme.text}
+                />
+                <TextInput
+                  style={[styles.searchFieldLabel, { color: theme.textStrong }]}
+                  placeholder={t.arrivalPlaceholder}
+                  placeholderTextColor={theme.text}
+                  value={arrival}
+                  onChangeText={setArrival}
+                />
+              </View>
+            </View>
+
+            {/* Date */}
+            <View
+              style={[
+                styles.searchField,
+                styles.searchFieldFull,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                },
+              ]}
+            >
+              <Ionicons name="options-outline" size={14} color={theme.text} />
+              <TextInput
+                style={[
+                  styles.searchFieldLabel,
+                  { color: theme.textStrong, flex: 1 },
+                ]}
+                placeholder={t.datePlaceholder}
+                placeholderTextColor={theme.text}
+                value={date}
+                onChangeText={setDate}
+              />
+              <Ionicons name="calendar-outline" size={16} color={theme.text} />
+            </View>
+
+            {/* Search button */}
+            <TouchableOpacity
+              style={[styles.searchBtn, { backgroundColor: colors.primary }]}
+              onPress={() => loadTrips(0)}
+            >
+              <Text style={styles.searchBtnText}>{t.searchBtn}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Filter dropdowns ── */}
+          <View
+            style={[
+              styles.filterBar,
+              {
+                backgroundColor: theme.background,
+                borderBottomColor: theme.border,
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={[styles.dropdown, { borderColor: theme.border }]}
+              onPress={() =>
+                navigation.navigate('TripsFilter', { filters: activeFilters })
+              }
+            >
+              <Text
+                style={[styles.dropdownText, { color: theme.textStrong }]}
+                numberOfLines={1}
+              >
+                {activeFilters.departure || t.allDepartures}
+              </Text>
+              <Ionicons name="chevron-down" size={14} color={theme.text} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.dropdown, { borderColor: theme.border }]}
+              onPress={() =>
+                navigation.navigate('TripsFilter', { filters: activeFilters })
+              }
+            >
+              <Text
+                style={[styles.dropdownText, { color: theme.textStrong }]}
+                numberOfLines={1}
+              >
+                {activeFilters.arrival || t.allArrivals}
+              </Text>
+              <Ionicons name="chevron-down" size={14} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Sort + View mode ── */}
+          <View
+            style={[
+              styles.sortBar,
+              {
+                backgroundColor: theme.background,
+                borderBottomColor: theme.border,
+              },
+            ]}
+          >
+            {/* Sort */}
+            <TouchableOpacity
+              style={styles.sortBtn}
+              onPress={() => setShowSortMenu(!showSortMenu)}
+            >
+              <Text style={[styles.sortLabel, { color: theme.text }]}>
+                {t.sortBy}
+              </Text>
+              <Ionicons
+                name="swap-vertical-outline"
+                size={16}
+                color={theme.textStrong}
+              />
+            </TouchableOpacity>
+
+            {/* View toggle */}
+            <View style={styles.viewToggle}>
+              <TouchableOpacity
+                style={[
+                  styles.viewBtn,
+                  { borderColor: theme.border },
+                  viewMode === 'grid' && {
+                    backgroundColor: colors.primary,
+                    borderColor: colors.primary,
+                  },
+                ]}
+                onPress={() => setViewMode('grid')}
+              >
+                <Ionicons
+                  name="grid-outline"
+                  size={14}
+                  color={viewMode === 'grid' ? '#fff' : theme.text}
+                />
                 <Text
                   style={[
-                    styles.sortMenuText,
-                    {
-                      color: sortBy === key ? colors.primary : theme.textStrong,
-                    },
+                    styles.viewBtnText,
+                    { color: viewMode === 'grid' ? '#fff' : theme.text },
                   ]}
                 >
-                  {t.sortOptions[key]}
+                  {t.grid}
                 </Text>
-                {sortBy === key && (
-                  <Ionicons name="checkmark" size={16} color={colors.primary} />
-                )}
               </TouchableOpacity>
-            ))}
+              <TouchableOpacity
+                style={[
+                  styles.viewBtn,
+                  { borderColor: theme.border },
+                  viewMode === 'list' && styles.viewBtnActive,
+                ]}
+                onPress={() => setViewMode('list')}
+              >
+                <Ionicons
+                  name="list-outline"
+                  size={14}
+                  color={viewMode === 'list' ? '#fff' : theme.text}
+                />
+                <Text
+                  style={[
+                    styles.viewBtnText,
+                    { color: viewMode === 'list' ? '#fff' : theme.text },
+                  ]}
+                >
+                  {t.list}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        )}
 
-        {/* Results count */}
-        <Text style={[styles.resultsCount, { color: theme.textStrong }]}>
-          {t.results(filtered.length || totalElements)}
-        </Text>
+          {/* Sort menu */}
+          {showSortMenu && (
+            <View
+              style={[
+                styles.sortMenu,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              {(Object.keys(t.sortOptions) as SortType[]).map(key => (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.sortMenuItem,
+                    { borderBottomColor: theme.border },
+                  ]}
+                  onPress={() => {
+                    setSortBy(key);
+                    setShowSortMenu(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.sortMenuText,
+                      {
+                        color:
+                          sortBy === key ? colors.primary : theme.textStrong,
+                      },
+                    ]}
+                  >
+                    {t.sortOptions[key]}
+                  </Text>
+                  {sortBy === key && (
+                    <Ionicons
+                      name="checkmark"
+                      size={16}
+                      color={colors.primary}
+                    />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
-        {/* ── List ── */}
-        {filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="bus-outline" size={48} color={theme.text} />
-            <Text style={[styles.emptyText, { color: theme.text }]}>
-              {t.noTrips}
-            </Text>
-          </View>
-        ) : viewMode === 'list' ? (
-          <View style={styles.listContainer}>
-            {filtered.map(item => (
-              <ListCard key={item.idVoyage} item={item} />
-            ))}
-          </View>
-        ) : (
-          <View style={styles.gridContainer}>
-            {filtered.map(item => (
-              <GridCard key={item.idVoyage} item={item} />
-            ))}
-          </View>
-        )}
+          {/* Results count */}
+          <Text style={[styles.resultsCount, { color: theme.textStrong }]}>
+            {t.results(filtered.length || totalElements)}
+          </Text>
 
-        <Pagination />
-      </ScrollView>
-    </View>
+          {/* ── List ── */}
+          {filtered.length === 0 ? (
+            <EmptyState
+              type="result"
+              message={t.noTrips}
+              textColor={theme.text}
+            />
+          ) : viewMode === 'list' ? (
+            <View style={styles.listContainer}>
+              {filtered.map(item => (
+                <ListCard key={item.idVoyage} item={item} />
+              ))}
+            </View>
+          ) : (
+            <View style={styles.gridContainer}>
+              {filtered.map(item => (
+                <GridCard key={item.idVoyage} item={item} />
+              ))}
+            </View>
+          )}
+
+          {loadingMore && (
+            <ActivityIndicator
+              size="small"
+              color={colors.primary}
+              style={{ paddingVertical: spacing.lg }}
+            />
+          )}
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 

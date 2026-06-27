@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,16 +12,19 @@ import {
   RefreshControl,
   useColorScheme,
   StatusBar,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import { RootStackParamList } from '../../../../navigation';
+import { SkeletonHome } from '../../../../components/skeleton';
 
 type Trip = {
   idVoyage: string;
@@ -118,6 +121,8 @@ export default function Home({
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [user, setUser] = useState<User | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [gares, setGares] = useState<Gare[]>([]);
@@ -461,23 +466,20 @@ export default function Home({
     );
   };
 
-  if (loading) {
-    return (
-      <View
-        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) { return <SkeletonHome />; }
 
   return (
-    <>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <ScrollView
+        ref={scrollRef}
         style={{ backgroundColor: theme.backgroundAlt }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -786,7 +788,7 @@ export default function Home({
           <Ionicons name="bus" size={52} color={`${colors.primary}20`} />
         </View>
       </ScrollView>
-    </>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -14,6 +14,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import ConfirmModal from '../../../../components/confirm-modal';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
@@ -43,6 +44,8 @@ export default function TaxDetailBsm() {
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [item, setItem] = useState<PolicyOrTax | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const t = {
     fr: {
@@ -56,6 +59,11 @@ export default function TaxDetailBsm() {
       officialDoc: 'Document officiel',
       noDoc: 'Aucun document',
       viewDoc: 'Voir le document',
+      edit: 'Modifier',
+      delete: 'Supprimer',
+      confirmDelete: 'Supprimer cette taxe ?',
+      confirmDeleteMsg: 'Cette action est irréversible.',
+      cancel: 'Annuler',
     },
     en: {
       title: 'Tax detail',
@@ -68,6 +76,11 @@ export default function TaxDetailBsm() {
       officialDoc: 'Official document',
       noDoc: 'No document',
       viewDoc: 'View document',
+      edit: 'Edit',
+      delete: 'Delete',
+      confirmDelete: 'Delete this tax?',
+      confirmDeleteMsg: 'This action cannot be undone.',
+      cancel: 'Cancel',
     },
   }[lang];
 
@@ -107,6 +120,29 @@ export default function TaxDetailBsm() {
     }
   };
 
+  const handleDelete = () => {
+    setDeleteModalVisible(true);
+  };
+
+  const doDelete = async () => {
+    setDeleteModalVisible(false);
+    setDeleting(true);
+    try {
+      const tk = await AsyncStorage.getItem('token');
+      const res = await fetch(`${API_URL}/politique-et-taxes/${itemId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${tk ?? ''}` },
+      });
+      if (res.status === 204 || res.ok) {
+        navigation.goBack();
+      }
+    } catch {
+      // silent
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={[styles.loading, { backgroundColor: theme.background }]}>
@@ -137,9 +173,16 @@ export default function TaxDetailBsm() {
         <Text style={[styles.headerTitle, { color: theme.textStrong }]}>
           {t.title}
         </Text>
-        <TouchableOpacity onPress={handleShare}>
-          <Ionicons name="share-outline" size={22} color={theme.textStrong} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: spacing.md }}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('TaxFormBsm', { itemId })}
+          >
+            <Ionicons name="create-outline" size={22} color={theme.textStrong} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleShare}>
+            <Ionicons name="share-outline" size={22} color={theme.textStrong} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -261,8 +304,39 @@ export default function TaxDetailBsm() {
           </View>
         </View>
 
+        <TouchableOpacity
+          style={[
+            styles.deleteBtn,
+            { borderColor: colors.error, marginHorizontal: spacing.lg },
+          ]}
+          onPress={handleDelete}
+          disabled={deleting}
+          activeOpacity={0.8}
+        >
+          {deleting ? (
+            <ActivityIndicator size="small" color={colors.error} />
+          ) : (
+            <>
+              <Ionicons name="trash-outline" size={18} color={colors.error} />
+              <Text style={[styles.deleteBtnText, { color: colors.error }]}>
+                {t.delete}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+
         <View style={{ height: spacing.xl }} />
       </ScrollView>
+
+      <ConfirmModal
+        visible={deleteModalVisible}
+        title={t.confirmDelete}
+        message={t.confirmDeleteMsg}
+        confirmText={t.delete}
+        cancelText={t.cancel}
+        onConfirm={doDelete}
+        onCancel={() => setDeleteModalVisible(false)}
+      />
     </View>
   );
 }
@@ -347,4 +421,15 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     textDecorationLine: 'underline',
   },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    height: 52,
+    borderWidth: 1.5,
+    borderRadius: 4,
+    marginBottom: spacing.md,
+  },
+  deleteBtnText: { ...typography.bodyBold, fontSize: typography.sizes.md },
 });

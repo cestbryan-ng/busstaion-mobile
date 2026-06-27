@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,10 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useToast } from '../../../../components/toast';
+import ConfirmModal from '../../../../components/confirm-modal';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
@@ -23,43 +25,36 @@ import type { RootStackParamList } from '../../../../navigation';
 
 type Agency = {
   id: string;
-  longName: string;
-  logoUrl?: string;
-  bannerUrl?: string;
-  location: string;
+  nom: string;
+  logo?: string;
+  adresse?: string;
   description?: string;
-  rating?: number;
-  numberOfReviews?: number;
-  specialties?: string[];
-  contact?: { email?: string; phone?: string; website?: string };
-  taxStatus?: 'payé' | 'en attente' | 'en retard';
-  totalTrips?: number;
-  totalPassengers?: number;
-  gareCount?: number;
-  partnerSince?: number;
+  email?: string;
+  telephone?: string;
+  statut: 'ACTIF' | 'SUSPENDU' | 'INACTIF';
 };
 
-const TAX_STATUS_CONFIG: Record<
+const STATUT_CONFIG: Record<
   string,
   { label: string; labelEn: string; color: string; bg: string }
 > = {
-  payé: {
-    label: 'Taxe payée',
-    labelEn: 'Tax paid',
+  ACTIF: {
+    label: 'Actif',
+    labelEn: 'Active',
     color: colors.success,
     bg: `${colors.success}15`,
   },
-  'en attente': {
-    label: 'En attente',
-    labelEn: 'Pending',
-    color: '#d97706',
-    bg: '#fef3c715',
-  },
-  'en retard': {
-    label: 'En retard',
-    labelEn: 'Overdue',
+  SUSPENDU: {
+    label: 'Suspendu',
+    labelEn: 'Suspended',
     color: colors.error,
     bg: `${colors.error}15`,
+  },
+  INACTIF: {
+    label: 'Inactif',
+    labelEn: 'Inactive',
+    color: '#d97706',
+    bg: '#fef3c715',
   },
 };
 
@@ -70,69 +65,114 @@ export default function AgencyDetailBsm() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AgencyDetailBsm'>>();
   const { agencyId } = route.params;
+  const toast = useToast();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const [token, setToken] = useState('');
   const [agency, setAgency] = useState<Agency | null>(null);
   const [loading, setLoading] = useState(true);
+  const [suspending, setSuspending] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [confirmIsActive, setConfirmIsActive] = useState(false);
 
   const t = {
     fr: {
       title: 'Détails agence',
-      reviews: (n: number) => `(${n} avis)`,
-      publishedTrips: 'Voyages publiés',
-      passengersTransported: 'Passagers transportés',
-      stationsServed: 'Gares desservies',
-      partnerSince: 'Partenaire depuis',
-      years: 'ans',
-      specialties: 'Spécialités',
       seeTrips: "Voir les voyages de l'agence",
+      suspend: 'Suspendre',
+      activate: 'Réactiver',
+      confirmSuspend: 'Suspendre cette agence ?',
+      confirmSuspendMsg: "L'agence ne pourra plus opérer.",
+      confirmActivate: 'Réactiver cette agence ?',
+      confirmActivateMsg: "L'agence pourra de nouveau opérer.",
+      cancel: 'Annuler',
+      error: 'Une erreur est survenue',
+      statusUpdated: 'Statut mis à jour',
+      updateError: 'Erreur lors de la mise à jour',
     },
     en: {
       title: 'Agency details',
-      reviews: (n: number) => `(${n} reviews)`,
-      publishedTrips: 'Published trips',
-      passengersTransported: 'Passengers transported',
-      stationsServed: 'Stations served',
-      partnerSince: 'Partner since',
-      years: 'years',
-      specialties: 'Specialties',
       seeTrips: "View agency's trips",
+      suspend: 'Suspend',
+      activate: 'Reactivate',
+      confirmSuspend: 'Suspend this agency?',
+      confirmSuspendMsg: 'The agency will no longer be able to operate.',
+      confirmActivate: 'Reactivate this agency?',
+      confirmActivateMsg: 'The agency will be able to operate again.',
+      cancel: 'Cancel',
+      error: 'An error occurred',
+      statusUpdated: 'Status updated',
+      updateError: 'Update error',
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const load = useCallback(async () => {
+    try {
+      const [tk, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+      setToken(tk ?? '');
 
-        const res = await fetch(`${API_URL}/agence/${agencyId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) setAgency(await res.json());
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+      const res = await fetch(`${API_URL}/agence/${agencyId}`, {
+        headers: { Authorization: `Bearer ${tk}` },
+      });
+      if (res.ok) setAgency(await res.json());
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [agencyId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const handleShare = async () => {
     if (!agency) return;
     try {
       await Share.share({
-        message: `🏢 ${agency.longName}\n📍 ${agency.location}\n📞 ${
-          agency.contact?.phone || ''
-        }`,
-        title: agency.longName,
+        message: `${agency.nom}\n${agency.adresse ?? ''}\n${agency.telephone ?? ''}`,
+        title: agency.nom,
       });
     } catch {
       // silent
+    }
+  };
+
+  const handleToggleStatut = () => {
+    if (!agency) return;
+    setConfirmIsActive(agency.statut === 'ACTIF');
+    setConfirmVisible(true);
+  };
+
+  const doToggleStatut = async () => {
+    setConfirmVisible(false);
+    setSuspending(true);
+    try {
+      const res = await fetch(`${API_URL}/bsm/agence/${agencyId}/statut`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ active: !confirmIsActive }),
+      });
+      if (res.ok) {
+        toast.success(t.statusUpdated);
+        const updated: Agency = await res.json();
+        setAgency(prev => prev ? { ...prev, statut: updated.statut } : null);
+      } else {
+        toast.error(t.updateError);
+      }
+    } catch {
+      toast.error(t.updateError);
+    } finally {
+      setSuspending(false);
     }
   };
 
@@ -146,8 +186,8 @@ export default function AgencyDetailBsm() {
 
   if (!agency) return null;
 
-  const statusCfg =
-    TAX_STATUS_CONFIG[agency.taxStatus || 'payé'] || TAX_STATUS_CONFIG['payé'];
+  const statusCfg = STATUT_CONFIG[agency.statut] || STATUT_CONFIG['INACTIF'];
+  const canToggle = agency.statut === 'ACTIF' || agency.statut === 'SUSPENDU';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -173,43 +213,32 @@ export default function AgencyDetailBsm() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Banner */}
-        <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
-          {agency.bannerUrl ? (
+        {/* Banner / Logo */}
+        <View
+          style={[
+            styles.bannerPlaceholder,
+            { backgroundColor: `${colors.primary}10` },
+          ]}
+        >
+          <Ionicons name="bus-outline" size={48} color={colors.primary} />
+        </View>
+        <View
+          style={[
+            styles.logoOverlay,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+        >
+          {agency.logo ? (
             <Image
-              source={{ uri: agency.bannerUrl }}
-              style={styles.bannerImage}
-              resizeMode="cover"
+              source={{ uri: agency.logo }}
+              style={styles.logoImage}
+              resizeMode="contain"
             />
           ) : (
-            <View
-              style={[
-                styles.bannerPlaceholder,
-                { backgroundColor: `${colors.primary}10` },
-              ]}
-            >
-              <Ionicons name="bus-outline" size={48} color={colors.primary} />
-            </View>
+            <Text style={[styles.logoLetter, { color: colors.primary }]}>
+              {agency.nom.slice(0, 2).toUpperCase()}
+            </Text>
           )}
-          {/* Logo overlay */}
-          <View
-            style={[
-              styles.logoOverlay,
-              { backgroundColor: theme.background, borderColor: theme.border },
-            ]}
-          >
-            {agency.logoUrl ? (
-              <Image
-                source={{ uri: agency.logoUrl }}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-            ) : (
-              <Text style={[styles.logoLetter, { color: colors.primary }]}>
-                {agency.longName.slice(0, 2).toUpperCase()}
-              </Text>
-            )}
-          </View>
         </View>
 
         {/* Info */}
@@ -221,30 +250,14 @@ export default function AgencyDetailBsm() {
         >
           <View style={styles.nameRow}>
             <Text style={[styles.agencyName, { color: theme.textStrong }]}>
-              {agency.longName}
+              {agency.nom}
             </Text>
-            <View
-              style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}
-            >
+            <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
               <Text style={[styles.statusText, { color: statusCfg.color }]}>
                 {lang === 'fr' ? statusCfg.label : statusCfg.labelEn}
               </Text>
             </View>
           </View>
-
-          {agency.rating !== undefined && (
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={14} color="#f59e0b" />
-              <Text style={[styles.ratingValue, { color: theme.textStrong }]}>
-                {' '}
-                {agency.rating.toFixed(1)}
-              </Text>
-              <Text style={[styles.ratingCount, { color: theme.text }]}>
-                {' '}
-                {t.reviews(agency.numberOfReviews || 0)}
-              </Text>
-            </View>
-          )}
 
           {agency.description && (
             <Text style={[styles.description, { color: theme.text }]}>
@@ -252,20 +265,16 @@ export default function AgencyDetailBsm() {
             </Text>
           )}
 
-          {/* Contact actions */}
+          {/* Contact */}
           <View style={[styles.contactList, { borderTopColor: theme.border }]}>
-            {agency.contact?.phone && (
+            {agency.telephone && (
               <TouchableOpacity
                 style={[styles.contactRow, { borderBottomColor: theme.border }]}
-                onPress={() => Linking.openURL(`tel:${agency.contact?.phone}`)}
+                onPress={() => Linking.openURL(`tel:${agency.telephone}`)}
               >
-                <Ionicons
-                  name="call-outline"
-                  size={18}
-                  color={theme.textStrong}
-                />
+                <Ionicons name="call-outline" size={18} color={theme.textStrong} />
                 <Text style={[styles.contactText, { color: theme.textStrong }]}>
-                  {agency.contact.phone}
+                  {agency.telephone}
                 </Text>
                 <View
                   style={[
@@ -273,28 +282,18 @@ export default function AgencyDetailBsm() {
                     { backgroundColor: `${colors.primary}10` },
                   ]}
                 >
-                  <Ionicons
-                    name="call-outline"
-                    size={14}
-                    color={colors.primary}
-                  />
+                  <Ionicons name="call-outline" size={14} color={colors.primary} />
                 </View>
               </TouchableOpacity>
             )}
-            {agency.contact?.email && (
+            {agency.email && (
               <TouchableOpacity
                 style={[styles.contactRow, { borderBottomColor: theme.border }]}
-                onPress={() =>
-                  Linking.openURL(`mailto:${agency.contact?.email}`)
-                }
+                onPress={() => Linking.openURL(`mailto:${agency.email}`)}
               >
-                <Ionicons
-                  name="mail-outline"
-                  size={18}
-                  color={theme.textStrong}
-                />
+                <Ionicons name="mail-outline" size={18} color={theme.textStrong} />
                 <Text style={[styles.contactText, { color: theme.textStrong }]}>
-                  {agency.contact.email}
+                  {agency.email}
                 </Text>
                 <View
                   style={[
@@ -302,166 +301,104 @@ export default function AgencyDetailBsm() {
                     { backgroundColor: `${colors.primary}10` },
                   ]}
                 >
-                  <Ionicons
-                    name="mail-outline"
-                    size={14}
-                    color={colors.primary}
-                  />
+                  <Ionicons name="mail-outline" size={14} color={colors.primary} />
                 </View>
               </TouchableOpacity>
             )}
-            {agency.contact?.website && (
-              <TouchableOpacity
-                style={styles.contactRow}
-                onPress={() =>
-                  Linking.openURL(`https://${agency.contact?.website}`)
-                }
-              >
+            {agency.adresse && (
+              <View style={[styles.contactRow, { borderBottomColor: 'transparent' }]}>
                 <Ionicons
-                  name="globe-outline"
+                  name="location-outline"
                   size={18}
                   color={theme.textStrong}
                 />
-                <Text style={[styles.contactText, { color: theme.textStrong }]}>
-                  {agency.contact.website}
+                <Text style={[styles.contactText, { color: theme.text }]}>
+                  {agency.adresse}
                 </Text>
-                <View
-                  style={[
-                    styles.contactIconBtn,
-                    { backgroundColor: `${colors.primary}10` },
-                  ]}
-                >
-                  <Ionicons
-                    name="open-outline"
-                    size={14}
-                    color={colors.primary}
-                  />
-                </View>
-              </TouchableOpacity>
+              </View>
             )}
-          </View>
-
-          {/* Location */}
-          <View style={[styles.locationRow, { borderTopColor: theme.border }]}>
-            <Ionicons name="location-outline" size={16} color={theme.text} />
-            <Text style={[styles.locationText, { color: theme.text }]}>
-              {' '}
-              {agency.location}
-            </Text>
           </View>
         </View>
 
-        {/* Stats grid */}
-        <View style={styles.statsGrid}>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: theme.background, borderColor: theme.border },
-            ]}
-          >
-            <Ionicons name="bag-outline" size={20} color={theme.text} />
-            <Text style={[styles.statValue, { color: theme.textStrong }]}>
-              {agency.totalTrips ?? 0}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.text }]}>
-              {t.publishedTrips}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: theme.background, borderColor: theme.border },
-            ]}
-          >
-            <Ionicons name="people-outline" size={20} color={theme.text} />
-            <Text style={[styles.statValue, { color: theme.textStrong }]}>
-              {(agency.totalPassengers ?? 0).toLocaleString('fr-FR')}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.text }]}>
-              {t.passengersTransported}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: theme.background, borderColor: theme.border },
-            ]}
-          >
-            <Ionicons name="globe-outline" size={20} color={theme.text} />
-            <Text style={[styles.statValue, { color: theme.textStrong }]}>
-              {agency.gareCount ?? 0}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.text }]}>
-              {t.stationsServed}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: theme.background, borderColor: theme.border },
-            ]}
-          >
-            <Ionicons name="star-outline" size={20} color={theme.text} />
-            <Text style={[styles.statValue, { color: theme.textStrong }]}>
-              {agency.partnerSince ?? '—'} {t.years}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.text }]}>
-              {t.partnerSince}
-            </Text>
-          </View>
-        </View>
-
-        {/* Specialties */}
-        {agency.specialties && agency.specialties.length > 0 && (
-          <View
-            style={[
-              styles.section,
-              { backgroundColor: theme.background, borderColor: theme.border },
-            ]}
-          >
-            <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
-              {t.specialties}
-            </Text>
-            <View style={styles.specialtiesRow}>
-              {agency.specialties.map(s => (
-                <View
-                  key={s}
-                  style={[
-                    styles.specialtyChip,
-                    {
-                      borderColor: theme.border,
-                      backgroundColor: theme.backgroundAlt,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[styles.specialtyText, { color: theme.textStrong }]}
-                  >
-                    {s}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* CTA */}
-        <View style={styles.ctaContainer}>
+        {/* Actions */}
+        <View style={styles.actionsContainer}>
           <TouchableOpacity
-            style={[styles.ctaBtn, { backgroundColor: colors.error }]}
+            style={[styles.primaryBtn, { backgroundColor: colors.error }]}
             onPress={() =>
               navigation.navigate('AgencyTripsBsm', {
                 agencyId: agency.id,
-                agencyName: agency.longName,
+                agencyName: agency.nom,
               })
             }
+            activeOpacity={0.85}
           >
-            <Text style={styles.ctaBtnText}>{t.seeTrips}</Text>
+            <Text style={styles.primaryBtnText}>{t.seeTrips}</Text>
           </TouchableOpacity>
+
+          {canToggle && (
+            <TouchableOpacity
+              style={[
+                styles.toggleBtn,
+                {
+                  borderColor:
+                    agency.statut === 'ACTIF' ? colors.error : colors.success,
+                },
+              ]}
+              onPress={handleToggleStatut}
+              disabled={suspending}
+              activeOpacity={0.85}
+            >
+              {suspending ? (
+                <ActivityIndicator
+                  size="small"
+                  color={
+                    agency.statut === 'ACTIF' ? colors.error : colors.success
+                  }
+                />
+              ) : (
+                <>
+                  <Ionicons
+                    name={
+                      agency.statut === 'ACTIF'
+                        ? 'ban-outline'
+                        : 'checkmark-circle-outline'
+                    }
+                    size={18}
+                    color={
+                      agency.statut === 'ACTIF' ? colors.error : colors.success
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.toggleBtnText,
+                      {
+                        color:
+                          agency.statut === 'ACTIF'
+                            ? colors.error
+                            : colors.success,
+                      },
+                    ]}
+                  >
+                    {agency.statut === 'ACTIF' ? t.suspend : t.activate}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={{ height: spacing.xl }} />
       </ScrollView>
+
+      <ConfirmModal
+        visible={confirmVisible}
+        title={confirmIsActive ? t.confirmSuspend : t.confirmActivate}
+        message={confirmIsActive ? t.confirmSuspendMsg : t.confirmActivateMsg}
+        confirmText={confirmIsActive ? t.suspend : t.activate}
+        cancelText={t.cancel}
+        onConfirm={doToggleStatut}
+        onCancel={() => setConfirmVisible(false)}
+      />
     </View>
   );
 }
@@ -480,17 +417,14 @@ const styles = StyleSheet.create({
   },
   headerTitle: { ...typography.heading, fontSize: typography.sizes.lg },
 
-  banner: { height: 170, position: 'relative' },
-  bannerImage: { width: '100%', height: '100%' },
   bannerPlaceholder: {
-    width: '100%',
-    height: '100%',
+    height: 150,
     justifyContent: 'center',
     alignItems: 'center',
   },
   logoOverlay: {
     position: 'absolute',
-    bottom: -28,
+    top: spacing.xl + 48 + 150 - 36,
     left: spacing.lg,
     width: 72,
     height: 72,
@@ -504,7 +438,7 @@ const styles = StyleSheet.create({
   logoLetter: { ...typography.heading, fontSize: typography.sizes.xxl },
 
   infoSection: {
-    marginTop: 36,
+    marginTop: 44,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
@@ -524,13 +458,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
-  ratingValue: { ...typography.bodyBold, fontSize: typography.sizes.sm },
-  ratingCount: { ...typography.body, fontSize: typography.sizes.sm },
   description: {
     ...typography.body,
     fontSize: typography.sizes.sm,
@@ -558,64 +485,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-  },
-  locationText: { ...typography.body, fontSize: typography.sizes.sm },
 
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
+  actionsContainer: {
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    gap: spacing.sm,
   },
-  statCard: {
-    width: '47%',
-    borderWidth: 1,
-    borderRadius: 4,
-    padding: spacing.md,
-    gap: spacing.xs,
-    alignItems: 'flex-start',
-  },
-  statValue: { ...typography.heading, fontSize: typography.sizes.lg },
-  statLabel: { ...typography.body, fontSize: typography.sizes.xs },
-
-  section: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderRadius: 4,
-    padding: spacing.md,
-  },
-  sectionTitle: {
-    ...typography.bodyBold,
-    fontSize: typography.sizes.md,
-    marginBottom: spacing.sm,
-  },
-  specialtiesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  specialtyChip: {
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  specialtyText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
-
-  ctaContainer: { paddingHorizontal: spacing.lg },
-  ctaBtn: {
+  primaryBtn: {
     height: 52,
     borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  ctaBtnText: {
+  primaryBtnText: {
     ...typography.bodyBold,
     fontSize: typography.sizes.md,
     color: '#fff',
   },
+  toggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    height: 52,
+    borderWidth: 1.5,
+    borderRadius: 4,
+  },
+  toggleBtnText: { ...typography.bodyBold, fontSize: typography.sizes.md },
 });

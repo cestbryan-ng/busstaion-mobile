@@ -17,6 +17,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useToast } from '../../components/toast';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -96,6 +97,7 @@ export default function SignUp() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const toast = useToast();
 
   const [step, setStep] = useState<Step>(1);
   const [role, setRole] = useState<Role>('USAGER');
@@ -197,6 +199,9 @@ export default function SignUp() {
       errorGeneric:
         'Le serveur est actuellement indisponible. Veuillez réessayer plus tard.',
       errorConflict: "Email ou nom d'utilisateur déjà utilisé.",
+      accountCreated: 'Compte créé avec succès',
+      emailInUse: 'Email déjà utilisé',
+      error: 'Une erreur est survenue',
     },
     en: {
       titleStep1: 'Create account',
@@ -257,6 +262,9 @@ export default function SignUp() {
       errorGeneric:
         'The server is currently unavailable. Please try again later.',
       errorConflict: 'Email or username already in use.',
+      accountCreated: 'Account created successfully',
+      emailInUse: 'Email already in use',
+      error: 'An error occurred',
     },
   }[lang];
 
@@ -303,13 +311,16 @@ export default function SignUp() {
         });
         const loginData = await loginRes.json();
         if (loginRes.ok) setToken(loginData.token);
+        toast.success(t.accountCreated);
         setStep(2);
       } else if (response.status === 409) {
+        toast.error(t.emailInUse);
         setServerError(t.errorConflict);
       } else {
         setServerError(data.message || t.errorGeneric);
       }
     } catch {
+      toast.error(t.error);
       navigation.replace('SignUpError');
     } finally {
       setLoading(false);
@@ -349,13 +360,16 @@ export default function SignUp() {
       const data = await response.json();
 
       if (response.ok || response.status === 201) {
+        toast.success(t.accountCreated);
         navigation.replace('SignUpSuccess');
       } else if (response.status === 409) {
+        toast.error(t.emailInUse);
         setServerError(t.errorConflict);
       } else {
         setServerError(data.message || t.errorGeneric);
       }
     } catch {
+      toast.error(t.error);
       navigation.replace('SignUpError');
     } finally {
       setLoading(false);

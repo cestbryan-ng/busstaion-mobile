@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   useColorScheme,
   Share,
-  Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import QRCode from 'react-native-qrcode-svg';
@@ -20,6 +19,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import ConfirmModal from '../../../../components/confirm-modal';
+import { useToast } from '../../../../components/toast';
 import type { RootStackParamList } from '../../../../navigation';
 
 type Passager = {
@@ -194,6 +194,7 @@ export default function BookingDetails() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'BookingDetails'>>();
   const { reservationId } = route.params;
+  const toast = useToast();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [reservation, setReservation] = useState<ReservationDetail | null>(
@@ -229,6 +230,8 @@ export default function BookingDetails() {
       arrival: 'Arrivée',
       duration: 'Durée',
       depHour: 'Heure départ',
+      bookingCancelled: 'Réservation annulée',
+      cancelError: "Erreur lors de l'annulation",
     },
     en: {
       title: 'Reservation details',
@@ -255,6 +258,8 @@ export default function BookingDetails() {
       arrival: 'Arrival',
       duration: 'Duration',
       depHour: 'Dep. time',
+      bookingCancelled: 'Booking cancelled',
+      cancelError: 'Cancellation error',
     },
   }[lang];
 
@@ -322,11 +327,14 @@ export default function BookingDetails() {
         },
       });
       if (res.ok) {
+        toast.success(t.bookingCancelled);
         setCancelModalVisible(false);
         navigation.goBack();
+      } else {
+        toast.error(t.cancelError);
       }
     } catch {
-      // silent
+      toast.error(t.cancelError);
     } finally {
       setCancelling(false);
     }

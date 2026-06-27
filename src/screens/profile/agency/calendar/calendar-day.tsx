@@ -15,6 +15,7 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import type { RootStackParamList } from '../../../../navigation';
+import { EmptyState } from '../../../../components/empty-state';
 
 type Trip = {
   idVoyage: string;
@@ -448,18 +449,12 @@ export default function AgencyCalendarDay() {
         contentContainerStyle={styles.content}
       >
         {dayTrips.length === 0 ? (
-          <View style={[styles.emptyDay, { borderColor: theme.border }]}>
-            <View
-              style={[
-                styles.emptyIcon,
-                { backgroundColor: theme.backgroundAlt },
-              ]}
-            >
-              <Ionicons name="add" size={28} color={theme.text} />
-            </View>
-            <Text style={[styles.emptyText, { color: theme.text }]}>
-              {t.noTrips}
-            </Text>
+          <>
+            <EmptyState
+              type="result"
+              message={t.noTrips}
+              textColor={theme.text}
+            />
             <TouchableOpacity
               onPress={() => navigation.navigate('AgencyNewTrip', {})}
             >
@@ -467,7 +462,7 @@ export default function AgencyCalendarDay() {
                 {t.createTrip}
               </Text>
             </TouchableOpacity>
-          </View>
+          </>
         ) : (
           dayTrips.map(trip => <TripCard key={trip.idVoyage} trip={trip} />)
         )}

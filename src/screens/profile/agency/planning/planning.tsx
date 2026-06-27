@@ -18,6 +18,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { EmptyState } from '../../../../components/empty-state';
 
 type Agency = {
   agencyId: string;
@@ -380,9 +381,7 @@ export default function AgencyPlanning() {
         )}
 
         {todayTrips.length === 0 && tomorrowTrips.length === 0 && (
-          <View style={styles.emptyTrips}>
-            <Ionicons name="bus-outline" size={32} color={theme.text} />
-          </View>
+          <EmptyState type="result" message="" textColor={theme.text} />
         )}
       </View>
     </View>

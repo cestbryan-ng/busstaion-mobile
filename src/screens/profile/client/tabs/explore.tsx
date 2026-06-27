@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import {
   View,
   Text,
@@ -10,16 +16,20 @@ import {
   ActivityIndicator,
   useColorScheme,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonListScreen } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
 
 type Agency = {
   agencyId: string;
@@ -80,6 +90,8 @@ export default function Explore() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const [tab, setTab] = useState<TabType>('agencies');
   const [search, setSearch] = useState('');
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -401,269 +413,275 @@ export default function Explore() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
-      {/* Header */}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
-        ]}
+        style={[styles.container, { backgroundColor: theme.backgroundAlt }]}
       >
-        <View style={styles.headerLeft}>
-          <Text style={[styles.title, { color: theme.textStrong }]}>
-            {t.title}
-          </Text>
-          <Text style={[styles.subtitle, { color: theme.text }]}>
-            {t.subtitle}
-          </Text>
-        </View>
-        <TouchableOpacity>
-          <Ionicons
-            name="notifications-outline"
-            size={24}
-            color={theme.textStrong}
-          />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {/* Tabs */}
+        {/* Header */}
         <View
-          style={[styles.tabsContainer, { backgroundColor: theme.background }]}
+          style={[
+            styles.header,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
+          ]}
         >
-          <TouchableOpacity
-            style={[
-              styles.tabBtn,
-              tab === 'agencies' && {
-                borderColor: colors.primary,
-                backgroundColor: `${colors.primary}10`,
-              },
-              tab !== 'agencies' && { borderColor: theme.border },
-            ]}
-            onPress={() => {
-              setTab('agencies');
-              setSearch('');
-            }}
-          >
-            <Ionicons
-              name="business-outline"
-              size={16}
-              color={tab === 'agencies' ? colors.primary : theme.text}
-            />
-            <Text
-              style={[
-                styles.tabText,
-                { color: tab === 'agencies' ? colors.primary : theme.text },
-              ]}
-            >
-              {t.tabAgencies}
+          <View style={styles.headerLeft}>
+            <Text style={[styles.title, { color: theme.textStrong }]}>
+              {t.title}
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.tabBtn,
-              tab === 'gares' && {
-                borderColor: colors.primary,
-                backgroundColor: `${colors.primary}10`,
-              },
-              tab !== 'gares' && { borderColor: theme.border },
-            ]}
-            onPress={() => {
-              setTab('gares');
-              setSearch('');
-            }}
-          >
-            <Ionicons
-              name="bus-outline"
-              size={16}
-              color={tab === 'gares' ? colors.primary : theme.text}
-            />
-            <Text
-              style={[
-                styles.tabText,
-                { color: tab === 'gares' ? colors.primary : theme.text },
-              ]}
-            >
-              {t.tabGares}
+            <Text style={[styles.subtitle, { color: theme.text }]}>
+              {t.subtitle}
             </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Search */}
-        <View style={[styles.searchRow, { backgroundColor: theme.background }]}>
-          <View
-            style={[
-              styles.searchInput,
-              {
-                borderColor: theme.border,
-                backgroundColor: theme.backgroundAlt,
-              },
-            ]}
-          >
-            <Ionicons name="search-outline" size={16} color={theme.text} />
-            <TextInput
-              style={[styles.searchText, { color: theme.textStrong }]}
-              placeholder={tab === 'agencies' ? t.searchAgency : t.searchGare}
-              placeholderTextColor={theme.text}
-              value={search}
-              onChangeText={setSearch}
-            />
-            {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')}>
-                <Ionicons name="close-circle" size={16} color={theme.text} />
-              </TouchableOpacity>
-            )}
           </View>
-          <TouchableOpacity
-            style={[styles.filterBtn, { borderColor: theme.border }]}
-          >
+          <TouchableOpacity>
             <Ionicons
-              name="options-outline"
-              size={20}
+              name="notifications-outline"
+              size={24}
               color={theme.textStrong}
             />
           </TouchableOpacity>
         </View>
 
-        {/* Service filters — only for gares tab */}
-        {tab === 'gares' && (
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {/* Tabs */}
           <View
             style={[
-              styles.serviceFiltersSection,
-              {
-                backgroundColor: theme.background,
-                borderBottomColor: theme.border,
-              },
+              styles.tabsContainer,
+              { backgroundColor: theme.background },
             ]}
           >
-            <View style={styles.serviceFiltersHeader}>
+            <TouchableOpacity
+              style={[
+                styles.tabBtn,
+                tab === 'agencies' && {
+                  borderColor: colors.primary,
+                  backgroundColor: `${colors.primary}10`,
+                },
+                tab !== 'agencies' && { borderColor: theme.border },
+              ]}
+              onPress={() => {
+                setTab('agencies');
+                setSearch('');
+              }}
+            >
+              <Ionicons
+                name="business-outline"
+                size={16}
+                color={tab === 'agencies' ? colors.primary : theme.text}
+              />
               <Text
                 style={[
-                  styles.serviceFiltersTitle,
-                  { color: theme.textStrong },
+                  styles.tabText,
+                  { color: tab === 'agencies' ? colors.primary : theme.text },
                 ]}
               >
-                {t.serviceFilters}
+                {t.tabAgencies}
               </Text>
-              <TouchableOpacity
-                onPress={() => setShowAllServices(!showAllServices)}
-              >
-                <Text style={[styles.seeAllText, { color: colors.primary }]}>
-                  {showAllServices ? t.seeLess : t.seeAll}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.serviceFiltersList}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.tabBtn,
+                tab === 'gares' && {
+                  borderColor: colors.primary,
+                  backgroundColor: `${colors.primary}10`,
+                },
+                tab !== 'gares' && { borderColor: theme.border },
+              ]}
+              onPress={() => {
+                setTab('gares');
+                setSearch('');
+              }}
             >
-              {visibleServices.map(s => (
-                <TouchableOpacity
-                  key={s}
+              <Ionicons
+                name="bus-outline"
+                size={16}
+                color={tab === 'gares' ? colors.primary : theme.text}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: tab === 'gares' ? colors.primary : theme.text },
+                ]}
+              >
+                {t.tabGares}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Search */}
+          <View
+            style={[styles.searchRow, { backgroundColor: theme.background }]}
+          >
+            <View
+              style={[
+                styles.searchInput,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                },
+              ]}
+            >
+              <Ionicons name="search-outline" size={16} color={theme.text} />
+              <TextInput
+                style={[styles.searchText, { color: theme.textStrong }]}
+                placeholder={tab === 'agencies' ? t.searchAgency : t.searchGare}
+                placeholderTextColor={theme.text}
+                value={search}
+                onChangeText={setSearch}
+              />
+              {search.length > 0 && (
+                <TouchableOpacity onPress={() => setSearch('')}>
+                  <Ionicons name="close-circle" size={16} color={theme.text} />
+                </TouchableOpacity>
+              )}
+            </View>
+            <TouchableOpacity
+              style={[styles.filterBtn, { borderColor: theme.border }]}
+            >
+              <Ionicons
+                name="options-outline"
+                size={20}
+                color={theme.textStrong}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Service filters — only for gares tab */}
+          {tab === 'gares' && (
+            <View
+              style={[
+                styles.serviceFiltersSection,
+                {
+                  backgroundColor: theme.background,
+                  borderBottomColor: theme.border,
+                },
+              ]}
+            >
+              <View style={styles.serviceFiltersHeader}>
+                <Text
                   style={[
-                    styles.serviceFilterItem,
-                    {
-                      borderColor: selectedServices.includes(s)
-                        ? colors.primary
-                        : theme.border,
-                    },
-                    selectedServices.includes(s) && {
-                      backgroundColor: `${colors.primary}10`,
-                    },
+                    styles.serviceFiltersTitle,
+                    { color: theme.textStrong },
                   ]}
-                  onPress={() => toggleService(s)}
                 >
-                  <Ionicons
-                    name={SERVICE_ICONS[s] || 'ellipse-outline'}
-                    size={22}
-                    color={
-                      selectedServices.includes(s) ? colors.primary : theme.text
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.serviceFilterText,
-                      {
-                        color: selectedServices.includes(s)
-                          ? colors.primary
-                          : theme.text,
-                      },
-                    ]}
-                  >
-                    {lang === 'fr'
-                      ? SERVICE_LABELS[s]?.fr
-                      : SERVICE_LABELS[s]?.en}
+                  {t.serviceFilters}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowAllServices(!showAllServices)}
+                >
+                  <Text style={[styles.seeAllText, { color: colors.primary }]}>
+                    {showAllServices ? t.seeLess : t.seeAll}
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Content */}
-        <View style={styles.listSection}>
-          <Text style={[styles.listTitle, { color: theme.textStrong }]}>
-            {tab === 'agencies' ? t.popularAgencies : t.nearbyGares}
-          </Text>
-
-          {tab === 'agencies' ? (
-            loadingAgencies ? (
-              <ActivityIndicator
-                size="large"
-                color={colors.primary}
-                style={styles.loader}
-              />
-            ) : filteredAgencies.length === 0 ? (
-              <View style={styles.empty}>
-                <Ionicons
-                  name="business-outline"
-                  size={48}
-                  color={theme.text}
-                />
-                <Text style={[styles.emptyText, { color: theme.text }]}>
-                  {t.noAgencies}
-                </Text>
               </View>
-            ) : (
-              filteredAgencies.map(item => (
-                <AgencyCard key={item.agencyId} item={item} />
-              ))
-            )
-          ) : loadingGares ? (
-            <ActivityIndicator
-              size="large"
-              color={colors.primary}
-              style={styles.loader}
-            />
-          ) : filteredGares.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="bus-outline" size={48} color={theme.text} />
-              <Text style={[styles.emptyText, { color: theme.text }]}>
-                {t.noGares}
-              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.serviceFiltersList}
+              >
+                {visibleServices.map(s => (
+                  <TouchableOpacity
+                    key={s}
+                    style={[
+                      styles.serviceFilterItem,
+                      {
+                        borderColor: selectedServices.includes(s)
+                          ? colors.primary
+                          : theme.border,
+                      },
+                      selectedServices.includes(s) && {
+                        backgroundColor: `${colors.primary}10`,
+                      },
+                    ]}
+                    onPress={() => toggleService(s)}
+                  >
+                    <Ionicons
+                      name={SERVICE_ICONS[s] || 'ellipse-outline'}
+                      size={22}
+                      color={
+                        selectedServices.includes(s)
+                          ? colors.primary
+                          : theme.text
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.serviceFilterText,
+                        {
+                          color: selectedServices.includes(s)
+                            ? colors.primary
+                            : theme.text,
+                        },
+                      ]}
+                    >
+                      {lang === 'fr'
+                        ? SERVICE_LABELS[s]?.fr
+                        : SERVICE_LABELS[s]?.en}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
-          ) : (
-            filteredGares.map(item => (
-              <GareCard key={item.idGareRoutiere} item={item} />
-            ))
           )}
-        </View>
-      </ScrollView>
-    </View>
+
+          {/* Content */}
+          <View style={styles.listSection}>
+            <Text style={[styles.listTitle, { color: theme.textStrong }]}>
+              {tab === 'agencies' ? t.popularAgencies : t.nearbyGares}
+            </Text>
+
+            {tab === 'agencies' ? (
+              loadingAgencies ? (
+                <View style={{ flex: 1 }}>
+                  <SkeletonListScreen />
+                </View>
+              ) : filteredAgencies.length === 0 ? (
+                <EmptyState
+                  type="result"
+                  message={t.noAgencies}
+                  textColor={theme.text}
+                />
+              ) : (
+                filteredAgencies.map(item => (
+                  <AgencyCard key={item.agencyId} item={item} />
+                ))
+              )
+            ) : loadingGares ? (
+              <View style={{ flex: 1 }}>
+                <SkeletonListScreen />
+              </View>
+            ) : filteredGares.length === 0 ? (
+              <EmptyState
+                type="result"
+                message={t.noGares}
+                textColor={theme.text}
+              />
+            ) : (
+              filteredGares.map(item => (
+                <GareCard key={item.idGareRoutiere} item={item} />
+              ))
+            )}
+          </View>
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 

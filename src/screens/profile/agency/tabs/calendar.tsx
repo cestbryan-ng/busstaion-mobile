@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,14 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonCalendarScreen } from '../../../../components/skeleton';
 
 type Trip = {
   idVoyage: string;
@@ -117,6 +118,8 @@ export default function AgencyCalendar() {
 
   const today = new Date();
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -381,13 +384,7 @@ export default function AgencyCalendar() {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) { return <SkeletonCalendarScreen />; }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -414,6 +411,7 @@ export default function AgencyCalendar() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

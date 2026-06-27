@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   useColorScheme,
   Share,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,6 +21,8 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import ConfirmModal from '../../../../components/confirm-modal';
+import { EmptyState } from '../../../../components/empty-state';
+import { useToast } from '../../../../components/toast';
 import type { RootStackParamList } from '../../../../navigation';
 
 type Booking = {
@@ -72,6 +76,7 @@ export default function AgencyTripBookings() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AgencyTripBookings'>>();
   const { tripId, tripTitle } = route.params;
+  const toast = useToast();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -100,6 +105,8 @@ export default function AgencyTripBookings() {
       confirmCancel: 'Oui, annuler',
       no: 'Non',
       noBookings: 'Aucune réservation',
+      bookingCancelled: 'Réservation annulée',
+      cancelError: "Erreur lors de l'annulation",
     },
     en: {
       title: 'Bookings',
@@ -118,6 +125,8 @@ export default function AgencyTripBookings() {
       confirmCancel: 'Yes, cancel',
       no: 'No',
       noBookings: 'No bookings',
+      bookingCancelled: 'Booking cancelled',
+      cancelError: 'Cancellation error',
     },
   }[lang];
 
@@ -206,7 +215,7 @@ export default function AgencyTripBookings() {
     setCancelling(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      await fetch(`${API_URL}/reservation/agence/annuler-voyage`, {
+      const res = await fetch(`${API_URL}/reservation/agence/annuler-voyage`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -218,12 +227,17 @@ export default function AgencyTripBookings() {
             'Annulation administrative effectuée depuis le tableau de bord agence.',
         }),
       });
-      setBookings(prev =>
-        prev.filter(b => b.reservation.idReservation !== selectedId),
-      );
-      setCancelModal(false);
+      if (res.ok) {
+        toast.success(t.bookingCancelled);
+        setBookings(prev =>
+          prev.filter(b => b.reservation.idReservation !== selectedId),
+        );
+        setCancelModal(false);
+      } else {
+        toast.error(t.cancelError);
+      }
     } catch {
-      // silent
+      toast.error(t.cancelError);
     } finally {
       setCancelling(false);
     }
@@ -353,7 +367,10 @@ export default function AgencyTripBookings() {
   ];
 
   return (
-    <>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View
         style={[styles.container, { backgroundColor: theme.backgroundAlt }]}
       >
@@ -514,7 +531,10 @@ export default function AgencyTripBookings() {
           ))}
         </ScrollView>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Bookings list */}
           <View
             style={[
@@ -523,16 +543,11 @@ export default function AgencyTripBookings() {
             ]}
           >
             {filtered.length === 0 ? (
-              <View style={styles.empty}>
-                <Ionicons
-                  name="calendar-outline"
-                  size={36}
-                  color={theme.text}
-                />
-                <Text style={[styles.emptyText, { color: theme.text }]}>
-                  {t.noBookings}
-                </Text>
-              </View>
+              <EmptyState
+                type="calendar"
+                message={t.noBookings}
+                textColor={theme.text}
+              />
             ) : (
               filtered.map((item, i) => (
                 <BookingRow
@@ -575,7 +590,7 @@ export default function AgencyTripBookings() {
         onConfirm={handleCancel}
         onCancel={() => setCancelModal(false)}
       />
-    </>
+    </KeyboardAvoidingView>
   );
 }
 

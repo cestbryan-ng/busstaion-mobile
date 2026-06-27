@@ -19,6 +19,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL, MAPS_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { EmptyState } from '../../../../components/empty-state';
 
 type Gare = {
   idGareRoutiere: string;
@@ -416,11 +417,11 @@ export default function StationDetail() {
         <View style={styles.tabContent}>
           {activeTab === 'agencies' ? (
             agencies.length === 0 ? (
-              <View style={styles.empty}>
-                <Text style={[styles.emptyText, { color: theme.text }]}>
-                  {t.noAgencies}
-                </Text>
-              </View>
+              <EmptyState
+                type="result"
+                message={t.noAgencies}
+                textColor={theme.text}
+              />
             ) : (
               agencies.map(a => (
                 <TouchableOpacity
@@ -511,11 +512,11 @@ export default function StationDetail() {
               ))
             )
           ) : trips.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={[styles.emptyText, { color: theme.text }]}>
-                {t.noTrips}
-              </Text>
-            </View>
+            <EmptyState
+              type="result"
+              message={t.noTrips}
+              textColor={theme.text}
+            />
           ) : (
             trips.map(trip => {
               const classColor = CLASS_COLORS[trip.class] || colors.primary;

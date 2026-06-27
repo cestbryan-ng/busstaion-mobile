@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,16 +11,20 @@ import {
   useColorScheme,
   RefreshControl,
   Share,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { EmptyState } from '../../../../components/empty-state';
+import { SkeletonListScreen } from '../../../../components/skeleton';
 
 type Passager = {
   nom: string;
@@ -145,6 +149,8 @@ export default function Historique() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const [tab, setTab] = useState<TabType>('reservations');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [search, setSearch] = useState('');
@@ -591,155 +597,163 @@ export default function Historique() {
   };
 
   if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <SkeletonListScreen />;
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
-      {/* Header */}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
-        ]}
+        style={[styles.container, { backgroundColor: theme.backgroundAlt }]}
       >
-        <Text style={[styles.title, { color: theme.textStrong }]}>
-          {t.title}
-        </Text>
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {/* Search */}
-        <View style={[styles.searchRow, { backgroundColor: theme.background }]}>
-          <View
-            style={[
-              styles.searchInput,
-              {
-                borderColor: theme.border,
-                backgroundColor: theme.backgroundAlt,
-              },
-            ]}
-          >
-            <Ionicons name="search-outline" size={16} color={theme.text} />
-            <TextInput
-              style={[styles.searchText, { color: theme.textStrong }]}
-              placeholder={t.searchPlaceholder}
-              placeholderTextColor={theme.text}
-              value={search}
-              onChangeText={setSearch}
-            />
-          </View>
-        </View>
-
-        {/* Tabs */}
+        {/* Header */}
         <View
           style={[
-            styles.tabs,
+            styles.header,
             {
               backgroundColor: theme.background,
               borderBottomColor: theme.border,
             },
           ]}
         >
-          {(['reservations', 'annulations'] as TabType[]).map(t2 => (
-            <TouchableOpacity
-              key={t2}
-              style={[
-                styles.tab,
-                tab === t2 && {
-                  borderBottomColor: colors.primary,
-                  borderBottomWidth: 2,
-                },
-              ]}
-              onPress={() => setTab(t2)}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: tab === t2 ? colors.primary : theme.text },
-                ]}
-              >
-                {t2 === 'reservations' ? t.tabReservations : t.tabCancellations}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          <Text style={[styles.title, { color: theme.textStrong }]}>
+            {t.title}
+          </Text>
         </View>
 
-        {/* Date filters */}
-        <View style={styles.dateFiltersRow}>
-          {DATE_FILTERS.map(f => (
-            <TouchableOpacity
-              key={f.key}
-              style={[
-                styles.dateChip,
-                {
-                  borderColor:
-                    dateFilter === f.key ? colors.primary : theme.border,
-                  backgroundColor:
-                    dateFilter === f.key ? colors.primary : 'transparent',
-                },
-              ]}
-              onPress={() => setDateFilter(f.key)}
-            >
-              <Text
-                style={[
-                  styles.dateChipText,
-                  { color: dateFilter === f.key ? '#fff' : theme.text },
-                ]}
-              >
-                {f.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-
-          <TouchableOpacity
-            style={[styles.calendarBtn, { borderColor: theme.border }]}
-          >
-            <Ionicons
-              name="calendar-outline"
-              size={18}
-              color={theme.textStrong}
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
             />
-          </TouchableOpacity>
-        </View>
-
-        {/* List */}
-        <View style={styles.list}>
-          {filtered.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="time-outline" size={48} color={theme.text} />
-              <Text style={[styles.emptyText, { color: theme.text }]}>
-                {t.noData}
-              </Text>
+          }
+        >
+          {/* Search */}
+          <View
+            style={[styles.searchRow, { backgroundColor: theme.background }]}
+          >
+            <View
+              style={[
+                styles.searchInput,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                },
+              ]}
+            >
+              <Ionicons name="search-outline" size={16} color={theme.text} />
+              <TextInput
+                style={[styles.searchText, { color: theme.textStrong }]}
+                placeholder={t.searchPlaceholder}
+                placeholderTextColor={theme.text}
+                value={search}
+                onChangeText={setSearch}
+              />
             </View>
-          ) : (
-            filtered.map(item =>
-              tab === 'reservations' ? (
-                <ReservationCard key={item.idHistorique} item={item} />
-              ) : (
-                <CancellationCard key={item.idHistorique} item={item} />
-              ),
-            )
-          )}
-        </View>
-      </ScrollView>
-    </View>
+          </View>
+
+          {/* Tabs */}
+          <View
+            style={[
+              styles.tabs,
+              {
+                backgroundColor: theme.background,
+                borderBottomColor: theme.border,
+              },
+            ]}
+          >
+            {(['reservations', 'annulations'] as TabType[]).map(t2 => (
+              <TouchableOpacity
+                key={t2}
+                style={[
+                  styles.tab,
+                  tab === t2 && {
+                    borderBottomColor: colors.primary,
+                    borderBottomWidth: 2,
+                  },
+                ]}
+                onPress={() => setTab(t2)}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    { color: tab === t2 ? colors.primary : theme.text },
+                  ]}
+                >
+                  {t2 === 'reservations'
+                    ? t.tabReservations
+                    : t.tabCancellations}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Date filters */}
+          <View style={styles.dateFiltersRow}>
+            {DATE_FILTERS.map(f => (
+              <TouchableOpacity
+                key={f.key}
+                style={[
+                  styles.dateChip,
+                  {
+                    borderColor:
+                      dateFilter === f.key ? colors.primary : theme.border,
+                    backgroundColor:
+                      dateFilter === f.key ? colors.primary : 'transparent',
+                  },
+                ]}
+                onPress={() => setDateFilter(f.key)}
+              >
+                <Text
+                  style={[
+                    styles.dateChipText,
+                    { color: dateFilter === f.key ? '#fff' : theme.text },
+                  ]}
+                >
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              style={[styles.calendarBtn, { borderColor: theme.border }]}
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={18}
+                color={theme.textStrong}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* List */}
+          <View style={styles.list}>
+            {filtered.length === 0 ? (
+              <EmptyState
+                type="calendar"
+                message={t.noData}
+                textColor={theme.text}
+              />
+            ) : (
+              filtered.map(item =>
+                tab === 'reservations' ? (
+                  <ReservationCard key={item.idHistorique} item={item} />
+                ) : (
+                  <CancellationCard key={item.idHistorique} item={item} />
+                ),
+              )
+            )}
+          </View>
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 

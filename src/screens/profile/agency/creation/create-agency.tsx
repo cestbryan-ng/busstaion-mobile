@@ -15,6 +15,8 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { EmptyState } from '../../../../components/empty-state';
+import { useToast } from '../../../../components/toast';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
@@ -48,6 +50,7 @@ export default function CreateAgency() {
   const theme = isDark ? colors.dark : colors.light;
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const toast = useToast();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [step, setStep] = useState<Step>(1);
@@ -105,6 +108,9 @@ export default function CreateAgency() {
       errorExists: 'Une agence existe déjà avec ces informations.',
       errorNotFound: 'Utilisateur ou gare routière introuvable.',
       noStations: 'Aucune gare trouvée',
+      agencyCreated: 'Agence créée avec succès',
+      createError: 'Erreur lors de la création',
+      error: 'Une erreur est survenue',
     },
     en: {
       title: 'Create an agency',
@@ -139,6 +145,9 @@ export default function CreateAgency() {
       errorExists: 'An agency already exists with this information.',
       errorNotFound: 'User or station not found.',
       noStations: 'No stations found',
+      agencyCreated: 'Agency created successfully',
+      createError: 'Creation error',
+      error: 'An error occurred',
     },
   }[lang];
 
@@ -231,16 +240,21 @@ export default function CreateAgency() {
       });
 
       if (res.ok || res.status === 201) {
+        toast.success(t.agencyCreated);
         navigation.navigate('CreateAgencySuccess');
       } else if (res.status === 400) {
+        toast.error(t.createError);
         setApiError(t.errorExists);
       } else if (res.status === 404) {
+        toast.error(t.createError);
         setApiError(t.errorNotFound);
       } else {
         const data = await res.json().catch(() => ({}));
+        toast.error(t.createError);
         setApiError(data.message || t.errorGeneric);
       }
     } catch {
+      toast.error(t.error);
       setApiError(t.errorGeneric);
     } finally {
       setSubmitting(false);
@@ -350,9 +364,11 @@ export default function CreateAgency() {
           style={{ marginTop: spacing.lg }}
         />
       ) : stations.length === 0 ? (
-        <Text style={[styles.noResults, { color: theme.text }]}>
-          {t.noStations}
-        </Text>
+        <EmptyState
+          type="result"
+          message={t.noStations}
+          textColor={theme.text}
+        />
       ) : (
         stations.map(station => {
           const isSelected =

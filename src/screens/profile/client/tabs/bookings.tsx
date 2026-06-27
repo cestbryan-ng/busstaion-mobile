@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,16 +11,20 @@ import {
   ActivityIndicator,
   useColorScheme,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { EmptyState } from '../../../../components/empty-state';
+import { SkeletonListScreen } from '../../../../components/skeleton';
 
 type Passager = {
   idPassager: string;
@@ -123,6 +127,8 @@ export default function Bookings() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const [tab, setTab] = useState<TabType>('avenir');
   const [filter, setFilter] = useState<FilterType>('TOUS');
   const [search, setSearch] = useState('');
@@ -131,6 +137,7 @@ export default function Bookings() {
   const [refreshing, setRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const t = {
     fr: {
@@ -177,7 +184,8 @@ export default function Bookings() {
     { key: 'ANNULEE', label: t.cancelled },
   ];
 
-  const loadReservations = useCallback(async (page = 0) => {
+  const loadReservations = useCallback(async (page = 0, reset = true) => {
+    if (!reset) setLoadingMore(true);
     try {
       const [userRaw, token, storedLang] = await Promise.all([
         AsyncStorage.getItem('user'),
@@ -198,7 +206,8 @@ export default function Bookings() {
 
       if (res.ok) {
         const data = await res.json();
-        setReservations(data.content || []);
+        const content = data.content || [];
+        setReservations(prev => (reset ? content : [...prev, ...content]));
         setTotalPages(data.totalPages || 1);
         setCurrentPage(page);
       }
@@ -206,6 +215,7 @@ export default function Bookings() {
       // silent
     } finally {
       setLoading(false);
+      if (!reset) setLoadingMore(false);
     }
   }, []);
 
@@ -215,9 +225,14 @@ export default function Bookings() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadReservations(0);
+    await loadReservations(0, true);
     setRefreshing(false);
   }, [loadReservations]);
+
+  const loadMore = useCallback(() => {
+    if (loadingMore || currentPage >= totalPages - 1) return;
+    loadReservations(currentPage + 1, false);
+  }, [loadingMore, currentPage, totalPages, loadReservations]);
 
   const filtered = reservations.filter(r => {
     const upcoming = isUpcoming(r.voyage.dateDepartPrev);
@@ -394,229 +409,184 @@ export default function Bookings() {
     );
   };
 
-  const Pagination = () => {
-    if (totalPages <= 1) return null;
-    const pages = Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i);
-
-    return (
-      <View style={styles.pagination}>
-        <TouchableOpacity
-          style={[
-            styles.pageBtn,
-            { borderColor: theme.border, opacity: currentPage === 0 ? 0.4 : 1 },
-          ]}
-          onPress={() => currentPage > 0 && loadReservations(currentPage - 1)}
-          disabled={currentPage === 0}
-        >
-          <Ionicons name="chevron-back" size={16} color={theme.textStrong} />
-        </TouchableOpacity>
-
-        {pages.map(p => (
-          <TouchableOpacity
-            key={p}
-            style={[
-              styles.pageBtn,
-              { borderColor: theme.border },
-              currentPage === p && {
-                backgroundColor: colors.primary,
-                borderColor: colors.primary,
-              },
-            ]}
-            onPress={() => loadReservations(p)}
-          >
-            <Text
-              style={[
-                styles.pageBtnText,
-                { color: currentPage === p ? '#fff' : theme.textStrong },
-              ]}
-            >
-              {p + 1}
-            </Text>
-          </TouchableOpacity>
-        ))}
-
-        {totalPages > 5 && (
-          <Text
-            style={[
-              styles.pageBtnText,
-              { color: theme.text, paddingHorizontal: spacing.xs },
-            ]}
-          >
-            ...
-          </Text>
-        )}
-
-        <TouchableOpacity
-          style={[
-            styles.pageBtn,
-            {
-              borderColor: theme.border,
-              opacity: currentPage === totalPages - 1 ? 0.4 : 1,
-            },
-          ]}
-          onPress={() =>
-            currentPage < totalPages - 1 && loadReservations(currentPage + 1)
-          }
-          disabled={currentPage === totalPages - 1}
-        >
-          <Ionicons name="chevron-forward" size={16} color={theme.textStrong} />
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
   if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <SkeletonListScreen />;
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
-      {/* Header */}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
-        ]}
+        style={[styles.container, { backgroundColor: theme.backgroundAlt }]}
       >
-        <Text style={[styles.title, { color: theme.textStrong }]}>
-          {t.title}
-        </Text>
-      </View>
-
-      {/* Tabs */}
-      <View
-        style={[
-          styles.tabs,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
-        ]}
-      >
-        {(['avenir', 'terminees'] as TabType[]).map(t2 => (
-          <TouchableOpacity
-            key={t2}
-            style={[
-              styles.tab,
-              tab === t2 && {
-                borderBottomColor: colors.primary,
-                borderBottomWidth: 2,
-              },
-            ]}
-            onPress={() => {
-              setTab(t2);
-              setFilter('TOUS');
-            }}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                { color: tab === t2 ? colors.primary : theme.text },
-              ]}
-            >
-              {t2 === 'avenir' ? t.tabUpcoming : t.tabDone}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {/* Search */}
-        <View style={[styles.searchRow, { backgroundColor: theme.background }]}>
-          <View
-            style={[
-              styles.searchInput,
-              {
-                borderColor: theme.border,
-                backgroundColor: theme.backgroundAlt,
-              },
-            ]}
-          >
-            <Ionicons name="search-outline" size={16} color={theme.text} />
-            <TextInput
-              style={[styles.searchText, { color: theme.textStrong }]}
-              placeholder={t.searchPlaceholder}
-              placeholderTextColor={theme.text}
-              value={search}
-              onChangeText={setSearch}
-            />
-          </View>
-          <TouchableOpacity
-            style={[styles.filterIconBtn, { borderColor: theme.border }]}
-          >
-            <Ionicons
-              name="options-outline"
-              size={20}
-              color={theme.textStrong}
-            />
-          </TouchableOpacity>
+        {/* Header */}
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
+          ]}
+        >
+          <Text style={[styles.title, { color: theme.textStrong }]}>
+            {t.title}
+          </Text>
         </View>
 
-        {/* Filter chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersRow}
+        {/* Tabs */}
+        <View
+          style={[
+            styles.tabs,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
+          ]}
         >
-          {FILTERS.map(f => (
+          {(['avenir', 'terminees'] as TabType[]).map(t2 => (
             <TouchableOpacity
-              key={f.key}
+              key={t2}
               style={[
-                styles.chip,
-                {
-                  borderColor: filter === f.key ? colors.primary : theme.border,
+                styles.tab,
+                tab === t2 && {
+                  borderBottomColor: colors.primary,
+                  borderBottomWidth: 2,
                 },
-                filter === f.key && { backgroundColor: `${colors.primary}10` },
               ]}
-              onPress={() => setFilter(f.key)}
+              onPress={() => {
+                setTab(t2);
+                setFilter('TOUS');
+              }}
             >
               <Text
                 style={[
-                  styles.chipText,
-                  { color: filter === f.key ? colors.primary : theme.text },
+                  styles.tabText,
+                  { color: tab === t2 ? colors.primary : theme.text },
                 ]}
               >
-                {f.label}
+                {t2 === 'avenir' ? t.tabUpcoming : t.tabDone}
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
-
-        {/* List */}
-        <View style={styles.list}>
-          {filtered.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="calendar-outline" size={48} color={theme.text} />
-              <Text style={[styles.emptyText, { color: theme.text }]}>
-                {t.noReservations}
-              </Text>
-            </View>
-          ) : (
-            filtered.map(item => (
-              <ReservationCard key={item.idReservation} item={item} />
-            ))
-          )}
         </View>
 
-        <Pagination />
-      </ScrollView>
-    </View>
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          scrollEventThrottle={400}
+          onScroll={({ nativeEvent }) => {
+            const { layoutMeasurement, contentOffset, contentSize } =
+              nativeEvent;
+            if (
+              layoutMeasurement.height + contentOffset.y >=
+              contentSize.height - 100
+            ) {
+              loadMore();
+            }
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {/* Search */}
+          <View
+            style={[styles.searchRow, { backgroundColor: theme.background }]}
+          >
+            <View
+              style={[
+                styles.searchInput,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                },
+              ]}
+            >
+              <Ionicons name="search-outline" size={16} color={theme.text} />
+              <TextInput
+                style={[styles.searchText, { color: theme.textStrong }]}
+                placeholder={t.searchPlaceholder}
+                placeholderTextColor={theme.text}
+                value={search}
+                onChangeText={setSearch}
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.filterIconBtn, { borderColor: theme.border }]}
+            >
+              <Ionicons
+                name="options-outline"
+                size={20}
+                color={theme.textStrong}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Filter chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtersRow}
+          >
+            {FILTERS.map(f => (
+              <TouchableOpacity
+                key={f.key}
+                style={[
+                  styles.chip,
+                  {
+                    borderColor:
+                      filter === f.key ? colors.primary : theme.border,
+                  },
+                  filter === f.key && {
+                    backgroundColor: `${colors.primary}10`,
+                  },
+                ]}
+                onPress={() => setFilter(f.key)}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: filter === f.key ? colors.primary : theme.text },
+                  ]}
+                >
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* List */}
+          <View style={styles.list}>
+            {filtered.length === 0 ? (
+              <EmptyState
+                type="calendar"
+                message={t.noReservations}
+                textColor={theme.text}
+              />
+            ) : (
+              filtered.map(item => (
+                <ReservationCard key={item.idReservation} item={item} />
+              ))
+            )}
+          </View>
+
+          {loadingMore && (
+            <ActivityIndicator
+              size="small"
+              color={colors.primary}
+              style={{ paddingVertical: spacing.lg }}
+            />
+          )}
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 

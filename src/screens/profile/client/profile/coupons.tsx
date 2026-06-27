@@ -19,6 +19,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL, QR_API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { EmptyState } from '../../../../components/empty-state';
 
 type Coupon = {
   idCoupon: string;
@@ -147,9 +148,7 @@ export default function Coupons() {
   };
 
   const getQRUrl = (coupon: Coupon) =>
-    `${QR_API_URL}?size=150x150&data=${encodeURIComponent(
-      coupon.idCoupon,
-    )}`;
+    `${QR_API_URL}?size=150x150&data=${encodeURIComponent(coupon.idCoupon)}`;
 
   const CouponCard = ({ item }: { item: Coupon }) => {
     const isValid = item.statusCoupon === 'VALIDE';
@@ -394,12 +393,11 @@ export default function Coupons() {
         contentContainerStyle={styles.scroll}
       >
         {filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="pricetag-outline" size={48} color={theme.text} />
-            <Text style={[styles.emptyText, { color: theme.text }]}>
-              {t.noCoupons}
-            </Text>
-          </View>
+          <EmptyState
+            type="message"
+            message={t.noCoupons}
+            textColor={theme.text}
+          />
         ) : viewMode === 'grid' ? (
           <View style={styles.grid}>
             {filtered.map(item => (

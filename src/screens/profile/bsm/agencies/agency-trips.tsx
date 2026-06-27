@@ -18,6 +18,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { EmptyState } from '../../../../components/empty-state';
 
 type Trip = {
   idVoyage: string;
@@ -396,12 +397,11 @@ export default function AgencyTripsBsm() {
         {/* Trips list */}
         <View style={styles.list}>
           {filtered.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="bus-outline" size={48} color={theme.text} />
-              <Text style={[styles.emptyText, { color: theme.text }]}>
-                {t.noTrips}
-              </Text>
-            </View>
+            <EmptyState
+              type="result"
+              message={t.noTrips}
+              textColor={theme.text}
+            />
           ) : (
             filtered.map(trip => <TripCard key={trip.idVoyage} trip={trip} />)
           )}

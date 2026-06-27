@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
@@ -20,6 +20,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL, SUPPORT_URL, CGU_URL } from '../../../../utils/config';
 import { logout } from '../../../../utils/logout';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonProfileScreen } from '../../../../components/skeleton';
 
 type Agency = {
   agencyId: string;
@@ -35,6 +36,8 @@ export default function AgencyProfil() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const [pinEnabled, setPinEnabled] = useState(false);
   const [agency, setAgency] = useState<Agency | null>(null);
   const [loading, setLoading] = useState(true);
@@ -168,13 +171,7 @@ export default function AgencyProfil() {
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) { return <SkeletonProfileScreen />; }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -200,6 +197,7 @@ export default function AgencyProfil() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

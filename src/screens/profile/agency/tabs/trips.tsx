@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import {
   View,
   Text,
@@ -10,16 +16,20 @@ import {
   ActivityIndicator,
   useColorScheme,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonListScreen } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
 
 type Trip = {
   idVoyage: string;
@@ -98,6 +108,8 @@ export default function AgencyTrips() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -363,157 +375,173 @@ export default function AgencyTrips() {
   ];
 
   if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <SkeletonListScreen />;
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
-      {/* Header */}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
-        ]}
+        style={[styles.container, { backgroundColor: theme.backgroundAlt }]}
       >
-        <Text style={[styles.title, { color: theme.textStrong }]}>
-          {t.title}
-        </Text>
-        <TouchableOpacity onPress={() => {}}>
-          <View
-            style={[styles.avatarBtn, { backgroundColor: theme.backgroundAlt }]}
-          >
-            <Ionicons name="person-outline" size={18} color={theme.text} />
-          </View>
-        </TouchableOpacity>
-      </View>
-
-      {/* Status filters */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={[
-          styles.filtersScroll,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
-        ]}
-        contentContainerStyle={styles.filtersContent}
-      >
-        {FILTER_TABS.map(tab => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[
-              styles.filterTab,
-              activeFilter === tab.key && { backgroundColor: colors.primary },
-              activeFilter !== tab.key && {
-                borderColor: theme.border,
-                borderWidth: 1,
-              },
-            ]}
-            onPress={() => setActiveFilter(tab.key)}
-          >
-            <Text
-              style={[
-                styles.filterTabText,
-                { color: activeFilter === tab.key ? '#fff' : theme.text },
-              ]}
-            >
-              {tab.key === 'PUBLIE' ? `${t.published} ` : ''}
-              {tab.key === 'EN_COURS' ? `${t.ongoing} ` : ''}
-              {tab.key === 'EN_ATTENTE' ? `${t.drafts} ` : ''}
-              {tab.key === 'TERMINE' ? `${t.completed} ` : ''}
-              <Text
-                style={[
-                  styles.filterCount,
-                  { color: activeFilter === tab.key ? '#fff' : colors.primary },
-                ]}
-              >
-                {tab.count}
-              </Text>
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Search */}
-      <View
-        style={[
-          styles.searchRow,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
-        ]}
-      >
+        {/* Header */}
         <View
           style={[
-            styles.searchInput,
-            { borderColor: theme.border, backgroundColor: theme.backgroundAlt },
+            styles.header,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
           ]}
         >
-          <Ionicons name="search-outline" size={16} color={theme.text} />
-          <TextInput
-            style={[styles.searchText, { color: theme.textStrong }]}
-            placeholder={t.search}
-            placeholderTextColor={theme.text}
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <Ionicons name="close-circle" size={16} color={theme.text} />
-            </TouchableOpacity>
-          )}
+          <Text style={[styles.title, { color: theme.textStrong }]}>
+            {t.title}
+          </Text>
+          <TouchableOpacity onPress={() => {}}>
+            <View
+              style={[
+                styles.avatarBtn,
+                { backgroundColor: theme.backgroundAlt },
+              ]}
+            >
+              <Ionicons name="person-outline" size={18} color={theme.text} />
+            </View>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={[styles.filterBtn, { borderColor: theme.border }]}
+
+        {/* Status filters */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={[
+            styles.filtersScroll,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
+          ]}
+          contentContainerStyle={styles.filtersContent}
         >
-          <Ionicons name="options-outline" size={20} color={theme.textStrong} />
+          {FILTER_TABS.map(tab => (
+            <TouchableOpacity
+              key={tab.key}
+              style={[
+                styles.filterTab,
+                activeFilter === tab.key && { backgroundColor: colors.primary },
+                activeFilter !== tab.key && {
+                  borderColor: theme.border,
+                  borderWidth: 1,
+                },
+              ]}
+              onPress={() => setActiveFilter(tab.key)}
+            >
+              <Text
+                style={[
+                  styles.filterTabText,
+                  { color: activeFilter === tab.key ? '#fff' : theme.text },
+                ]}
+              >
+                {tab.key === 'PUBLIE' ? `${t.published} ` : ''}
+                {tab.key === 'EN_COURS' ? `${t.ongoing} ` : ''}
+                {tab.key === 'EN_ATTENTE' ? `${t.drafts} ` : ''}
+                {tab.key === 'TERMINE' ? `${t.completed} ` : ''}
+                <Text
+                  style={[
+                    styles.filterCount,
+                    {
+                      color: activeFilter === tab.key ? '#fff' : colors.primary,
+                    },
+                  ]}
+                >
+                  {tab.count}
+                </Text>
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Search */}
+        <View
+          style={[
+            styles.searchRow,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.searchInput,
+              {
+                borderColor: theme.border,
+                backgroundColor: theme.backgroundAlt,
+              },
+            ]}
+          >
+            <Ionicons name="search-outline" size={16} color={theme.text} />
+            <TextInput
+              style={[styles.searchText, { color: theme.textStrong }]}
+              placeholder={t.search}
+              placeholderTextColor={theme.text}
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <Ionicons name="close-circle" size={16} color={theme.text} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity
+            style={[styles.filterBtn, { borderColor: theme.border }]}
+          >
+            <Ionicons
+              name="options-outline"
+              size={20}
+              color={theme.textStrong}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* List */}
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {filtered.length === 0 ? (
+            <EmptyState
+              type="result"
+              message={t.noTrips}
+              textColor={theme.text}
+            />
+          ) : (
+            filtered.map(item => <TripCard key={item.idVoyage} item={item} />)
+          )}
+          <View style={{ height: 80 }} />
+        </ScrollView>
+
+        {/* FAB */}
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: colors.primary }]}
+          onPress={() => navigation.navigate('AgencyNewTrip', {})}
+        >
+          <Ionicons name="add" size={20} color="#fff" />
+          <Text style={styles.fabText}>{t.newTrip}</Text>
         </TouchableOpacity>
       </View>
-
-      {/* List */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="bus-outline" size={48} color={theme.text} />
-            <Text style={[styles.emptyText, { color: theme.text }]}>
-              {t.noTrips}
-            </Text>
-          </View>
-        ) : (
-          filtered.map(item => <TripCard key={item.idVoyage} item={item} />)
-        )}
-        <View style={{ height: 80 }} />
-      </ScrollView>
-
-      {/* FAB */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primary }]}
-        onPress={() => navigation.navigate('AgencyNewTrip', {})}
-      >
-        <Ionicons name="add" size={20} color="#fff" />
-        <Text style={styles.fabText}>{t.newTrip}</Text>
-      </TouchableOpacity>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

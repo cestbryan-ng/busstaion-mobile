@@ -16,6 +16,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useToast } from '../../../../components/toast';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
@@ -40,6 +41,7 @@ export default function AgencyInfo() {
   const theme = isDark ? colors.dark : colors.light;
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const toast = useToast();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [agency, setAgency] = useState<Agency | null>(null);
@@ -72,6 +74,8 @@ export default function AgencyInfo() {
       required: 'Ce champ est requis.',
       invalidEmail: 'Email invalide.',
       errorGeneric: 'Une erreur est survenue, veuillez réessayer.',
+      changesSaved: 'Modifications enregistrées',
+      saveError: 'Erreur lors de la sauvegarde',
     },
     en: {
       title: 'Agency information',
@@ -89,6 +93,8 @@ export default function AgencyInfo() {
       required: 'This field is required.',
       invalidEmail: 'Invalid email.',
       errorGeneric: 'An error occurred, please try again.',
+      changesSaved: 'Changes saved',
+      saveError: 'Save error',
     },
   }[lang];
 
@@ -161,12 +167,15 @@ export default function AgencyInfo() {
       });
 
       if (res.ok) {
+        toast.success(t.changesSaved);
         setSuccessMessage(t.success);
       } else {
         const data = await res.json().catch(() => ({}));
+        toast.error(t.saveError);
         setApiError(data.message || t.errorGeneric);
       }
     } catch {
+      toast.error(t.saveError);
       setApiError(t.errorGeneric);
     } finally {
       setSubmitting(false);

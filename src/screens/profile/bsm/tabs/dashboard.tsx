@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonDashboard } from '../../../../components/skeleton';
 
 type Station = {
   id: string;
@@ -93,6 +94,8 @@ export default function BsmDashboard({
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [station, setStation] = useState<Station | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -266,13 +269,7 @@ export default function BsmDashboard({
     </View>
   );
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) { return <SkeletonDashboard />; }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -299,6 +296,7 @@ export default function BsmDashboard({
       </View>
 
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

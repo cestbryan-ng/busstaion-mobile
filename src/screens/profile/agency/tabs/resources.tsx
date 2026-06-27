@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,12 +16,14 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import ConfirmModal from '../../../../components/confirm-modal';
+import { SkeletonResourcesScreen } from '../../../../components/skeleton';
+import { useToast } from '../../../../components/toast';
 
 type Vehicle = {
   idVehicule: string;
@@ -243,8 +245,11 @@ const fStyles = StyleSheet.create({
 export default function AgencyResources() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const toast = useToast();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const [agencyId, setAgencyId] = useState('');
   const [token, setToken] = useState('');
   const [activeTab, setActiveTab] = useState<ResourceTab>('vehicles');
@@ -356,6 +361,9 @@ export default function AgencyResources() {
       className: 'Nom de la classe',
       price: 'Prix (FCFA)',
       cancelRateField: "Taux d'annulation (%)",
+      savedSuccess: 'Enregistré avec succès',
+      deletedSuccess: 'Supprimé avec succès',
+      error: 'Une erreur est survenue',
     },
     en: {
       title: 'Resources',
@@ -409,6 +417,9 @@ export default function AgencyResources() {
       className: 'Class name',
       price: 'Price (FCFA)',
       cancelRateField: 'Cancellation rate (%)',
+      savedSuccess: 'Saved successfully',
+      deletedSuccess: 'Deleted successfully',
+      error: 'An error occurred',
     },
   }[lang];
 
@@ -625,8 +636,11 @@ export default function AgencyResources() {
           body: JSON.stringify(body),
         });
         if (res.ok) {
+          toast.success(t.savedSuccess);
           await loadAll();
           setFormModal(false);
+        } else {
+          toast.error(t.error);
         }
       }
       if (activeTab === 'drivers') {
@@ -641,8 +655,11 @@ export default function AgencyResources() {
           body: JSON.stringify(body),
         });
         if (res.ok) {
+          toast.success(t.savedSuccess);
           await loadAll();
           setFormModal(false);
+        } else {
+          toast.error(t.error);
         }
       }
       if (activeTab === 'employees') {
@@ -657,8 +674,11 @@ export default function AgencyResources() {
           body: JSON.stringify(body),
         });
         if (res.ok) {
+          toast.success(t.savedSuccess);
           await loadAll();
           setFormModal(false);
+        } else {
+          toast.error(t.error);
         }
       }
       if (activeTab === 'classes') {
@@ -678,12 +698,15 @@ export default function AgencyResources() {
           body: JSON.stringify(body),
         });
         if (res.ok) {
+          toast.success(t.savedSuccess);
           await loadAll();
           setFormModal(false);
+        } else {
+          toast.error(t.error);
         }
       }
     } catch {
-      // silent
+      toast.error(t.error);
     } finally {
       setSubmitting(false);
     }
@@ -704,12 +727,15 @@ export default function AgencyResources() {
         url = `${API_URL}/class-voyage/${deleteItem.idClassVoyage}`;
       const res = await fetch(url, { method: 'DELETE', headers });
       if (res.ok) {
+        toast.success(t.deletedSuccess);
         await loadAll();
         setConfirmModal(false);
         setDeleteItem(null);
+      } else {
+        toast.error(t.error);
       }
     } catch {
-      // silent
+      toast.error(t.error);
     }
   };
 
@@ -1312,13 +1338,7 @@ export default function AgencyResources() {
     </Modal>
   );
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) { return <SkeletonResourcesScreen />; }
 
   const TAB_ITEMS: { key: ResourceTab; label: string }[] = [
     { key: 'vehicles', label: t.vehicles },
@@ -1397,6 +1417,7 @@ export default function AgencyResources() {
         </View>
 
         <ScrollView
+          ref={scrollRef}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

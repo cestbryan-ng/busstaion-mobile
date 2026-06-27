@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useColorScheme } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { ToastProvider } from '../components/toast';
 
 import Splash from '../screens/splash';
 import Onboard1 from '../screens/onboard/onboard1';
@@ -40,6 +41,8 @@ import StationDetailBsm from '../screens/profile/bsm/stations/station-detail';
 import AgencyDetailBsm from '../screens/profile/bsm/agencies/agency-detail';
 import AgencyTripsBsm from '../screens/profile/bsm/agencies/agency-trips';
 import TaxDetailBsm from '../screens/profile/bsm/tax/tax-detail';
+import TaxFormBsm from '../screens/profile/bsm/tax/tax-form';
+import TaxeAffiliationBsm from '../screens/profile/bsm/tax/taxe-affiliation';
 
 import type { TripFilters } from '../screens/profile/client/trips/trips-filter';
 
@@ -79,6 +82,8 @@ export type RootStackParamList = {
   AgencyDetailBsm: { agencyId: string };
   AgencyTripsBsm: { agencyId: string; agencyName?: string };
   TaxDetailBsm: { itemId: string };
+  TaxFormBsm: { itemId?: string };
+  TaxeAffiliationBsm: undefined;
 };
 
 const Stack = createNativeStackNavigator();
@@ -88,6 +93,7 @@ export default function Navigation() {
 
   return (
     <NavigationContainer>
+      <ToastProvider>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -142,7 +148,13 @@ export default function Navigation() {
         <Stack.Screen name="AgencyDetailBsm" component={AgencyDetailBsm} />
         <Stack.Screen name="AgencyTripsBsm" component={AgencyTripsBsm} />
         <Stack.Screen name="TaxDetailBsm" component={TaxDetailBsm} />
+        <Stack.Screen name="TaxFormBsm" component={TaxFormBsm} />
+        <Stack.Screen
+          name="TaxeAffiliationBsm"
+          component={TaxeAffiliationBsm}
+        />
       </Stack.Navigator>
+      </ToastProvider>
     </NavigationContainer>
   );
 }

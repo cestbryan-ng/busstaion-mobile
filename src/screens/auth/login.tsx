@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, CGU_URL } from '../../utils/config';
+import { useToast } from '../../components/toast';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -44,6 +45,7 @@ export default function Login() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const toast = useToast();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -75,6 +77,9 @@ export default function Login() {
       hintLang: 'Appuyez pour changer de langue :',
       cguText: 'En vous connectant, vous acceptez nos ',
       cguLink: "conditions générales d'utilisation",
+      loginSuccess: 'Connexion réussie !',
+      wrongCredentials: 'Identifiants incorrects',
+      networkError: 'Erreur réseau, réessayez',
     },
     en: {
       title: 'Login',
@@ -97,6 +102,9 @@ export default function Login() {
       hintLang: 'Tap to change language :',
       cguText: 'By logging in, you agree to our ',
       cguLink: 'terms and conditions',
+      loginSuccess: 'Logged in successfully!',
+      wrongCredentials: 'Incorrect credentials',
+      networkError: 'Network error, please try again',
     },
   }[lang];
 
@@ -136,6 +144,7 @@ export default function Login() {
           expiresAt.toISOString(),
         );
 
+        toast.success(t.loginSuccess);
         setStatus({ text: t.successMessage, type: 'success' });
 
         setTimeout(async () => {
@@ -171,14 +180,17 @@ export default function Login() {
         }, 800);
       } else {
         if (response.status === 404) {
+          toast.error(t.wrongCredentials);
           setStatus({ text: t.errorUserNotFound, type: 'error' });
         } else if (response.status === 401 || response.status === 403) {
+          toast.error(t.wrongCredentials);
           setStatus({ text: t.errorInvalidCredentials, type: 'error' });
         } else {
           setStatus({ text: data.message || t.errorGeneric, type: 'error' });
         }
       }
     } catch {
+      toast.error(t.networkError);
       setStatus({ text: t.errorGeneric, type: 'error' });
     } finally {
       setLoading(false);

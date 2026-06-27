@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,13 +13,15 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonDashboard } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
 
 const { width } = Dimensions.get('window');
 
@@ -245,6 +247,8 @@ export default function AgencyDashboard({
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [agency, setAgency] = useState<Agency | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const [stats, setStats] = useState<Stats | null>(null);
   const [evolution, setEvolution] = useState<EvolutionPoint[]>([]);
   const [bookings, setBookings] = useState<RecentBooking[]>([]);
@@ -465,11 +469,7 @@ export default function AgencyDashboard({
   };
 
   if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <SkeletonDashboard />;
   }
 
   return (
@@ -505,6 +505,7 @@ export default function AgencyDashboard({
       </View>
 
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -638,9 +639,7 @@ export default function AgencyDashboard({
               height={160}
             />
           ) : (
-            <View style={styles.chartEmpty}>
-              <Ionicons name="analytics-outline" size={36} color={theme.text} />
-            </View>
+            <EmptyState type="result" message="" textColor={theme.text} />
           )}
         </View>
 
@@ -662,9 +661,7 @@ export default function AgencyDashboard({
             </TouchableOpacity>
           </View>
           {bookings.length === 0 ? (
-            <View style={styles.emptyBookings}>
-              <Ionicons name="calendar-outline" size={36} color={theme.text} />
-            </View>
+            <EmptyState type="result" message="" textColor={theme.text} />
           ) : (
             bookings.map(b => <BookingCard key={b.idReservation} item={b} />)
           )}

@@ -8,11 +8,14 @@ import {
   TextInput,
   ActivityIndicator,
   useColorScheme,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useToast } from '../../../../components/toast';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
@@ -84,6 +87,7 @@ export default function AgencyNewTrip() {
   const route = useRoute<RouteProp<RootStackParamList, 'AgencyNewTrip'>>();
   const editTripId = route.params?.editTripId;
   const isEdit = !!editTripId;
+  const toast = useToast();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [step, setStep] = useState<Step>(1);
@@ -148,6 +152,8 @@ export default function AgencyNewTrip() {
       edit: 'Enregistrer les modifications',
       required: 'Champ requis',
       summary: 'Récapitulatif',
+      tripSaved: 'Voyage enregistré',
+      saveError: "Erreur lors de l'enregistrement",
     },
     en: {
       titleNew: 'New trip',
@@ -182,6 +188,8 @@ export default function AgencyNewTrip() {
       edit: 'Save changes',
       required: 'Required field',
       summary: 'Summary',
+      tripSaved: 'Trip saved',
+      saveError: 'Save error',
     },
   }[lang];
 
@@ -323,9 +331,14 @@ export default function AgencyNewTrip() {
         body: JSON.stringify(body),
       });
 
-      if (res.ok) navigation.goBack();
+      if (res.ok) {
+        toast.success(t.tripSaved);
+        navigation.goBack();
+      } else {
+        toast.error(t.saveError);
+      }
     } catch {
-      // silent
+      toast.error(t.saveError);
     } finally {
       setSubmitting(false);
     }
@@ -774,6 +787,10 @@ export default function AgencyNewTrip() {
   }
 
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
       {/* Header */}
       <View
@@ -916,6 +933,7 @@ export default function AgencyNewTrip() {
         )}
       </View>
     </View>
+    </KeyboardAvoidingView>
   );
 }
 
