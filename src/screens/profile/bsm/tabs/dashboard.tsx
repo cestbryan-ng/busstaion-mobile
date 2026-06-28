@@ -269,7 +269,9 @@ export default function BsmDashboard({
     </View>
   );
 
-  if (loading) { return <SkeletonDashboard />; }
+  if (loading) {
+    return <SkeletonDashboard />;
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -283,16 +285,40 @@ export default function BsmDashboard({
           },
         ]}
       >
-        <Text style={[styles.title, { color: theme.textStrong }]}>
-          {t.title}
-        </Text>
-        <TouchableOpacity onPress={() => setDrawerOpen(true)}>
-          <View
-            style={[styles.avatarBtn, { backgroundColor: theme.backgroundAlt }]}
-          >
-            <Ionicons name="person-outline" size={18} color={theme.text} />
-          </View>
-        </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <Text style={[styles.title, { color: theme.textStrong }]}>
+            {t.title}
+          </Text>
+        </View>
+
+        <View style={styles.headerCenter}>
+          <Image
+            source={require('../../../../assets/images/busstation_bleu.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View style={styles.headerRight}>
+          <TouchableOpacity onPress={() => setDrawerOpen(true)}>
+            <View
+              style={[
+                styles.avatarBtn,
+                { backgroundColor: theme.backgroundAlt },
+              ]}
+            >
+              {station?.imageUrl ? (
+                <Image
+                  source={{ uri: station.imageUrl }}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Ionicons name="person-outline" size={18} color={theme.text} />
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -572,14 +598,20 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
-  title: { ...typography.heading, fontSize: typography.sizes.xl },
+  headerLeft: { flex: 1 },
+  title: { ...typography.heading, fontSize: typography.sizes.lg },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerLogo: { width: 110, height: 40 },
+  headerRight: { flex: 1, alignItems: 'flex-end' },
   avatarBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
+  avatarImage: { width: '100%', height: '100%' },
 
   stationCard: {
     flexDirection: 'row',

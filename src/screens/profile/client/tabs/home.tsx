@@ -514,7 +514,7 @@ export default function Home({
           {/* Logo */}
           <View style={styles.headerCenter}>
             <Image
-              source={require('../../../assets/images/busstation_bleu.png')}
+              source={require('../../../../assets/images/busstation_bleu.png')}
               style={styles.headerLogo}
               resizeMode="contain"
             />

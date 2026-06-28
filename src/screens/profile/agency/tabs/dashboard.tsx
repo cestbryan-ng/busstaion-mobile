@@ -484,24 +484,40 @@ export default function AgencyDashboard({
           },
         ]}
       >
-        <Text style={[styles.title, { color: theme.textStrong }]}>
-          {t.title}
-        </Text>
-        <TouchableOpacity onPress={() => setDrawerOpen(true)}>
-          <View
-            style={[styles.avatarBtn, { backgroundColor: theme.backgroundAlt }]}
-          >
-            {agency?.photoUrl ? (
-              <Image
-                source={{ uri: agency.photoUrl }}
-                style={styles.avatarImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <Ionicons name="person-outline" size={18} color={theme.text} />
-            )}
-          </View>
-        </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <Text style={[styles.title, { color: theme.textStrong }]}>
+            {t.title}
+          </Text>
+        </View>
+
+        <View style={styles.headerCenter}>
+          <Image
+            source={require('../../../../assets/images/busstation_bleu.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View style={styles.headerRight}>
+          <TouchableOpacity onPress={() => setDrawerOpen(true)}>
+            <View
+              style={[
+                styles.avatarBtn,
+                { backgroundColor: theme.backgroundAlt },
+              ]}
+            >
+              {agency?.photoUrl ? (
+                <Image
+                  source={{ uri: agency.photoUrl }}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Ionicons name="person-outline" size={18} color={theme.text} />
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -804,7 +820,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
-  title: { ...typography.heading, fontSize: typography.sizes.xl },
+  headerLeft: { flex: 1 },
+  title: { ...typography.heading, fontSize: typography.sizes.lg },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerLogo: { width: 110, height: 40 },
+  headerRight: { flex: 1, alignItems: 'flex-end' },
   avatarBtn: {
     width: 36,
     height: 36,
