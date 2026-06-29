@@ -343,7 +343,7 @@ export default function SeatSelectionModal({
                   lang === 'fr' ? 'fr-FR' : 'en-GB',
                   { day: 'numeric', month: 'long' },
                 )}{' '}
-                · {trip.heureDepart} · {trip.dureeVoyage}
+                · {trip.heureDepartEffectif || ''} · {trip.dureeVoyage}
               </Text>
               <Text style={[styles.summaryMeta, { color: theme.text }]}>
                 {trip.nomAgence}

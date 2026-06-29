@@ -136,7 +136,7 @@ export default function BsmTaxes() {
       const station = await stationRes.json();
 
       const res = await fetch(
-        `${API_URL}/politique-et-taxes/gare-routiere/${station.id}`,
+        `${API_URL}/politique-et-taxes/gare-routiere/${station.idGareRoutiere}`,
         { headers },
       );
       if (res.ok) {

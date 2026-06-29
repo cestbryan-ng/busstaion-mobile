@@ -32,21 +32,21 @@ type Trip = {
   lieuArrive: string;
   dateDepartPrev: string;
   statusVoyage: string;
-  class: string;
+  nomClasseVoyage: string;
   amenities: string[];
   prix: number;
-  durationHours: number;
-  seatsAvailable: number;
-  photoUrl?: string;
+  dureeVoyage: number;
+  nbrPlaceRestante: number;
+  smallImage?: string;
   nomAgence?: string;
 };
 
 type Agency = {
-  agencyId: string;
+  id: string;
   longName: string;
   location?: string;
-  photoUrl?: string;
-  ratingAverage?: number;
+  logoUrl?: string;
+  rating?: number;
 };
 
 type Gare = {
@@ -260,7 +260,7 @@ export default function Home({
   );
 
   const TripCard = ({ item }: { item: Trip }) => {
-    const classColor = CLASS_COLORS[item.class] || colors.primary;
+    const classColor = CLASS_COLORS[item.nomClasseVoyage] || colors.primary;
     const visibleAmenities = item.amenities?.slice(0, 4) || [];
     const extraCount = Math.max(0, (item.amenities?.length || 0) - 4);
 
@@ -279,9 +279,9 @@ export default function Home({
             { backgroundColor: classColor + '18' },
           ]}
         >
-          {item.photoUrl ? (
+          {item.smallImage ? (
             <Image
-              source={{ uri: item.photoUrl }}
+              source={{ uri: item.smallImage }}
               style={styles.tripImage}
               resizeMode="cover"
             />
@@ -289,7 +289,7 @@ export default function Home({
             <Ionicons name="bus-outline" size={36} color={classColor} />
           )}
           <View style={[styles.classBadge, { backgroundColor: classColor }]}>
-            <Text style={styles.classBadgeText}>{item.class}</Text>
+            <Text style={styles.classBadgeText}>{item.nomClasseVoyage}</Text>
           </View>
         </View>
 
@@ -307,14 +307,14 @@ export default function Home({
               <Ionicons name="time-outline" size={11} color={theme.text} />
               <Text style={[styles.tripMetaText, { color: theme.text }]}>
                 {' '}
-                {formatDuration(item.durationHours)}
+                {formatDuration(item.dureeVoyage)}
               </Text>
             </View>
             <View style={styles.tripMetaItem}>
               <Ionicons name="people-outline" size={11} color={theme.text} />
               <Text style={[styles.tripMetaText, { color: theme.text }]}>
                 {' '}
-                {t.seats(item.seatsAvailable)}
+                {t.seats(item.nbrPlaceRestante)}
               </Text>
             </View>
           </View>
@@ -366,9 +366,9 @@ export default function Home({
           { backgroundColor: theme.backgroundAlt },
         ]}
       >
-        {item.photoUrl ? (
+        {item.logoUrl ? (
           <Image
-            source={{ uri: item.photoUrl }}
+            source={{ uri: item.logoUrl }}
             style={styles.agencyLogo}
             resizeMode="contain"
           />
@@ -384,12 +384,12 @@ export default function Home({
       >
         {item.longName}
       </Text>
-      {item.ratingAverage !== undefined && (
+      {item.rating !== undefined && (
         <View style={styles.ratingRow}>
           <Ionicons name="star" size={11} color="#f59e0b" />
           <Text style={[styles.ratingText, { color: theme.text }]}>
             {' '}
-            {item.ratingAverage.toFixed(1)}
+            {item.rating.toFixed(1)}
           </Text>
         </View>
       )}
@@ -714,7 +714,7 @@ export default function Home({
         <FlatList
           horizontal
           data={agencies}
-          keyExtractor={item => item.agencyId}
+          keyExtractor={item => item.id}
           renderItem={({ item }) => <AgencyCard item={item} />}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.horizontalList}

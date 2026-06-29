@@ -125,7 +125,7 @@ export default function TaxFormBsm() {
         });
         if (stRes.ok) {
           const station = await stRes.json();
-          setStationId(station.id);
+          setStationId(station.idGareRoutiere);
         }
       }
 

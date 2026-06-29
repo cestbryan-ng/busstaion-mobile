@@ -31,20 +31,15 @@ type Gare = {
   photoUrl?: string;
   services: string[];
   nbreAgence: number;
-  ratingAverage?: number;
-  numberOfReviews?: number;
   horaires?: Record<string, string>;
   contact?: { phone?: string; email?: string };
 };
 
 type Agency = {
-  agencyId: string;
+  idAgenceVoyage: string;
   longName: string;
+  shortName?: string;
   location: string;
-  photoUrl?: string;
-  ratingAverage?: number;
-  numberOfReviews?: number;
-  description?: string;
 };
 
 type Trip = {
@@ -52,12 +47,11 @@ type Trip = {
   lieuDepart: string;
   lieuArrive: string;
   dateDepartPrev: string;
-  heureDepart: string;
-  class: string;
+  nomClasseVoyage: string;
   amenities: string[];
   prix: number;
-  seatsAvailable: number;
-  agencyName?: string;
+  nbrPlaceRestante: number;
+  nomAgence?: string;
 };
 
 const SERVICE_ICONS: Record<string, string> = {
@@ -280,20 +274,11 @@ export default function StationDetail() {
             </Text>
           </View>
 
-          {gare.ratingAverage !== undefined && (
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={14} color="#f59e0b" />
-              <Text style={[styles.ratingText, { color: theme.textStrong }]}>
-                {' '}
-                {gare.ratingAverage.toFixed(1)} (
-                {t.reviews(gare.numberOfReviews || 0)})
-              </Text>
-              <Text style={[styles.separator, { color: theme.text }]}> | </Text>
-              <Text style={[styles.affiliatedText, { color: theme.text }]}>
-                {t.agencies(gare.nbreAgence)}
-              </Text>
-            </View>
-          )}
+          <View style={styles.ratingRow}>
+            <Text style={[styles.affiliatedText, { color: theme.text }]}>
+              {t.agencies(gare.nbreAgence)}
+            </Text>
+          </View>
 
           {gare.description && (
             <Text style={[styles.description, { color: theme.text }]}>
@@ -425,7 +410,7 @@ export default function StationDetail() {
             ) : (
               agencies.map(a => (
                 <TouchableOpacity
-                  key={a.agencyId}
+                  key={a.idAgenceVoyage}
                   style={[
                     styles.agencyCard,
                     {
@@ -436,7 +421,7 @@ export default function StationDetail() {
                   activeOpacity={0.85}
                   onPress={() =>
                     navigation.navigate('AgencyDetail', {
-                      agencyId: a.agencyId,
+                      agencyId: a.idAgenceVoyage,
                     })
                   }
                 >
@@ -446,22 +431,14 @@ export default function StationDetail() {
                       { backgroundColor: theme.backgroundAlt },
                     ]}
                   >
-                    {a.photoUrl ? (
-                      <Image
-                        source={{ uri: a.photoUrl }}
-                        style={styles.agencyLogoImage}
-                        resizeMode="contain"
-                      />
-                    ) : (
-                      <Text
-                        style={[
-                          styles.agencyLogoLetter,
-                          { color: colors.primary },
-                        ]}
-                      >
-                        {a.longName.charAt(0).toUpperCase()}
-                      </Text>
-                    )}
+                    <Text
+                      style={[
+                        styles.agencyLogoLetter,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      {a.longName.charAt(0).toUpperCase()}
+                    </Text>
                   </View>
                   <View style={styles.agencyInfo}>
                     <Text
@@ -482,26 +459,6 @@ export default function StationDetail() {
                         {a.location}
                       </Text>
                     </View>
-                    {a.ratingAverage !== undefined && (
-                      <View style={styles.ratingRow}>
-                        <Ionicons name="star" size={11} color="#f59e0b" />
-                        <Text
-                          style={[styles.ratingText, { color: theme.text }]}
-                        >
-                          {' '}
-                          {a.ratingAverage.toFixed(1)} (
-                          {t.reviews(a.numberOfReviews || 0)})
-                        </Text>
-                      </View>
-                    )}
-                    {a.description && (
-                      <Text
-                        style={[styles.agencyDesc, { color: theme.text }]}
-                        numberOfLines={1}
-                      >
-                        {a.description}
-                      </Text>
-                    )}
                   </View>
                   <Ionicons
                     name="chevron-forward"
@@ -519,7 +476,7 @@ export default function StationDetail() {
             />
           ) : (
             trips.map(trip => {
-              const classColor = CLASS_COLORS[trip.class] || colors.primary;
+              const classColor = CLASS_COLORS[trip.nomClasseVoyage] || colors.primary;
               return (
                 <TouchableOpacity
                   key={trip.idVoyage}
@@ -548,7 +505,7 @@ export default function StationDetail() {
                         { backgroundColor: classColor },
                       ]}
                     >
-                      <Text style={styles.classBadgeText}>{trip.class}</Text>
+                      <Text style={styles.classBadgeText}>{trip.nomClasseVoyage}</Text>
                     </View>
                   </View>
                   <View style={styles.tripMeta}>
@@ -562,8 +519,7 @@ export default function StationDetail() {
                       {new Date(trip.dateDepartPrev).toLocaleDateString(
                         lang === 'fr' ? 'fr-FR' : 'en-GB',
                         { day: 'numeric', month: 'short', year: 'numeric' },
-                      )}{' '}
-                      · {trip.heureDepart}
+                      )
                     </Text>
                   </View>
                   {trip.agencyName && (
@@ -578,7 +534,7 @@ export default function StationDetail() {
                     ]}
                   >
                     <Text style={[styles.seatsText, { color: colors.primary }]}>
-                      {t.seats(trip.seatsAvailable)}
+                      {t.seats(trip.nbrPlaceRestante)}
                     </Text>
                     <Text style={[styles.tripPrice, { color: colors.primary }]}>
                       {trip.prix.toLocaleString('fr-FR')} FCFA

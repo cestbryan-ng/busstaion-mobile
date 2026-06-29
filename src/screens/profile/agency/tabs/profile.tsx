@@ -24,9 +24,8 @@ import { SkeletonProfileScreen } from '../../../../components/skeleton';
 
 type Agency = {
   agencyId: string;
-  longName: string;
+  long_name: string;
   location?: string;
-  photoUrl?: string;
 };
 
 export default function AgencyProfil() {
@@ -223,21 +222,13 @@ export default function AgencyProfil() {
               { backgroundColor: `${colors.primary}15` },
             ]}
           >
-            {agency?.photoUrl ? (
-              <Image
-                source={{ uri: agency.photoUrl }}
-                style={styles.agencyLogoImage}
-                resizeMode="contain"
-              />
-            ) : (
-              <Text style={[styles.agencyLogoText, { color: colors.primary }]}>
-                {agency?.longName.slice(0, 2).toUpperCase() || 'VP'}
-              </Text>
-            )}
+            <Text style={[styles.agencyLogoText, { color: colors.primary }]}>
+              {agency?.long_name.slice(0, 2).toUpperCase() || 'VP'}
+            </Text>
           </View>
           <View style={styles.agencyInfo}>
             <Text style={[styles.agencyName, { color: theme.textStrong }]}>
-              {agency?.longName || '—'}
+              {agency?.long_name || '—'}
             </Text>
             <Text style={[styles.agencyType, { color: theme.text }]}>
               {t.agencyType}

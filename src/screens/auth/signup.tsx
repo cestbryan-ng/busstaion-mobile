@@ -305,7 +305,7 @@ export default function SignUp() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email: form1.email,
+            username: form1.username,
             password: form1.password,
           }),
         });

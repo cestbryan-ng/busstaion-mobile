@@ -197,7 +197,7 @@ export default function PaymentModal({
                   lang === 'fr' ? 'fr-FR' : 'en-GB',
                   { day: 'numeric', month: 'long', year: 'numeric' },
                 )}{' '}
-                · {trip.heureDepart} · {trip.dureeVoyage}
+                · {trip.heureDepartEffectif || ''} · {trip.dureeVoyage}
               </Text>
               <Text style={[styles.tripMeta, { color: theme.text }]}>
                 {trip.nomAgence}

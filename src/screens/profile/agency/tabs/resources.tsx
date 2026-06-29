@@ -46,7 +46,6 @@ type Driver = {
   phone_number?: string;
   permis?: string;
   statut?: string;
-  photoUrl?: string;
 };
 
 type Employee = {
@@ -57,8 +56,7 @@ type Employee = {
   email?: string;
   poste?: string;
   departement?: string;
-  statut?: string;
-  photoUrl?: string;
+  statutEmploye?: string;
 };
 
 type TravelClass = {
@@ -892,15 +890,7 @@ export default function AgencyResources() {
             ]}
           >
             <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-              {d.photoUrl ? (
-                <Image
-                  source={{ uri: d.photoUrl }}
-                  style={styles.avatarImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Text style={styles.avatarText}>{initials}</Text>
-              )}
+              <Text style={styles.avatarText}>{initials}</Text>
             </View>
             <View style={styles.listInfo}>
               <View style={styles.listTopRow}>
@@ -946,7 +936,7 @@ export default function AgencyResources() {
   const EmployeesTab = () => (
     <>
       {filteredEmployees.map((e, i) => {
-        const statusKey = (e.statut || 'ACTIF')
+        const statusKey = (e.statutEmploye || 'ACTIF')
           .toUpperCase()
           .replace(/ /g, '_');
         const statusCfg = EMPLOYEE_STATUS[statusKey] || EMPLOYEE_STATUS.ACTIF;
@@ -961,15 +951,7 @@ export default function AgencyResources() {
             ]}
           >
             <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-              {e.photoUrl ? (
-                <Image
-                  source={{ uri: e.photoUrl }}
-                  style={styles.avatarImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Text style={styles.avatarText}>{initials}</Text>
-              )}
+              <Text style={styles.avatarText}>{initials}</Text>
             </View>
             <View style={styles.listInfo}>
               <View style={styles.listTopRow}>

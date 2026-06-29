@@ -22,17 +22,16 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 
 type Station = {
-  id: string;
+  idGareRoutiere: string;
   nomGareRoutiere: string;
   ville: string;
   quartier?: string;
   adresse?: string;
   description?: string;
-  imageUrl?: string;
+  photoUrl?: string;
   services: string[];
-  estOuvert: boolean;
-  horaires?: string;
-  nbAgencesAffiliees: number;
+  horaires?: Record<string, string>;
+  nbreAgence: number;
 };
 
 const SERVICE_ICONS: Record<string, string> = {
@@ -111,7 +110,7 @@ export default function StationDetailBsm() {
         if (!managerRes.ok) return;
         const stationBasic = await managerRes.json();
 
-        const res = await fetch(`${API_URL}/gare/${stationBasic.id}`, {
+        const res = await fetch(`${API_URL}/gare/${stationBasic.idGareRoutiere}`, {
           headers,
         });
         if (res.ok) setStation(await res.json());
@@ -175,9 +174,9 @@ export default function StationDetailBsm() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Banner */}
         <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
-          {station.imageUrl ? (
+          {station.photoUrl ? (
             <Image
-              source={{ uri: station.imageUrl }}
+              source={{ uri: station.photoUrl }}
               style={styles.bannerImage}
               resizeMode="cover"
             />
@@ -219,28 +218,21 @@ export default function StationDetailBsm() {
             <View
               style={[
                 styles.openBadge,
-                {
-                  backgroundColor: station.estOuvert
-                    ? `${colors.success}15`
-                    : `${colors.error}15`,
-                },
+                { backgroundColor: `${colors.success}15` },
               ]}
             >
               <Text
-                style={[
-                  styles.openBadgeText,
-                  { color: station.estOuvert ? colors.success : colors.error },
-                ]}
+                style={[styles.openBadgeText, { color: colors.success }]}
               >
-                {station.estOuvert ? t.open : t.closed}
+                {t.open}
               </Text>
             </View>
-            {station.horaires && (
+            {station.horaires && Object.keys(station.horaires).length > 0 && (
               <View style={styles.hoursRow}>
                 <Ionicons name="time-outline" size={13} color={theme.text} />
                 <Text style={[styles.hoursText, { color: theme.text }]}>
                   {' '}
-                  {station.horaires}
+                  {Object.entries(station.horaires)[0]?.join(': ')}
                 </Text>
               </View>
             )}
@@ -315,7 +307,7 @@ export default function StationDetailBsm() {
           ]}
         >
           {[
-            { label: t.affiliatedAgencies, value: station.nbAgencesAffiliees },
+            { label: t.affiliatedAgencies, value: station.nbreAgence },
             { label: t.operationalDocks, value: 12 },
             { label: t.activeCounters, value: 8 },
             { label: t.parkingSpots, value: 120 },

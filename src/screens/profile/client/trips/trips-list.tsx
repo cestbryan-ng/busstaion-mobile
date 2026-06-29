@@ -32,14 +32,13 @@ type Trip = {
   lieuDepart: string;
   lieuArrive: string;
   dateDepartPrev: string;
-  heureDepart?: string;
   statusVoyage: string;
-  class: string;
+  nomClasseVoyage: string;
   amenities: string[];
   prix: number;
-  durationHours: number;
-  seatsAvailable: number;
-  photoUrl?: string;
+  dureeVoyage: number;
+  nbrPlaceRestante: number;
+  smallImage?: string;
   nomAgence?: string;
 };
 
@@ -235,7 +234,7 @@ export default function TripsList() {
       if (date && !trip.dateDepartPrev.startsWith(date)) return false;
       if (
         activeFilters.classes.length > 0 &&
-        !activeFilters.classes.includes(trip.class)
+        !activeFilters.classes.includes(trip.nomClasseVoyage)
       )
         return false;
       if (activeFilters.amenities.length > 0) {
@@ -249,13 +248,13 @@ export default function TripsList() {
     .sort((a, b) => {
       if (sortBy === 'price_asc') return a.prix - b.prix;
       if (sortBy === 'price_desc') return b.prix - a.prix;
-      if (sortBy === 'duration_asc') return a.durationHours - b.durationHours;
-      if (sortBy === 'seats_desc') return b.seatsAvailable - a.seatsAvailable;
+      if (sortBy === 'duration_asc') return a.dureeVoyage - b.dureeVoyage;
+      if (sortBy === 'seats_desc') return b.nbrPlaceRestante - a.nbrPlaceRestante;
       return 0;
     });
 
   const ListCard = ({ item }: { item: Trip }) => {
-    const classColor = CLASS_COLORS[item.class] || colors.primary;
+    const classColor = CLASS_COLORS[item.nomClasseVoyage] || colors.primary;
     const visibleAmenities = item.amenities?.slice(0, 5) || [];
     const extraCount = Math.max(0, (item.amenities?.length || 0) - 5);
 
@@ -279,9 +278,9 @@ export default function TripsList() {
               { backgroundColor: theme.backgroundAlt },
             ]}
           >
-            {item.photoUrl ? (
+            {item.smallImage ? (
               <Image
-                source={{ uri: item.photoUrl }}
+                source={{ uri: item.smallImage }}
                 style={styles.listCardImageInner}
                 resizeMode="cover"
               />
@@ -297,7 +296,7 @@ export default function TripsList() {
               <View
                 style={[styles.classBadge, { backgroundColor: classColor }]}
               >
-                <Text style={styles.classBadgeText}>{item.class}</Text>
+                <Text style={styles.classBadgeText}>{item.nomClasseVoyage}</Text>
               </View>
               <Text style={[styles.listCardRoute, { color: theme.textStrong }]}>
                 {item.lieuDepart} → {item.lieuArrive}
@@ -310,7 +309,6 @@ export default function TripsList() {
               <Text style={[styles.metaText, { color: theme.text }]}>
                 {' '}
                 {formatDate(item.dateDepartPrev, lang)}
-                {item.heureDepart ? ` • ${item.heureDepart}` : ''}
               </Text>
             </View>
 
@@ -324,7 +322,7 @@ export default function TripsList() {
                 />
                 <Text style={[styles.metaText, { color: theme.text }]}>
                   {' '}
-                  {formatDuration(item.durationHours)}
+                  {formatDuration(item.dureeVoyage)}
                 </Text>
               </View>
               <Text style={[styles.price, { color: colors.primary }]}>
@@ -360,7 +358,7 @@ export default function TripsList() {
             )}
           </View>
           <Text style={[styles.seatsText, { color: colors.primary }]}>
-            {t.seats(item.seatsAvailable)}
+            {t.seats(item.nbrPlaceRestante)}
           </Text>
         </View>
       </TouchableOpacity>
@@ -368,7 +366,7 @@ export default function TripsList() {
   };
 
   const GridCard = ({ item }: { item: Trip }) => {
-    const classColor = CLASS_COLORS[item.class] || colors.primary;
+    const classColor = CLASS_COLORS[item.nomClasseVoyage] || colors.primary;
     const visibleAmenities = item.amenities?.slice(0, 4) || [];
     const extraCount = Math.max(0, (item.amenities?.length || 0) - 4);
 
@@ -390,9 +388,9 @@ export default function TripsList() {
             { backgroundColor: theme.backgroundAlt },
           ]}
         >
-          {item.photoUrl ? (
+          {item.smallImage ? (
             <Image
-              source={{ uri: item.photoUrl }}
+              source={{ uri: item.smallImage }}
               style={styles.gridCardImageInner}
               resizeMode="cover"
             />
@@ -406,7 +404,7 @@ export default function TripsList() {
               { backgroundColor: classColor },
             ]}
           >
-            <Text style={styles.classBadgeText}>{item.class}</Text>
+            <Text style={styles.classBadgeText}>{item.nomClasseVoyage}</Text>
           </View>
         </View>
 
@@ -429,14 +427,13 @@ export default function TripsList() {
                 lang === 'fr' ? 'fr-FR' : 'en-GB',
                 { day: 'numeric', month: 'short' },
               )}
-              {item.heureDepart ? ` • ${item.heureDepart}` : ''}
             </Text>
           </View>
           <View style={styles.metaRow}>
             <Ionicons name="hourglass-outline" size={11} color={theme.text} />
             <Text style={[styles.metaText, { color: theme.text }]}>
               {' '}
-              {formatDuration(item.durationHours)}
+              {formatDuration(item.dureeVoyage)}
             </Text>
           </View>
 
@@ -472,7 +469,7 @@ export default function TripsList() {
           </View>
 
           <Text style={[styles.seatsText, { color: colors.primary }]}>
-            {t.seats(item.seatsAvailable)}
+            {t.seats(item.nbrPlaceRestante)}
           </Text>
         </View>
       </TouchableOpacity>

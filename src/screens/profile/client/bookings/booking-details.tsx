@@ -50,10 +50,10 @@ type ReservationDetail = {
     lieuArrive: string;
     pointArrivee?: string;
     dateDepartPrev: string;
-    heureDepart: string;
+    heureDepartEffectif: string;
     heureArrive: string;
     statusVoyage: string;
-    prixTotal: number;
+    prix: number;
     duree?: number;
   };
   agence: {
@@ -158,7 +158,7 @@ function generateTicketHTML(res: ReservationDetail, lang: 'fr' | 'en'): string {
     lang,
   )}</p>
         <p><b>${lang === 'fr' ? 'Départ' : 'Departure'}:</b> ${
-    res.voyage.heureDepart
+    res.voyage.heureDepartEffectif
   }</p>
         <p><b>${lang === 'fr' ? 'Agence' : 'Agency'}:</b> ${
     res.agence.longName
@@ -180,7 +180,7 @@ function generateTicketHTML(res: ReservationDetail, lang: 'fr' | 'en'): string {
       <div class="section">
         <p class="total">${
           lang === 'fr' ? 'Total payé' : 'Total paid'
-        }: ${formatPrice(res.voyage.prixTotal * res.nombrePassagers)}</p>
+        }: ${formatPrice(res.voyage.prix * res.nombrePassagers)}</p>
       </div>
     </body>
     </html>
@@ -297,11 +297,11 @@ export default function BookingDetails() {
 📋 ${t.resNumber}: ${reservation.idReservation}
 🗺️ ${reservation.voyage.lieuDepart} → ${reservation.voyage.lieuArrive}
 📅 ${formatDate(reservation.voyage.dateDepartPrev, lang)}
-🕐 ${t.depHour}: ${reservation.voyage.heureDepart}
+🕐 ${t.depHour}: ${reservation.voyage.heureDepartEffectif}
 🏢 ${reservation.agence.longName}
 👥 ${reservation.nombrePassagers} passager(s)
 💰 Total: ${formatPrice(
-        reservation.voyage.prixTotal * reservation.nombrePassagers,
+        reservation.voyage.prix * reservation.nombrePassagers,
       )}
       `.trim();
 
@@ -354,7 +354,7 @@ export default function BookingDetails() {
     STATUS_RESERVATION[reservation.reservation.statutReservation] ||
     STATUS_RESERVATION.EN_ATTENTE;
   const isCancelled = reservation.reservation.statutReservation === 'ANNULEE';
-  const totalPrice = reservation.voyage.prixTotal * reservation.nombrePassagers;
+  const totalPrice = reservation.voyage.prix * reservation.nombrePassagers;
 
   return (
     <>
@@ -541,7 +541,7 @@ export default function BookingDetails() {
               <Ionicons name="time-outline" size={14} color={theme.text} />
               <View>
                 <Text style={[styles.metaValue, { color: theme.textStrong }]}>
-                  {reservation.voyage.heureDepart}
+                  {reservation.voyage.heureDepartEffectif}
                 </Text>
                 <Text style={[styles.metaLabel, { color: theme.text }]}>
                   {t.depHour}
@@ -710,7 +710,7 @@ export default function BookingDetails() {
               {t.unitPrice}
             </Text>
             <Text style={[styles.summaryValue, { color: theme.textStrong }]}>
-              {formatPrice(reservation.voyage.prixTotal)}
+              {formatPrice(reservation.voyage.prix)}
             </Text>
           </View>
           <View style={styles.summaryRow}>

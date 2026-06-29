@@ -34,7 +34,7 @@ export type TripDetail = {
   lieuArrive: string;
   pointDeDepart: string;
   pointArrivee: string;
-  heureDepart: string;
+  heureDepartEffectif?: string;
   heureArrive: string;
   dateDepartPrev: string;
   dureeVoyage: string;
@@ -485,7 +485,7 @@ export default function TripDetailScreen() {
                 <Ionicons name="time-outline" size={14} color={theme.text} />
                 <Text style={[styles.tripMetaText, { color: theme.text }]}>
                   {' '}
-                  {trip.heureDepart}
+                  {trip.heureDepartEffectif}
                 </Text>
               </View>
               <View style={styles.tripMetaItem}>
@@ -602,7 +602,7 @@ export default function TripDetailScreen() {
                 <Text
                   style={[styles.timelineHour, { color: theme.textStrong }]}
                 >
-                  {trip.heureDepart}
+                  {trip.heureDepartEffectif}
                 </Text>
                 <View style={styles.timelineDot}>
                   <View
@@ -687,7 +687,7 @@ export default function TripDetailScreen() {
                 <Text
                   style={[styles.infoBlockValue, { color: theme.textStrong }]}
                 >
-                  {trip.heureDepart}
+                  {trip.heureDepartEffectif}
                 </Text>
                 <Text style={[styles.infoBlockTitle, { color: theme.text }]}>
                   {t.depHour}
@@ -1058,7 +1058,7 @@ export default function TripDetailScreen() {
                     lang === 'fr' ? 'fr-FR' : 'en-GB',
                     { day: 'numeric', month: 'long', year: 'numeric' },
                   )}{' '}
-                  · {trip?.heureDepart}
+                  · {trip?.heureDepartEffectif}
                 </Text>
               </View>
               <View

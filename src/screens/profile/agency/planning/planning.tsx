@@ -22,14 +22,9 @@ import { EmptyState } from '../../../../components/empty-state';
 
 type Agency = {
   agencyId: string;
-  longName: string;
+  long_name: string;
   location: string;
-  photoUrl?: string;
   description?: string;
-  foundedYear?: number;
-  status?: string;
-  type?: string;
-  region?: string;
   contact?: { phone?: string; email?: string; website?: string };
   specialties?: string[];
 };
@@ -40,7 +35,7 @@ type Trip = {
   lieuDepart: string;
   lieuArrive: string;
   dateDepartPrev: string;
-  heureDepart: string;
+  heureDepartEffectif?: string;
   statusVoyage: string;
   prix: number;
   nomClasseVoyage?: string;
@@ -174,7 +169,7 @@ export default function AgencyPlanning() {
         setAgency(agencyData);
 
         const tripsRes = await fetch(
-          `${API_URL}/voyage/agence/${agencyData.agencyId}/public`,
+          `${API_URL}/voyage/agence/${agencyData.agencyId}`,
           { headers },
         );
         if (tripsRes.ok) {
@@ -212,7 +207,7 @@ export default function AgencyPlanning() {
     return (
       <View style={[styles.tripRow, { borderBottomColor: theme.border }]}>
         <Text style={[styles.tripHour, { color: theme.textStrong }]}>
-          {trip.heureDepart}
+          {trip.heureDepartEffectif || ''}
         </Text>
         <View style={styles.tripInfo}>
           <Text
@@ -523,21 +518,13 @@ export default function AgencyPlanning() {
               { backgroundColor: `${colors.primary}15` },
             ]}
           >
-            {agency?.photoUrl ? (
-              <Image
-                source={{ uri: agency.photoUrl }}
-                style={styles.agencyLogoImage}
-                resizeMode="contain"
-              />
-            ) : (
-              <Text style={[styles.agencyLogoText, { color: colors.primary }]}>
-                {agency?.longName.slice(0, 2).toUpperCase() || 'VP'}
-              </Text>
-            )}
+            <Text style={[styles.agencyLogoText, { color: colors.primary }]}>
+              {agency?.long_name.slice(0, 2).toUpperCase() || 'VP'}
+            </Text>
           </View>
           <View style={styles.agencyInfo}>
             <Text style={[styles.agencyName, { color: theme.textStrong }]}>
-              {agency?.longName}
+              {agency?.long_name}
             </Text>
             <View style={styles.agencyLocation}>
               <Ionicons name="location-outline" size={12} color={theme.text} />

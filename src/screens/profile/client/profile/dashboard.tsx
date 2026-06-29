@@ -38,10 +38,8 @@ type ReservationDetail = {
   idReservation: string;
   lieuDepart: string;
   lieuArrive: string;
-  dateDepart?: string;
+  dateDepartPrev?: string;
   nomAgence?: string;
-  photoUrl?: string;
-  heureDepart?: string;
 };
 
 type EnrichedHistorique = Historique & { detail: ReservationDetail | null };
@@ -194,15 +192,7 @@ export default function Dashboard() {
       <View
         style={[styles.histImage, { backgroundColor: theme.backgroundAlt }]}
       >
-        {item.detail?.photoUrl ? (
-          <Image
-            source={{ uri: item.detail.photoUrl }}
-            style={styles.histImageInner}
-            resizeMode="cover"
-          />
-        ) : (
-          <Ionicons name="bus-outline" size={22} color={theme.text} />
-        )}
+        <Ionicons name="bus-outline" size={22} color={theme.text} />
       </View>
       <View style={styles.histInfo}>
         <Text
@@ -212,13 +202,12 @@ export default function Dashboard() {
           {item.detail?.lieuDepart || '—'} → {item.detail?.lieuArrive || '—'}
         </Text>
         <Text style={[styles.histMeta, { color: theme.text }]}>
-          {item.detail?.dateDepart
-            ? new Date(item.detail.dateDepart).toLocaleDateString(
+          {item.detail?.dateDepartPrev
+            ? new Date(item.detail.dateDepartPrev).toLocaleDateString(
                 lang === 'fr' ? 'fr-FR' : 'en-GB',
                 { day: 'numeric', month: 'long', year: 'numeric' },
               )
             : '—'}
-          {item.detail?.heureDepart ? ` · ${item.detail.heureDepart}` : ''}
         </Text>
         <Text style={[styles.histAgency, { color: theme.text }]}>
           {item.detail?.nomAgence || '—'}

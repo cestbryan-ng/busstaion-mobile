@@ -26,7 +26,6 @@ type Trip = {
   lieuDepart: string;
   lieuArrive: string;
   dateDepartPrev: string;
-  heureDepart?: string;
   heureDepartEffectif?: string;
   heureArrive?: string;
   statusVoyage: string;
@@ -107,7 +106,7 @@ function formatPrice(price: number): string {
 }
 
 function getTripHour(trip: Trip): string {
-  return trip.heureDepart || trip.heureDepartEffectif || '00:00';
+  return trip.heureDepartEffectif || '00:00';
 }
 
 export default function AgencyCalendar() {
@@ -185,7 +184,7 @@ export default function AgencyCalendar() {
       const agency = await agencyRes.json();
 
       const tripsRes = await fetch(
-        `${API_URL}/voyage/agence/${agency.agencyId}/public?size=200`,
+        `${API_URL}/voyage/agence/${agency.agencyId}?size=200`,
         { headers },
       );
       if (tripsRes.ok) {

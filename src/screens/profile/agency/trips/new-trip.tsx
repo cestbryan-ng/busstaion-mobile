@@ -26,8 +26,8 @@ type Step = 1 | 2 | 3 | 4 | 5;
 
 type Vehicle = {
   idVehicule: string;
-  immatriculation?: string;
-  capacite?: number;
+  plaqueMatricule?: string;
+  nbrPlaces?: number;
   modele?: string;
   nom?: string;
 };
@@ -249,7 +249,7 @@ export default function AgencyNewTrip() {
               lieuDepart: trip.lieuDepart || '',
               lieuArrive: trip.lieuArrive || '',
               dateDepartPrev: trip.dateDepartPrev?.split('T')[0] || '',
-              heureDepartEffectif: trip.heureDepart || '08:00',
+              heureDepartEffectif: trip.heureDepartEffectif || '08:00',
               heureArrive: trip.heureArrive || '12:30',
               nbrPlaceReservable: String(trip.nbrPlaceReservable || 40),
               prix: String(trip.prix || ''),
@@ -315,6 +315,7 @@ export default function AgencyNewTrip() {
         chauffeurId: form.chauffeurId || undefined,
         classVoyageId: form.classVoyageId,
         prix: Number(form.prix),
+        agenceVoyageId: agencyId,
       };
 
       const url = isEdit
@@ -640,8 +641,8 @@ export default function AgencyNewTrip() {
         placeholder={t.selectVehicle}
         options={vehicles.map(v => ({
           id: v.idVehicule,
-          label: `${v.nom || v.modele || v.immatriculation} (${
-            v.capacite || '—'
+          label: `${v.nom || v.modele || v.plaqueMatricule} (${
+            v.nbrPlaces || '—'
           } places)`,
         }))}
         error={errors.vehiculeId}

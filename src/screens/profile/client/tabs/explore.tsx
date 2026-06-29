@@ -32,13 +32,12 @@ import { SkeletonListScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
 
 type Agency = {
-  agencyId: string;
+  id: string;
   longName: string;
   location: string;
-  photoUrl?: string;
+  logoUrl?: string;
   description?: string;
-  ratingAverage?: number;
-  numberOfReviews?: number;
+  rating?: number;
   contact?: { phone?: string; email?: string; website?: string };
 };
 
@@ -241,16 +240,16 @@ export default function Explore() {
       ]}
       activeOpacity={0.85}
       onPress={() =>
-        navigation.navigate('AgencyDetail', { agencyId: item.agencyId })
+        navigation.navigate('AgencyDetail', { agencyId: item.id })
       }
     >
       {/* Logo */}
       <View
         style={[styles.agencyLogo, { backgroundColor: theme.backgroundAlt }]}
       >
-        {item.photoUrl ? (
+        {item.logoUrl ? (
           <Image
-            source={{ uri: item.photoUrl }}
+            source={{ uri: item.logoUrl }}
             style={styles.agencyLogoImage}
             resizeMode="contain"
           />
@@ -279,13 +278,12 @@ export default function Explore() {
             {item.location}
           </Text>
         </View>
-        {item.ratingAverage !== undefined && (
+        {item.rating !== undefined && (
           <View style={styles.ratingRow}>
             <Ionicons name="star" size={12} color="#f59e0b" />
             <Text style={[styles.ratingText, { color: theme.text }]}>
               {' '}
-              {item.ratingAverage.toFixed(1)} (
-              {t.reviews(item.numberOfReviews || 0)})
+              {item.rating.toFixed(1)}
             </Text>
           </View>
         )}
@@ -354,13 +352,12 @@ export default function Explore() {
               {item.quartier ? `, ${item.quartier}` : ''}
             </Text>
           </View>
-          {item.ratingAverage !== undefined && (
+          {item.rating !== undefined && (
             <View style={styles.ratingRow}>
               <Ionicons name="star" size={12} color="#f59e0b" />
               <Text style={[styles.ratingText, { color: theme.text }]}>
                 {' '}
-                {item.ratingAverage.toFixed(1)} (
-                {t.reviews(item.numberOfReviews || 0)})
+                {item.rating.toFixed(1)}
               </Text>
             </View>
           )}
@@ -660,7 +657,7 @@ export default function Explore() {
                 />
               ) : (
                 filteredAgencies.map(item => (
-                  <AgencyCard key={item.agencyId} item={item} />
+                  <AgencyCard key={item.id} item={item} />
                 ))
               )
             ) : loadingGares ? (

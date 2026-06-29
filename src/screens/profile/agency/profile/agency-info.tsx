@@ -25,11 +25,9 @@ import type { RootStackParamList } from '../../../../navigation';
 
 type Agency = {
   agencyId: string;
-  longName: string;
+  long_name: string;
   location?: string;
-  photoUrl?: string;
-  greetingMessage?: string;
-  contact?: { email?: string; phone?: string };
+  greeting_message?: string;
 };
 
 type FormErrors = Partial<
@@ -118,11 +116,9 @@ export default function AgencyInfo() {
         if (res.ok) {
           const data = await res.json();
           setAgency(data);
-          setLongName(data.longName || '');
-          setEmail(data.contact?.email || '');
-          setPhone(data.contact?.phone || '');
+          setLongName(data.long_name || '');
           setLocation(data.location || '');
-          setGreetingMessage(data.greetingMessage || '');
+          setGreetingMessage(data.greeting_message || '');
         }
       } catch {
         // silent
@@ -241,17 +237,9 @@ export default function AgencyInfo() {
                   },
                 ]}
               >
-                {agency?.photoUrl ? (
-                  <Image
-                    source={{ uri: agency.photoUrl }}
-                    style={styles.logoImage}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <Text style={[styles.logoLetter, { color: colors.primary }]}>
-                    {longName.slice(0, 2).toUpperCase() || 'VP'}
-                  </Text>
-                )}
+                <Text style={[styles.logoLetter, { color: colors.primary }]}>
+                  {longName.slice(0, 2).toUpperCase() || 'VP'}
+                </Text>
               </View>
               <View style={styles.logoTextCol}>
                 <Text

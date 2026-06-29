@@ -33,20 +33,19 @@ import ConfirmModal from '../../../../components/confirm-modal';
 
 type Agency = {
   id: string;
-  nom: string;
-  logo?: string;
-  adresse?: string;
+  longName: string;
+  logoUrl?: string;
+  location?: string;
   description?: string;
-  statut: 'ACTIF' | 'SUSPENDU' | 'INACTIF';
+  isActive: boolean;
 };
 
 type Affiliation = {
   id: string;
-  agenceId: string;
-  agence?: { id: string; nom: string; logo?: string };
+  agencyId: string;
+  agencyName?: string;
   statut: string;
-  dateDebut?: string;
-  dateFin?: string;
+  createdAt?: string;
 };
 
 const STATUT_CONFIG: Record<
@@ -64,12 +63,6 @@ const STATUT_CONFIG: Record<
     labelEn: 'Suspended',
     color: colors.error,
     bg: `${colors.error}15`,
-  },
-  INACTIF: {
-    label: 'Inactif',
-    labelEn: 'Inactive',
-    color: '#d97706',
-    bg: '#fef3c715',
   },
 };
 
@@ -159,8 +152,8 @@ export default function BsmAgencies() {
       const station = await stationRes.json();
 
       const [agenciesRes, affiliationsRes] = await Promise.all([
-        fetch(`${API_URL}/gare/${station.id}/agences`, { headers }),
-        fetch(`${API_URL}/affiliation/gare/${station.id}`, { headers }),
+        fetch(`${API_URL}/gare/${station.idGareRoutiere}/agences`, { headers }),
+        fetch(`${API_URL}/affiliation/gare/${station.idGareRoutiere}`, { headers }),
       ]);
 
       if (agenciesRes.ok) {
@@ -207,7 +200,7 @@ export default function BsmAgencies() {
       });
       // 2. Activer l'agence
       const agencyRes = await fetch(
-        `${API_URL}/bsm/agence/${aff.agenceId}/statut`,
+        `${API_URL}/bsm/agence/${aff.agencyId}/statut`,
         {
           method: 'PUT',
           headers,
@@ -219,7 +212,7 @@ export default function BsmAgencies() {
         setPendingAffiliations(prev => prev.filter(a => a.id !== aff.id));
         setAgencies(prev =>
           prev.map(a =>
-            a.id === aff.agenceId ? { ...a, statut: 'ACTIF' } : a,
+            a.id === aff.agencyId ? { ...a, isActive: true } : a,
           ),
         );
       } else {
@@ -242,7 +235,7 @@ export default function BsmAgencies() {
     setRejectTarget(null);
     setProcessingId(aff.id);
     try {
-      const res = await fetch(`${API_URL}/bsm/agence/${aff.agenceId}/statut`, {
+      const res = await fetch(`${API_URL}/bsm/agence/${aff.agencyId}/statut`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -263,8 +256,8 @@ export default function BsmAgencies() {
     }
   };
 
-  const activeCount = agencies.filter(a => a.statut === 'ACTIF').length;
-  const suspendedCount = agencies.filter(a => a.statut === 'SUSPENDU').length;
+  const activeCount = agencies.filter(a => a.isActive === true).length;
+  const suspendedCount = agencies.filter(a => a.isActive === false).length;
 
   const filtered = useMemo(
     () =>
@@ -272,8 +265,8 @@ export default function BsmAgencies() {
         if (!search.trim()) return true;
         const q = search.toLowerCase();
         return (
-          a.nom.toLowerCase().includes(q) ||
-          a.adresse?.toLowerCase().includes(q)
+          a.longName.toLowerCase().includes(q) ||
+          a.location?.toLowerCase().includes(q)
         );
       }),
     [agencies, search],
@@ -282,11 +275,10 @@ export default function BsmAgencies() {
   const AffiliationCard = ({ aff }: { aff: Affiliation }) => {
     const isProcessing = processingId === aff.id;
     const agencyName =
-      aff.agence?.nom ??
-      agencies.find(a => a.id === aff.agenceId)?.nom ??
-      aff.agenceId;
-    const logo =
-      aff.agence?.logo ?? agencies.find(a => a.id === aff.agenceId)?.logo;
+      aff.agencyName ??
+      agencies.find(a => a.id === aff.agencyId)?.longName ??
+      aff.agencyId;
+    const logo = agencies.find(a => a.id === aff.agencyId)?.logoUrl;
 
     return (
       <View
@@ -318,10 +310,10 @@ export default function BsmAgencies() {
             >
               {agencyName}
             </Text>
-            {aff.dateDebut && (
+            {aff.createdAt && (
               <Text style={[styles.affiliationDate, { color: theme.text }]}>
                 {t.affiliationSince}{' '}
-                {new Date(aff.dateDebut).toLocaleDateString(
+                {new Date(aff.createdAt).toLocaleDateString(
                   lang === 'fr' ? 'fr-FR' : 'en-GB',
                 )}
               </Text>
@@ -372,7 +364,7 @@ export default function BsmAgencies() {
   };
 
   const AgencyCard = ({ item }: { item: Agency }) => {
-    const cfg = STATUT_CONFIG[item.statut] || STATUT_CONFIG['INACTIF'];
+    const cfg = STATUT_CONFIG[item.isActive ? 'ACTIF' : 'SUSPENDU'];
     return (
       <TouchableOpacity
         style={[
@@ -387,15 +379,15 @@ export default function BsmAgencies() {
         <View
           style={[styles.agencyLogo, { backgroundColor: theme.backgroundAlt }]}
         >
-          {item.logo ? (
+          {item.logoUrl ? (
             <Image
-              source={{ uri: item.logo }}
+              source={{ uri: item.logoUrl }}
               style={styles.agencyLogoImage}
               resizeMode="contain"
             />
           ) : (
             <Text style={[styles.agencyLogoText, { color: colors.primary }]}>
-              {item.nom.slice(0, 2).toUpperCase()}
+              {item.longName.slice(0, 2).toUpperCase()}
             </Text>
           )}
         </View>
@@ -406,7 +398,7 @@ export default function BsmAgencies() {
               style={[styles.agencyName, { color: theme.textStrong }]}
               numberOfLines={1}
             >
-              {item.nom}
+              {item.longName}
             </Text>
             <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
               <Text style={[styles.statusText, { color: cfg.color }]}>
@@ -414,12 +406,12 @@ export default function BsmAgencies() {
               </Text>
             </View>
           </View>
-          {item.adresse && (
+          {item.location && (
             <View style={styles.locationRow}>
               <Ionicons name="location-outline" size={12} color={theme.text} />
               <Text style={[styles.locationText, { color: theme.text }]}>
                 {' '}
-                {item.adresse}
+                {item.location}
               </Text>
             </View>
           )}

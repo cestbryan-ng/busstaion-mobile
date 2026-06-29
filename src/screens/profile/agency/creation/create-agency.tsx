@@ -28,7 +28,7 @@ type Step = 1 | 2 | 3;
 
 type Station = {
   idGareRoutiere: string;
-  nom: string;
+  nomGareRoutiere: string;
   ville: string;
   adresse?: string;
   photoUrl?: string;
@@ -413,7 +413,7 @@ export default function CreateAgency() {
                   style={[styles.stationName, { color: theme.textStrong }]}
                   numberOfLines={1}
                 >
-                  {station.nom}
+                  {station.nomGareRoutiere}
                 </Text>
                 <View style={styles.stationMetaRow}>
                   <Ionicons

@@ -23,7 +23,7 @@ import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonProfileScreen } from '../../../../components/skeleton';
 
 type User = {
-  id: string;
+  userId: string;
   first_name: string;
   last_name: string;
   email: string;
@@ -32,16 +32,14 @@ type User = {
   role: string[];
   gender?: string;
   createdAt: string;
-  profile_picture?: string;
 };
 
 type Station = {
-  id: string;
-  nom: string;
-  nomGareRoutiere?: string;
+  idGareRoutiere: string;
+  nomGareRoutiere: string;
   ville: string;
   adresse?: string;
-  agences?: { idAgenceVoyage: string }[];
+  nbreAgence: number;
 };
 
 export default function BsmProfil() {
@@ -145,7 +143,7 @@ export default function BsmProfil() {
       if (profileRes.ok) {
         const data = await profileRes.json();
         setUser(data);
-        managerId = data.id;
+        managerId = data.userId;
         await AsyncStorage.setItem('user', JSON.stringify(data));
       }
 
@@ -153,45 +151,15 @@ export default function BsmProfil() {
         const stationRes = await fetch(`${API_URL}/gare/manager/${managerId}`, {
           headers,
         });
+        let gareId = '';
         if (stationRes.ok) {
           const stationData = await stationRes.json();
           setStation(stationData);
-
-          // Best-effort stats from agencies trips
-          if (stationData.agences?.length) {
-            const tripPromises = stationData.agences.slice(0, 5).map((a: any) =>
-              fetch(`${API_URL}/voyage/agence/${a.idAgenceVoyage}`, {
-                headers,
-              }).then(r => (r.ok ? r.json() : null)),
-            );
-            const results = await Promise.allSettled(tripPromises);
-            let allTrips: any[] = [];
-            results.forEach(r => {
-              if (r.status === 'fulfilled' && r.value) {
-                allTrips.push(...(r.value.content || r.value || []));
-              }
-            });
-            const active = allTrips.filter(
-              t => t.statusVoyage === 'PUBLIE' || t.statusVoyage === 'EN_COURS',
-            );
-            setTripsActive(active.length);
-            if (active.length > 0) {
-              const occ =
-                active.reduce(
-                  (sum, t) =>
-                    sum +
-                    (t.nbrPlaceRestante !== undefined
-                      ? Math.max(0, 100 - t.nbrPlaceRestante)
-                      : 0),
-                  0,
-                ) / active.length;
-              setOccupationRate(Math.round(occ) || 78);
-            }
-          }
+          gareId = stationData.idGareRoutiere ?? '';
         }
 
         const taxesRes = await fetch(
-          `${API_URL}/politique-et-taxes/gare-routiere/${managerId}`,
+          `${API_URL}/politique-et-taxes/gare-routiere/${gareId}`,
           { headers },
         ).catch(() => null);
         if (taxesRes?.ok) {
@@ -276,7 +244,7 @@ export default function BsmProfil() {
   if (loading) { return <SkeletonProfileScreen subtitle />; }
 
   const fullName = user ? `${user.first_name} ${user.last_name}` : '—';
-  const stationName = station?.nomGareRoutiere || station?.nom || '—';
+  const stationName = station?.nomGareRoutiere || '—';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -461,7 +429,7 @@ export default function BsmProfil() {
                 />
               </View>
               <Text style={[styles.statValue, { color: theme.textStrong }]}>
-                {station?.agences?.length ?? 0}
+                {station?.nbreAgence ?? 0}
               </Text>
               <Text style={[styles.statLabel, { color: theme.text }]}>
                 {t.affiliatedAgencies}

@@ -28,7 +28,7 @@ type TripDetail = {
   pointDeDepart?: string;
   pointArrivee?: string;
   dateDepartPrev: string;
-  heureDepart?: string;
+  heureDepartEffectif?: string;
   heureArrive?: string;
   dureeVoyage?: string;
   statusVoyage: string;
@@ -36,7 +36,7 @@ type TripDetail = {
   nomClasseVoyage?: string;
   nbrPlaceReservable: number;
   nbrPlaceRestante: number;
-  photoUrl?: string;
+  smallImage?: string;
   vehicule?: { nom?: string; modele?: string; nbrPlaces?: number };
   chauffeur?: { nom?: string; prenom?: string };
   nombreReservations?: number;
@@ -246,9 +246,9 @@ export default function AgencyTripDetail() {
               { backgroundColor: theme.backgroundAlt },
             ]}
           >
-            {trip.photoUrl ? (
+            {trip.smallImage ? (
               <Image
-                source={{ uri: trip.photoUrl }}
+                source={{ uri: trip.smallImage }}
                 style={styles.tripImage}
                 resizeMode="cover"
               />
@@ -307,7 +307,7 @@ export default function AgencyTripDetail() {
                     year: 'numeric',
                   },
                 )}{' '}
-                · {trip.heureDepart || ''} · Voyage ID: TRP-{tripId.slice(-3)}
+                · {trip.heureDepartEffectif || ''} · Voyage ID: TRP-{tripId.slice(-3)}
               </Text>
             </View>
 
@@ -358,7 +358,7 @@ export default function AgencyTripDetail() {
                 icon: 'location-outline',
                 label: t.departure,
                 value: `${trip.pointDeDepart || trip.lieuDepart}`,
-                time: trip.heureDepart,
+                time: trip.heureDepartEffectif,
               },
               {
                 icon: 'location-outline',

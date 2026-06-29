@@ -25,7 +25,7 @@ type Trip = {
   lieuDepart: string;
   lieuArrive: string;
   dateDepartPrev: string;
-  heureDepart: string;
+  heureDepartEffectif?: string;
   nomClasseVoyage?: string;
   amenities?: string[];
   prix: number;
@@ -38,7 +38,6 @@ type Agency = {
   logoUrl?: string;
   location?: string;
   rating?: number;
-  taxStatus?: 'payé' | 'en attente' | 'en retard';
 };
 
 type DateFilter = 'all' | 'today' | 'tomorrow' | 'week';
@@ -196,7 +195,7 @@ export default function AgencyTripsBsm() {
       >
         <View style={styles.tripLeft}>
           <Text style={[styles.tripHour, { color: colors.error }]}>
-            {trip.heureDepart}
+            {trip.heureDepartEffectif || ''}
           </Text>
           <Text style={[styles.tripDate, { color: theme.text }]}>
             {new Date(trip.dateDepartPrev).toLocaleDateString(
@@ -257,7 +256,7 @@ export default function AgencyTripsBsm() {
   }
 
   const statusCfg = agency
-    ? TAX_STATUS_CONFIG[agency.taxStatus || 'payé'] || TAX_STATUS_CONFIG['payé']
+    ? TAX_STATUS_CONFIG['payé']
     : null;
 
   const FILTERS: { key: DateFilter; label: string; count: number }[] = [

@@ -52,11 +52,11 @@ type Reservation = {
     lieuDepart: string;
     lieuArrive: string;
     dateDepartPrev: string;
-    heureDepart: string;
+    heureDepartEffectif: string;
     heureArrive: string;
     statusVoyage: string;
-    prixTotal: number;
-    photoUrl?: string;
+    prix: number;
+    smallImage?: string;
   };
   agence: {
     agencyId: string;
@@ -289,9 +289,9 @@ export default function Bookings() {
           <View
             style={[styles.cardImage, { backgroundColor: theme.backgroundAlt }]}
           >
-            {item.voyage.photoUrl ? (
+            {item.voyage.smallImage ? (
               <Image
-                source={{ uri: item.voyage.photoUrl }}
+                source={{ uri: item.voyage.smallImage }}
                 style={styles.cardImageInner}
                 resizeMode="cover"
               />
@@ -330,7 +330,7 @@ export default function Bookings() {
               <Text style={[styles.cardMetaText, { color: theme.text }]}>
                 {' '}
                 {formatDate(item.voyage.dateDepartPrev, lang)} •{' '}
-                {item.voyage.heureDepart}
+                {item.voyage.heureDepartEffectif}
               </Text>
             </View>
 
@@ -343,7 +343,7 @@ export default function Bookings() {
                 </Text>
               </View>
               <Text style={[styles.cardPrice, { color: colors.primary }]}>
-                {formatPrice(item.voyage.prixTotal * item.nombrePassagers)}
+                {formatPrice(item.voyage.prix * item.nombrePassagers)}
               </Text>
             </View>
           </View>

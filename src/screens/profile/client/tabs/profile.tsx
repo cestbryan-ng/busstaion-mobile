@@ -31,7 +31,6 @@ type User = {
   email: string;
   phone_number: string;
   role: string[];
-  profile_picture?: string;
 };
 
 export default function Profile() {
@@ -218,15 +217,7 @@ export default function Profile() {
               { backgroundColor: theme.backgroundAlt },
             ]}
           >
-            {user?.profile_picture ? (
-              <Image
-                source={{ uri: user.profile_picture }}
-                style={styles.avatarSmallImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <Ionicons name="person-outline" size={18} color={theme.text} />
-            )}
+            <Ionicons name="person-outline" size={18} color={theme.text} />
           </View>
         </TouchableOpacity>
       </View>
@@ -257,21 +248,13 @@ export default function Profile() {
                 { backgroundColor: `${colors.primary}20` },
               ]}
             >
-              {user?.profile_picture ? (
-                <Image
-                  source={{ uri: user.profile_picture }}
-                  style={styles.avatarImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Text
-                  style={[styles.avatarInitials, { color: colors.primary }]}
-                >
-                  {user
-                    ? `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`
-                    : '?'}
-                </Text>
-              )}
+              <Text
+                style={[styles.avatarInitials, { color: colors.primary }]}
+              >
+                {user
+                  ? `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`
+                  : '?'}
+              </Text>
             </View>
 
             {/* Info */}

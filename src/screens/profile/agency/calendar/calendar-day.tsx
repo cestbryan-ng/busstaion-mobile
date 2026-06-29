@@ -23,7 +23,6 @@ type Trip = {
   lieuDepart: string;
   lieuArrive: string;
   dateDepartPrev: string;
-  heureDepart?: string;
   heureDepartEffectif?: string;
   heureArrive?: string;
   statusVoyage: string;
@@ -120,7 +119,7 @@ const DAYS_FR_FULL = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const DAYS_EN_FULL = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function getTripHour(trip: Trip): string {
-  return trip.heureDepart || trip.heureDepartEffectif || '00:00';
+  return trip.heureDepartEffectif || '00:00';
 }
 
 function toDateKey(date: Date): string {
@@ -293,9 +292,9 @@ export default function AgencyCalendarDay() {
                   {trip.pointDeDepart || trip.lieuDepart}
                 </Text>
               </View>
-              {trip.heureDepart && (
+              {trip.heureDepartEffectif && (
                 <Text style={[styles.cardRowTime, { color: theme.text }]}>
-                  {trip.heureDepart}
+                  {trip.heureDepartEffectif}
                 </Text>
               )}
             </View>

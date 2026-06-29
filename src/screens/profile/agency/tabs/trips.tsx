@@ -37,13 +37,12 @@ type Trip = {
   lieuDepart: string;
   lieuArrive: string;
   dateDepartPrev: string;
-  heureDepart?: string;
   statusVoyage: string;
   prix: number;
   nomClasseVoyage?: string;
   nbrPlaceReservable: number;
   nbrPlaceRestante: number;
-  photoUrl?: string;
+  smallImage?: string;
   vehiculeNom?: string;
 };
 
@@ -164,7 +163,7 @@ export default function AgencyTrips() {
       setAgencyId(agencyData.agencyId);
 
       const tripsRes = await fetch(
-        `${API_URL}/voyage/agence/${agencyData.agencyId}/public?size=100`,
+        `${API_URL}/voyage/agence/${agencyData.agencyId}?size=100`,
         { headers },
       );
       if (tripsRes.ok) {
@@ -264,9 +263,9 @@ export default function AgencyTrips() {
         <View
           style={[styles.tripImage, { backgroundColor: theme.backgroundAlt }]}
         >
-          {item.photoUrl ? (
+          {item.smallImage ? (
             <Image
-              source={{ uri: item.photoUrl }}
+              source={{ uri: item.smallImage }}
               style={styles.tripImageInner}
               resizeMode="cover"
             />
@@ -313,7 +312,6 @@ export default function AgencyTrips() {
             <Text style={[styles.tripMetaText, { color: theme.text }]}>
               {' '}
               {formatDate(item.dateDepartPrev, lang)}
-              {item.heureDepart ? ` · ${item.heureDepart}` : ''}
             </Text>
           </View>
 

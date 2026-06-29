@@ -22,17 +22,12 @@ import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 
 type Agency = {
-  agencyId: string;
+  id: string;
   longName: string;
   location: string;
-  photoUrl?: string;
-  bannerUrl?: string;
+  logoUrl?: string;
   description?: string;
-  ratingAverage?: number;
-  numberOfReviews?: number;
-  foundedYear?: number;
-  affiliatedGares?: number;
-  totalTrips?: number;
+  rating?: number;
   contact?: { phone?: string; email?: string; website?: string };
 };
 
@@ -41,13 +36,11 @@ type Trip = {
   lieuDepart: string;
   lieuArrive: string;
   dateDepartPrev: string;
-  heureDepart: string;
   heureArrive: string;
-  class: string;
+  nomClasseVoyage: string;
   amenities: string[];
   prix: number;
-  seatsAvailable: number;
-  durationHours?: number;
+  nbrPlaceRestante: number;
 };
 
 const CLASS_COLORS: Record<string, string> = {
@@ -126,7 +119,7 @@ export default function AgencyDetail() {
           fetch(`${API_URL}/agence/${agencyId}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch(`${API_URL}/voyage/agence/${agencyId}/public`, {
+          fetch(`${API_URL}/voyage/agence/${agencyId}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -185,22 +178,14 @@ export default function AgencyDetail() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Banner */}
         <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
-          {agency.bannerUrl ? (
-            <Image
-              source={{ uri: agency.bannerUrl }}
-              style={styles.bannerImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <View
-              style={[
-                styles.bannerPlaceholder,
-                { backgroundColor: `${colors.primary}15` },
-              ]}
-            >
-              <Ionicons name="bus-outline" size={48} color={colors.primary} />
-            </View>
-          )}
+          <View
+            style={[
+              styles.bannerPlaceholder,
+              { backgroundColor: `${colors.primary}15` },
+            ]}
+          >
+            <Ionicons name="bus-outline" size={48} color={colors.primary} />
+          </View>
           {/* Logo overlay */}
           <View
             style={[
@@ -208,9 +193,9 @@ export default function AgencyDetail() {
               { backgroundColor: theme.background, borderColor: theme.border },
             ]}
           >
-            {agency.photoUrl ? (
+            {agency.logoUrl ? (
               <Image
-                source={{ uri: agency.photoUrl }}
+                source={{ uri: agency.logoUrl }}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
@@ -239,25 +224,14 @@ export default function AgencyDetail() {
             </Text>
           </View>
 
-          <View style={styles.ratingRow}>
-            <Ionicons name="star" size={14} color="#f59e0b" />
-            <Text style={[styles.ratingText, { color: theme.textStrong }]}>
-              {' '}
-              {agency.ratingAverage?.toFixed(1)} (
-              {t.reviews(agency.numberOfReviews || 0)})
-            </Text>
-            {agency.affiliatedGares !== undefined && (
-              <>
-                <Text style={[styles.separator, { color: theme.text }]}>
-                  {' '}
-                  |{' '}
-                </Text>
-                <Text style={[styles.affiliatedText, { color: theme.text }]}>
-                  {t.affiliatedGares(agency.affiliatedGares)}
-                </Text>
-              </>
-            )}
-          </View>
+          {agency.rating !== undefined && (
+            <View style={styles.ratingRow}>
+              <Ionicons name="star" size={14} color="#f59e0b" />
+              <Text style={[styles.ratingText, { color: theme.textStrong }]}>
+                {' '}{agency.rating?.toFixed(1)}
+              </Text>
+            </View>
+          )}
 
           {agency.description && (
             <Text style={[styles.description, { color: theme.text }]}>
@@ -356,59 +330,24 @@ export default function AgencyDetail() {
         </View>
 
         {/* Stats */}
-        <View
-          style={[
-            styles.statsRow,
-            { backgroundColor: theme.background, borderColor: theme.border },
-          ]}
-        >
+        {agency.rating !== undefined && (
           <View
             style={[
-              styles.statItem,
-              { backgroundColor: `${colors.primary}08` },
+              styles.statsRow,
+              { backgroundColor: theme.background, borderColor: theme.border },
             ]}
           >
-            <Ionicons name="bus-outline" size={22} color={colors.primary} />
-            <Text style={[styles.statValue, { color: theme.textStrong }]}>
-              {agency.totalTrips || 0}+
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.text }]}>
-              {lang === 'fr' ? 'Voyages publiés' : 'Published trips'}
-            </Text>
+            <View style={[styles.statItem, { backgroundColor: '#fef9c308' }]}>
+              <Ionicons name="star" size={22} color="#f59e0b" />
+              <Text style={[styles.statValue, { color: theme.textStrong }]}>
+                {agency.rating?.toFixed(1) || '—'}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.text }]}>
+                {t.rating}
+              </Text>
+            </View>
           </View>
-          <View
-            style={[styles.statDivider, { backgroundColor: theme.border }]}
-          />
-          <View style={[styles.statItem, { backgroundColor: '#fef9c308' }]}>
-            <Ionicons name="star" size={22} color="#f59e0b" />
-            <Text style={[styles.statValue, { color: theme.textStrong }]}>
-              {agency.ratingAverage?.toFixed(1) || '—'}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.text }]}>
-              {t.rating}
-            </Text>
-          </View>
-          <View
-            style={[styles.statDivider, { backgroundColor: theme.border }]}
-          />
-          <View
-            style={[
-              styles.statItem,
-              { backgroundColor: `${colors.success}08` },
-            ]}
-          >
-            <Ionicons name="people-outline" size={22} color={colors.success} />
-            <Text style={[styles.statValue, { color: theme.textStrong }]}>
-              {(agency.numberOfReviews || 0) > 999
-                ? `${((agency.numberOfReviews || 0) / 1000).toFixed(1)}K`
-                : `${agency.numberOfReviews || 0}`}
-              +
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.text }]}>
-              {lang === 'fr' ? 'Clients satisfaits' : 'Satisfied clients'}
-            </Text>
-          </View>
-        </View>
+        )}
 
         {/* Trips */}
         <View style={styles.tripsSection}>
@@ -424,7 +363,7 @@ export default function AgencyDetail() {
             />
           ) : (
             trips.map(trip => {
-              const classColor = CLASS_COLORS[trip.class] || colors.primary;
+              const classColor = CLASS_COLORS[trip.nomClasseVoyage] || colors.primary;
               const visibleAmenities = trip.amenities?.slice(0, 4) || [];
               const extra = Math.max(0, (trip.amenities?.length || 0) - 4);
 
@@ -455,7 +394,7 @@ export default function AgencyDetail() {
                         { backgroundColor: classColor },
                       ]}
                     >
-                      <Text style={styles.classBadgeText}>{trip.class}</Text>
+                      <Text style={styles.classBadgeText}>{trip.nomClasseVoyage}</Text>
                     </View>
                   </View>
 
@@ -470,8 +409,7 @@ export default function AgencyDetail() {
                       {new Date(trip.dateDepartPrev).toLocaleDateString(
                         lang === 'fr' ? 'fr-FR' : 'en-GB',
                         { day: 'numeric', month: 'long', year: 'numeric' },
-                      )}{' '}
-                      · {trip.heureDepart}
+                      )}
                     </Text>
                   </View>
 
@@ -499,7 +437,7 @@ export default function AgencyDetail() {
                     ]}
                   >
                     <Text style={[styles.seatsText, { color: colors.primary }]}>
-                      {t.seats(trip.seatsAvailable)}
+                      {t.seats(trip.nbrPlaceRestante)}
                     </Text>
                     <Text style={[styles.tripPrice, { color: colors.primary }]}>
                       {trip.prix.toLocaleString('fr-FR')} FCFA

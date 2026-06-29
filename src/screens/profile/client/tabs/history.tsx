@@ -42,12 +42,11 @@ type ReservationDetail = {
   lieuArrive: string;
   pointDeDepart?: string;
   pointArrivee?: string;
-  heureDepart: string;
+  heureDepartEffectif?: string;
   heureArrive: string;
-  dateDepart: string;
+  dateDepartPrev: string;
   nomAgence: string;
   statusVoyage: string;
-  photoUrl?: string;
   passagers: Passager[];
 };
 
@@ -292,8 +291,8 @@ export default function Historique() {
 ━━━━━━━━━━━━━━━━━━━
 📋 #${h.idHistorique}
 🗺️ ${r.lieuDepart} → ${r.lieuArrive}
-📅 ${formatDate(r.dateDepart, lang)}
-🕐 ${r.heureDepart} - ${r.heureArrive}
+📅 ${formatDate(r.dateDepartPrev, lang)}
+🕐 ${r.heureDepartEffectif} - ${r.heureArrive}
 🏢 ${r.nomAgence}
 👥 ${r.passagers.length} passager(s)
 💰 ${formatPrice(totalPrice)}
@@ -325,15 +324,7 @@ export default function Historique() {
           <View
             style={[styles.cardImage, { backgroundColor: theme.backgroundAlt }]}
           >
-            {r?.photoUrl ? (
-              <Image
-                source={{ uri: r.photoUrl }}
-                style={styles.cardImageInner}
-                resizeMode="cover"
-              />
-            ) : (
-              <Ionicons name="bus-outline" size={28} color={theme.text} />
-            )}
+            <Ionicons name="bus-outline" size={28} color={theme.text} />
           </View>
 
           {/* Info */}
@@ -352,7 +343,7 @@ export default function Historique() {
                 </Text>
               </View>
               <Text style={[styles.dateText, { color: theme.text }]}>
-                {formatDate(r?.dateDepart || item.dateReservation, lang)}
+                {formatDate(r?.dateDepartPrev || item.dateReservation, lang)}
               </Text>
             </View>
 
@@ -370,7 +361,7 @@ export default function Historique() {
                 <Ionicons name="time-outline" size={12} color={theme.text} />
                 <Text style={[styles.timeText, { color: theme.text }]}>
                   {' '}
-                  {r.heureDepart} - {r.heureArrive}
+                  {r.heureDepartEffectif} - {r.heureArrive}
                 </Text>
               </View>
             )}
@@ -446,15 +437,7 @@ export default function Historique() {
           <View
             style={[styles.cardImage, { backgroundColor: theme.backgroundAlt }]}
           >
-            {r?.photoUrl ? (
-              <Image
-                source={{ uri: r.photoUrl }}
-                style={styles.cardImageInner}
-                resizeMode="cover"
-              />
-            ) : (
-              <Ionicons name="bus-outline" size={28} color={theme.text} />
-            )}
+            <Ionicons name="bus-outline" size={28} color={theme.text} />
           </View>
 
           <View style={styles.cardInfo}>
@@ -484,7 +467,7 @@ export default function Historique() {
                 <Ionicons name="time-outline" size={12} color={theme.text} />
                 <Text style={[styles.timeText, { color: theme.text }]}>
                   {' '}
-                  {r.heureDepart} - {r.heureArrive}
+                  {r.heureDepartEffectif} - {r.heureArrive}
                 </Text>
               </View>
             )}

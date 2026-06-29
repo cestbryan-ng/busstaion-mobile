@@ -25,13 +25,12 @@ import type { RootStackParamList } from '../../../../navigation';
 
 type Agency = {
   id: string;
-  nom: string;
-  logo?: string;
-  adresse?: string;
+  longName: string;
+  logoUrl?: string;
+  location?: string;
   description?: string;
-  email?: string;
-  telephone?: string;
-  statut: 'ACTIF' | 'SUSPENDU' | 'INACTIF';
+  contact?: { email?: string; phone?: string; website?: string };
+  isActive: boolean;
 };
 
 const STATUT_CONFIG: Record<
@@ -49,12 +48,6 @@ const STATUT_CONFIG: Record<
     labelEn: 'Suspended',
     color: colors.error,
     bg: `${colors.error}15`,
-  },
-  INACTIF: {
-    label: 'Inactif',
-    labelEn: 'Inactive',
-    color: '#d97706',
-    bg: '#fef3c715',
   },
 };
 
@@ -136,8 +129,8 @@ export default function AgencyDetailBsm() {
     if (!agency) return;
     try {
       await Share.share({
-        message: `${agency.nom}\n${agency.adresse ?? ''}\n${agency.telephone ?? ''}`,
-        title: agency.nom,
+        message: `${agency.longName}\n${agency.location ?? ''}\n${agency.contact?.phone ?? ''}`,
+        title: agency.longName,
       });
     } catch {
       // silent
@@ -146,7 +139,7 @@ export default function AgencyDetailBsm() {
 
   const handleToggleStatut = () => {
     if (!agency) return;
-    setConfirmIsActive(agency.statut === 'ACTIF');
+    setConfirmIsActive(agency.isActive);
     setConfirmVisible(true);
   };
 
@@ -164,8 +157,7 @@ export default function AgencyDetailBsm() {
       });
       if (res.ok) {
         toast.success(t.statusUpdated);
-        const updated: Agency = await res.json();
-        setAgency(prev => prev ? { ...prev, statut: updated.statut } : null);
+        setAgency(prev => prev ? { ...prev, isActive: !confirmIsActive } : null);
       } else {
         toast.error(t.updateError);
       }
@@ -186,8 +178,8 @@ export default function AgencyDetailBsm() {
 
   if (!agency) return null;
 
-  const statusCfg = STATUT_CONFIG[agency.statut] || STATUT_CONFIG['INACTIF'];
-  const canToggle = agency.statut === 'ACTIF' || agency.statut === 'SUSPENDU';
+  const statusCfg = STATUT_CONFIG[agency.isActive ? 'ACTIF' : 'SUSPENDU'];
+  const canToggle = true;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -228,15 +220,15 @@ export default function AgencyDetailBsm() {
             { backgroundColor: theme.background, borderColor: theme.border },
           ]}
         >
-          {agency.logo ? (
+          {agency.logoUrl ? (
             <Image
-              source={{ uri: agency.logo }}
+              source={{ uri: agency.logoUrl }}
               style={styles.logoImage}
               resizeMode="contain"
             />
           ) : (
             <Text style={[styles.logoLetter, { color: colors.primary }]}>
-              {agency.nom.slice(0, 2).toUpperCase()}
+              {agency.longName.slice(0, 2).toUpperCase()}
             </Text>
           )}
         </View>
@@ -250,7 +242,7 @@ export default function AgencyDetailBsm() {
         >
           <View style={styles.nameRow}>
             <Text style={[styles.agencyName, { color: theme.textStrong }]}>
-              {agency.nom}
+              {agency.longName}
             </Text>
             <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
               <Text style={[styles.statusText, { color: statusCfg.color }]}>
@@ -267,14 +259,14 @@ export default function AgencyDetailBsm() {
 
           {/* Contact */}
           <View style={[styles.contactList, { borderTopColor: theme.border }]}>
-            {agency.telephone && (
+            {agency.contact?.phone && (
               <TouchableOpacity
                 style={[styles.contactRow, { borderBottomColor: theme.border }]}
-                onPress={() => Linking.openURL(`tel:${agency.telephone}`)}
+                onPress={() => Linking.openURL(`tel:${agency.contact!.phone}`)}
               >
                 <Ionicons name="call-outline" size={18} color={theme.textStrong} />
                 <Text style={[styles.contactText, { color: theme.textStrong }]}>
-                  {agency.telephone}
+                  {agency.contact.phone}
                 </Text>
                 <View
                   style={[
@@ -286,14 +278,14 @@ export default function AgencyDetailBsm() {
                 </View>
               </TouchableOpacity>
             )}
-            {agency.email && (
+            {agency.contact?.email && (
               <TouchableOpacity
                 style={[styles.contactRow, { borderBottomColor: theme.border }]}
-                onPress={() => Linking.openURL(`mailto:${agency.email}`)}
+                onPress={() => Linking.openURL(`mailto:${agency.contact!.email}`)}
               >
                 <Ionicons name="mail-outline" size={18} color={theme.textStrong} />
                 <Text style={[styles.contactText, { color: theme.textStrong }]}>
-                  {agency.email}
+                  {agency.contact.email}
                 </Text>
                 <View
                   style={[
@@ -305,7 +297,7 @@ export default function AgencyDetailBsm() {
                 </View>
               </TouchableOpacity>
             )}
-            {agency.adresse && (
+            {agency.location && (
               <View style={[styles.contactRow, { borderBottomColor: 'transparent' }]}>
                 <Ionicons
                   name="location-outline"
@@ -313,7 +305,7 @@ export default function AgencyDetailBsm() {
                   color={theme.textStrong}
                 />
                 <Text style={[styles.contactText, { color: theme.text }]}>
-                  {agency.adresse}
+                  {agency.location}
                 </Text>
               </View>
             )}
@@ -327,7 +319,7 @@ export default function AgencyDetailBsm() {
             onPress={() =>
               navigation.navigate('AgencyTripsBsm', {
                 agencyId: agency.id,
-                agencyName: agency.nom,
+                agencyName: agency.longName,
               })
             }
             activeOpacity={0.85}
@@ -341,7 +333,7 @@ export default function AgencyDetailBsm() {
                 styles.toggleBtn,
                 {
                   borderColor:
-                    agency.statut === 'ACTIF' ? colors.error : colors.success,
+                    agency.isActive ? colors.error : colors.success,
                 },
               ]}
               onPress={handleToggleStatut}
@@ -351,35 +343,28 @@ export default function AgencyDetailBsm() {
               {suspending ? (
                 <ActivityIndicator
                   size="small"
-                  color={
-                    agency.statut === 'ACTIF' ? colors.error : colors.success
-                  }
+                  color={agency.isActive ? colors.error : colors.success}
                 />
               ) : (
                 <>
                   <Ionicons
                     name={
-                      agency.statut === 'ACTIF'
+                      agency.isActive
                         ? 'ban-outline'
                         : 'checkmark-circle-outline'
                     }
                     size={18}
-                    color={
-                      agency.statut === 'ACTIF' ? colors.error : colors.success
-                    }
+                    color={agency.isActive ? colors.error : colors.success}
                   />
                   <Text
                     style={[
                       styles.toggleBtnText,
                       {
-                        color:
-                          agency.statut === 'ACTIF'
-                            ? colors.error
-                            : colors.success,
+                        color: agency.isActive ? colors.error : colors.success,
                       },
                     ]}
                   >
-                    {agency.statut === 'ACTIF' ? t.suspend : t.activate}
+                    {agency.isActive ? t.suspend : t.activate}
                   </Text>
                 </>
               )}

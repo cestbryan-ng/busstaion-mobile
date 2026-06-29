@@ -26,23 +26,29 @@ import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 
 type TaxeAffiliation = {
-  id: string;
-  nom: string;
-  montant: number;
-  type: 'FIXE' | 'POURCENTAGE';
-  gareId: string;
+  idTaxe: string;
+  gareRoutiereId: string;
+  nomTaxe: string;
+  description?: string;
+  tauxTaxe?: number;
+  montantFixe?: number;
+  dateEffet?: string;
+  documentUrl?: string;
 };
 
 type ModalForm = {
-  nom: string;
-  montant: string;
-  type: 'FIXE' | 'POURCENTAGE';
+  nomTaxe: string;
+  description: string;
+  amountKind: 'FIXE' | 'TAUX';
+  montantFixe: string;
+  tauxTaxe: string;
+  dateEffet: string;
 };
 
 function formatAmount(item: TaxeAffiliation): string {
-  return item.type === 'FIXE'
-    ? item.montant.toLocaleString('fr-FR') + ' FCFA'
-    : `${item.montant}%`;
+  if (item.montantFixe) return item.montantFixe.toLocaleString('fr-FR') + ' FCFA';
+  if (item.tauxTaxe) return `${item.tauxTaxe}%`;
+  return '—';
 }
 
 export default function TaxeAffiliationBsm() {
@@ -66,9 +72,12 @@ export default function TaxeAffiliationBsm() {
     null,
   );
   const [form, setForm] = useState<ModalForm>({
-    nom: '',
-    montant: '',
-    type: 'FIXE',
+    nomTaxe: '',
+    description: '',
+    amountKind: 'FIXE',
+    montantFixe: '',
+    tauxTaxe: '',
+    dateEffet: '',
   });
 
   const t = {
@@ -84,13 +93,17 @@ export default function TaxeAffiliationBsm() {
       cancel: 'Annuler',
       nom: 'Nom *',
       nomPh: "Ex : Taxe d'enregistrement",
-      montant: 'Montant *',
-      montantPh: 'Ex : 5000',
-      type: 'Type',
+      description: 'Description',
+      descPh: 'Description de la taxe...',
+      amountKind: 'Type de montant',
       fixe: 'Montant fixe (FCFA)',
-      pourcentage: 'Pourcentage (%)',
+      taux: 'Taux (%)',
+      montantFixePh: 'Ex : 5000',
+      tauxPh: 'Ex : 5.0',
+      dateEffet: "Date d'effet (AAAA-MM-JJ)",
+      datePh: 'Ex : 2025-01-01',
       save: 'Enregistrer',
-      required: 'Nom et montant requis',
+      required: 'Le nom est requis',
       error: 'Une erreur est survenue',
       taxSaved: 'Taxe enregistrée',
       taxDeleted: 'Taxe supprimée',
@@ -107,13 +120,17 @@ export default function TaxeAffiliationBsm() {
       cancel: 'Cancel',
       nom: 'Name *',
       nomPh: 'E.g. Registration tax',
-      montant: 'Amount *',
-      montantPh: 'E.g. 5000',
-      type: 'Type',
+      description: 'Description',
+      descPh: 'Tax description...',
+      amountKind: 'Amount type',
       fixe: 'Fixed amount (FCFA)',
-      pourcentage: 'Percentage (%)',
+      taux: 'Rate (%)',
+      montantFixePh: 'E.g. 5000',
+      tauxPh: 'E.g. 5.0',
+      dateEffet: 'Effective date (YYYY-MM-DD)',
+      datePh: 'E.g. 2025-01-01',
       save: 'Save',
-      required: 'Name and amount are required',
+      required: 'Name is required',
       error: 'An error occurred',
       taxSaved: 'Tax saved',
       taxDeleted: 'Tax deleted',
@@ -139,10 +156,10 @@ export default function TaxeAffiliationBsm() {
       });
       if (!stRes.ok) return;
       const station = await stRes.json();
-      setGareId(station.id);
+      setGareId(station.idGareRoutiere);
 
       const res = await fetch(
-        `${API_URL}/taxe-affiliation/gare/${station.id}`,
+        `${API_URL}/taxe-affiliation/gare/${station.idGareRoutiere}`,
         { headers: { Authorization: `Bearer ${tk}` } },
       );
       if (res.ok) {
@@ -164,32 +181,37 @@ export default function TaxeAffiliationBsm() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ nom: '', montant: '', type: 'FIXE' });
+    setForm({ nomTaxe: '', description: '', amountKind: 'FIXE', montantFixe: '', tauxTaxe: '', dateEffet: '' });
     setModalVisible(true);
   };
 
   const openEdit = (item: TaxeAffiliation) => {
-    setEditingId(item.id);
+    setEditingId(item.idTaxe);
     setForm({
-      nom: item.nom,
-      montant: item.montant.toString(),
-      type: item.type,
+      nomTaxe: item.nomTaxe,
+      description: item.description ?? '',
+      amountKind: item.montantFixe ? 'FIXE' : 'TAUX',
+      montantFixe: item.montantFixe?.toString() ?? '',
+      tauxTaxe: item.tauxTaxe?.toString() ?? '',
+      dateEffet: item.dateEffet ?? '',
     });
     setModalVisible(true);
   };
 
   const handleSave = async () => {
-    if (!form.nom.trim() || !form.montant.trim()) {
+    if (!form.nomTaxe.trim()) {
       toast.warning(t.required);
       return;
     }
     setSaving(true);
     try {
       const body = {
-        nom: form.nom.trim(),
-        montant: parseFloat(form.montant) || 0,
-        type: form.type,
-        gareId,
+        gareRoutiereId: gareId,
+        nomTaxe: form.nomTaxe.trim(),
+        description: form.description.trim() || undefined,
+        montantFixe: form.amountKind === 'FIXE' ? parseFloat(form.montantFixe) || 0 : 0,
+        tauxTaxe: form.amountKind === 'TAUX' ? parseFloat(form.tauxTaxe) || 0 : 0,
+        dateEffet: form.dateEffet.trim() || undefined,
       };
 
       const url = editingId
@@ -208,7 +230,7 @@ export default function TaxeAffiliationBsm() {
       if (res.ok || res.status === 201) {
         const saved: TaxeAffiliation = await res.json();
         if (editingId) {
-          setItems(prev => prev.map(i => (i.id === saved.id ? saved : i)));
+          setItems(prev => prev.map(i => (i.idTaxe === saved.idTaxe ? saved : i)));
         } else {
           setItems(prev => [saved, ...prev]);
         }
@@ -232,15 +254,15 @@ export default function TaxeAffiliationBsm() {
     if (!deleteTarget) return;
     const item = deleteTarget;
     setDeleteTarget(null);
-    setDeletingId(item.id);
+    setDeletingId(item.idTaxe);
     try {
-      const res = await fetch(`${API_URL}/taxe-affiliation/${item.id}`, {
+      const res = await fetch(`${API_URL}/taxe-affiliation/${item.idTaxe}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.status === 204 || res.ok) {
         toast.success(t.taxDeleted);
-        setItems(prev => prev.filter(i => i.id !== item.id));
+        setItems(prev => prev.filter(i => i.idTaxe !== item.idTaxe));
       } else {
         toast.error(t.error);
       }
@@ -296,7 +318,7 @@ export default function TaxeAffiliationBsm() {
           ) : (
             items.map(item => (
               <View
-                key={item.id}
+                key={item.idTaxe}
                 style={[
                   styles.itemCard,
                   {
@@ -322,7 +344,7 @@ export default function TaxeAffiliationBsm() {
                     style={[styles.itemName, { color: theme.textStrong }]}
                     numberOfLines={1}
                   >
-                    {item.nom}
+                    {item.nomTaxe}
                   </Text>
                   <View style={styles.itemMeta}>
                     <Text
@@ -330,21 +352,11 @@ export default function TaxeAffiliationBsm() {
                     >
                       {formatAmount(item)}
                     </Text>
-                    <View
-                      style={[
-                        styles.typeBadge,
-                        { backgroundColor: `${colors.primary}15` },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.typeBadgeText,
-                          { color: colors.primary },
-                        ]}
-                      >
-                        {item.type}
+                    {item.dateEffet && (
+                      <Text style={[styles.typeBadgeText, { color: theme.text }]}>
+                        {item.dateEffet}
                       </Text>
-                    </View>
+                    )}
                   </View>
                 </View>
                 <View style={styles.itemActions}>
@@ -361,7 +373,7 @@ export default function TaxeAffiliationBsm() {
                       color={colors.primary}
                     />
                   </TouchableOpacity>
-                  {deletingId === item.id ? (
+                  {deletingId === item.idTaxe ? (
                     <ActivityIndicator size="small" color={colors.error} />
                   ) : (
                     <TouchableOpacity
@@ -436,18 +448,106 @@ export default function TaxeAffiliationBsm() {
               ]}
               placeholder={t.nomPh}
               placeholderTextColor={theme.text}
-              value={form.nom}
-              onChangeText={v => setForm(f => ({ ...f, nom: v }))}
+              value={form.nomTaxe}
+              onChangeText={v => setForm(f => ({ ...f, nomTaxe: v }))}
             />
 
-            {/* Montant */}
+            {/* Description */}
+            <Text style={[styles.label, { color: theme.text, marginTop: spacing.md }]}>
+              {t.description}
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  borderColor: theme.border,
+                  color: theme.textStrong,
+                  backgroundColor: theme.backgroundAlt,
+                  height: 72,
+                  paddingTop: spacing.sm,
+                },
+              ]}
+              placeholder={t.descPh}
+              placeholderTextColor={theme.text}
+              value={form.description}
+              onChangeText={v => setForm(f => ({ ...f, description: v }))}
+              multiline
+              textAlignVertical="top"
+            />
+
+            {/* Type de montant */}
             <Text
               style={[
                 styles.label,
                 { color: theme.text, marginTop: spacing.md },
               ]}
             >
-              {t.montant}
+              {t.amountKind}
+            </Text>
+            <View style={styles.toggleRow}>
+              {(['FIXE', 'TAUX'] as const).map(opt => (
+                <TouchableOpacity
+                  key={opt}
+                  style={[
+                    styles.toggleBtn,
+                    {
+                      borderColor:
+                        form.amountKind === opt ? colors.primary : theme.border,
+                    },
+                    form.amountKind === opt && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => setForm(f => ({ ...f, amountKind: opt }))}
+                >
+                  <Text
+                    style={[
+                      styles.toggleText,
+                      { color: form.amountKind === opt ? '#fff' : theme.text },
+                    ]}
+                  >
+                    {opt === 'FIXE' ? t.fixe : t.taux}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {form.amountKind === 'FIXE' ? (
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: theme.border,
+                    color: theme.textStrong,
+                    backgroundColor: theme.backgroundAlt,
+                    marginTop: spacing.sm,
+                  },
+                ]}
+                placeholder={t.montantFixePh}
+                placeholderTextColor={theme.text}
+                value={form.montantFixe}
+                onChangeText={v => setForm(f => ({ ...f, montantFixe: v }))}
+                keyboardType="decimal-pad"
+              />
+            ) : (
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: theme.border,
+                    color: theme.textStrong,
+                    backgroundColor: theme.backgroundAlt,
+                    marginTop: spacing.sm,
+                  },
+                ]}
+                placeholder={t.tauxPh}
+                placeholderTextColor={theme.text}
+                value={form.tauxTaxe}
+                onChangeText={v => setForm(f => ({ ...f, tauxTaxe: v }))}
+                keyboardType="decimal-pad"
+              />
+            )}
+
+            {/* Date d'effet */}
+            <Text style={[styles.label, { color: theme.text, marginTop: spacing.md }]}>
+              {t.dateEffet}
             </Text>
             <TextInput
               style={[
@@ -458,47 +558,11 @@ export default function TaxeAffiliationBsm() {
                   backgroundColor: theme.backgroundAlt,
                 },
               ]}
-              placeholder={t.montantPh}
+              placeholder={t.datePh}
               placeholderTextColor={theme.text}
-              value={form.montant}
-              onChangeText={v => setForm(f => ({ ...f, montant: v }))}
-              keyboardType="decimal-pad"
+              value={form.dateEffet}
+              onChangeText={v => setForm(f => ({ ...f, dateEffet: v }))}
             />
-
-            {/* Type */}
-            <Text
-              style={[
-                styles.label,
-                { color: theme.text, marginTop: spacing.md },
-              ]}
-            >
-              {t.type}
-            </Text>
-            <View style={styles.toggleRow}>
-              {(['FIXE', 'POURCENTAGE'] as const).map(opt => (
-                <TouchableOpacity
-                  key={opt}
-                  style={[
-                    styles.toggleBtn,
-                    {
-                      borderColor:
-                        form.type === opt ? colors.primary : theme.border,
-                    },
-                    form.type === opt && { backgroundColor: colors.primary },
-                  ]}
-                  onPress={() => setForm(f => ({ ...f, type: opt }))}
-                >
-                  <Text
-                    style={[
-                      styles.toggleText,
-                      { color: form.type === opt ? '#fff' : theme.text },
-                    ]}
-                  >
-                    {opt === 'FIXE' ? t.fixe : t.pourcentage}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
 
             {/* Actions */}
             <View style={styles.modalActions}>

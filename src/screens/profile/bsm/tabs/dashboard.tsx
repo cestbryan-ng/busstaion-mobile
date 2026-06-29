@@ -22,14 +22,13 @@ import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonDashboard } from '../../../../components/skeleton';
 
 type Station = {
-  id: string;
+  idGareRoutiere: string;
   nomGareRoutiere: string;
   ville: string;
   quartier?: string;
-  imageUrl?: string;
-  estOuvert: boolean;
+  photoUrl?: string;
   horaires?: string;
-  nbAgencesAffiliees: number;
+  nbreAgence: number;
 };
 
 type Agency = {
@@ -44,7 +43,7 @@ type Trip = {
   idVoyage: string;
   lieuDepart: string;
   lieuArrive: string;
-  heureDepart: string;
+  heureDepartEffectif?: string;
   nomClasseVoyage?: string;
   nbrPlaceRestante?: number;
   prix: number;
@@ -162,10 +161,10 @@ export default function BsmDashboard({
       const stationData = await stationRes.json();
       setStation(stationData);
 
-      const stationId = stationData.id;
+      const stationId = stationData.idGareRoutiere;
 
       const agenciesRes = await fetch(
-        `${API_URL}/agence/gare-routiere/${stationId}`,
+        `${API_URL}/gare/${stationId}/agences`,
         { headers },
       );
       let agenciesList: Agency[] = [];
@@ -307,9 +306,9 @@ export default function BsmDashboard({
                 { backgroundColor: theme.backgroundAlt },
               ]}
             >
-              {station?.imageUrl ? (
+              {station?.photoUrl ? (
                 <Image
-                  source={{ uri: station.imageUrl }}
+                  source={{ uri: station.photoUrl }}
                   style={styles.avatarImage}
                   resizeMode="cover"
                 />
@@ -347,9 +346,9 @@ export default function BsmDashboard({
               { backgroundColor: theme.backgroundAlt },
             ]}
           >
-            {station?.imageUrl ? (
+            {station?.photoUrl ? (
               <Image
-                source={{ uri: station.imageUrl }}
+                source={{ uri: station.photoUrl }}
                 style={styles.stationImageInner}
                 resizeMode="cover"
               />
@@ -373,22 +372,11 @@ export default function BsmDashboard({
               <View
                 style={[
                   styles.openBadge,
-                  {
-                    backgroundColor: station?.estOuvert
-                      ? `${colors.success}15`
-                      : `${colors.error}15`,
-                  },
+                  { backgroundColor: `${colors.success}15` },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.openBadgeText,
-                    {
-                      color: station?.estOuvert ? colors.success : colors.error,
-                    },
-                  ]}
-                >
-                  {station?.estOuvert ? t.open : t.closed}
+                <Text style={[styles.openBadgeText, { color: colors.success }]}>
+                  {t.open}
                 </Text>
               </View>
               {station?.horaires && (
@@ -415,7 +403,7 @@ export default function BsmDashboard({
               icon="business-outline"
               iconBg={`${colors.primary}15`}
               iconColor={colors.primary}
-              value={String(station?.nbAgencesAffiliees || agencies.length)}
+              value={String(station?.nbreAgence ?? agencies.length)}
               label={t.affiliatedAgencies}
               sublabel={t.total}
             />
@@ -552,7 +540,7 @@ export default function BsmDashboard({
               style={[styles.tripRow, { borderBottomColor: theme.border }]}
             >
               <Text style={[styles.tripHour, { color: theme.textStrong }]}>
-                {trip.heureDepart}
+                {trip.heureDepartEffectif || ''}
               </Text>
               <View style={styles.tripInfo}>
                 <View style={styles.tripRouteRow}>
