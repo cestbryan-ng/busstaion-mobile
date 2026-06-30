@@ -672,32 +672,7 @@ export default function AgencyDashboard({
             {t.quickActions}
           </Text>
           <View style={styles.quickActions}>
-            <TouchableOpacity
-              style={[
-                styles.quickBtn,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
-              ]}
-              onPress={() => navigation.navigate('CreateAgency')}
-            >
-              <View
-                style={[
-                  styles.quickBtnIcon,
-                  { backgroundColor: `${colors.error}15` },
-                ]}
-              >
-                <Ionicons
-                  name="business-outline"
-                  size={22}
-                  color={colors.error}
-                />
-              </View>
-              <Text style={[styles.quickBtnText, { color: theme.textStrong }]}>
-                {t.newAgency}
-              </Text>
-            </TouchableOpacity>
+
             <TouchableOpacity
               style={[
                 styles.quickBtn,
