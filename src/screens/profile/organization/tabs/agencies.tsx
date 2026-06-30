@@ -63,6 +63,8 @@ export default function OrgAgencies() {
       tripsDesc: 'Gérer vos voyages et brouillons',
       reservationsDesc: 'Voir les réservations',
       policyDesc: "Gérer votre politique d'annulation",
+      employees: 'Employés',
+      employeesDesc: 'Gérer les employés de vos agences',
     },
     en: {
       title: 'Agencies',
@@ -85,6 +87,8 @@ export default function OrgAgencies() {
       tripsDesc: 'Manage your trips and drafts',
       reservationsDesc: 'View reservations',
       policyDesc: 'Manage your cancellation policy',
+      employees: 'Employees',
+      employeesDesc: 'Manage your agency employees',
     },
   }[lang];
 
@@ -197,6 +201,15 @@ export default function OrgAgencies() {
       onPress: firstAgencyId
         ? () =>
             navigation.navigate('OrgServiceLines', { agencyId: firstAgencyId })
+        : () => {},
+    },
+    {
+      icon: 'people-outline',
+      label: t.employees,
+      desc: t.employeesDesc,
+      onPress: firstAgencyId
+        ? () =>
+            navigation.navigate('OrgEmployees', { agencyId: firstAgencyId })
         : () => {},
     },
     {
