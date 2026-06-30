@@ -266,18 +266,30 @@ export default function BookingDetails() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [token, storedLang] = await Promise.all([
+        const [token, userRaw, storedLang] = await Promise.all([
           AsyncStorage.getItem('token'),
+          AsyncStorage.getItem('user'),
           AsyncStorage.getItem('app_lang'),
         ]);
         if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const res = await fetch(`${API_URL}/reservation/${reservationId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const user = userRaw ? JSON.parse(userRaw) : null;
+        const userId = user?.userId || user?.id;
+        if (!userId) return;
+
+        const res = await fetch(
+          `${API_URL}/reservation/user/${userId}?page=0&size=100`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
         if (res.ok) {
           const data = await res.json();
-          setReservation(data);
+          const content: ReservationDetail[] = data.content || [];
+          const found = content.find(
+            r =>
+              r.idReservation === reservationId ||
+              r.reservation?.idReservation === reservationId,
+          );
+          if (found) setReservation(found);
         }
       } catch {
         // silent

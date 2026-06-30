@@ -142,13 +142,11 @@ export default function AgencyTripDetail() {
     setCancelling(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      await fetch(`${API_URL}/voyage/${tripId}`, {
+      await fetch(`${API_URL}/voyage/${tripId}/annuler`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ statusVoyage: 'ANNULE' }),
       });
       setCancelModal(false);
       navigation.goBack();

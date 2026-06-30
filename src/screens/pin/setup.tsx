@@ -11,6 +11,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getHomeRoute } from '../../utils/home-routing';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -98,14 +99,7 @@ export default function PinSetup() {
       const userRaw = await AsyncStorage.getItem('user');
       const user = userRaw ? JSON.parse(userRaw) : null;
       const roles: string[] = user?.role ?? [];
-
-      if (roles.includes('BUS_STATION_MANAGER')) {
-        navigation.replace('BsmDashboard');
-      } else if (roles.includes('AGENCE_VOYAGE')) {
-        navigation.replace('AgencyDashboard');
-      } else {
-        navigation.replace('ClientHome');
-      }
+      navigation.replace(getHomeRoute(roles));
     }
   };
 
@@ -211,13 +205,7 @@ export default function PinSetup() {
             const userRaw = await AsyncStorage.getItem('user');
             const user = userRaw ? JSON.parse(userRaw) : null;
             const roles: string[] = user?.role ?? [];
-            if (roles.includes('BUS_STATION_MANAGER')) {
-              navigation.replace('BsmDashboard');
-            } else if (roles.includes('AGENCE_VOYAGE')) {
-              navigation.replace('AgencyDashboard');
-            } else {
-              navigation.replace('ClientHome');
-            }
+            navigation.replace(getHomeRoute(roles));
           }}
         >
           <Text style={[styles.skipText, { color: theme.text }]}>

@@ -25,7 +25,7 @@ import type { RootStackParamList } from '../../navigation';
 import { API_URL, CGU_URL } from '../../utils/config';
 
 type Step = 1 | 2 | 3;
-type Role = 'USAGER' | 'AGENCE_VOYAGE';
+type Role = 'USAGER' | 'ORGANISATION';
 
 type FormStep1 = {
   first_name: string;
@@ -142,12 +142,12 @@ export default function SignUp() {
   const translations = {
     fr: {
       titleStep1: 'Créer un compte',
-      titleStep3: 'Créer une agence',
+      titleStep3: 'Créer une organisation',
       subtitleStep1: 'Rejoignez la plateforme',
-      subtitleStep3: 'Complétez les informations de votre agence',
+      subtitleStep3: 'Complétez les informations de votre organisation',
       sectionPersonal: 'Informations personnelles',
       sectionAccountType: 'Type de compte',
-      sectionAgency: "Détails de l'agence",
+      sectionAgency: "Détails de l'organisation",
       chooseType: 'Choisissez le type de compte qui vous correspond',
       firstName: 'Prénom',
       firstNamePlaceholder: 'Votre prénom',
@@ -170,9 +170,9 @@ export default function SignUp() {
       female: 'Femme',
       client: 'Client',
       clientDesc: 'Compte simple pour voyager facilement sur la plateforme.',
-      agency: 'Agence de voyage',
-      agencyDesc: 'Compte pour gérer une agence de voyage et vos activités.',
-      longName: "Nom complet de l'agence",
+      agency: 'Organisation',
+      agencyDesc: 'Compte pour gérer une organisation et vos agences de voyage.',
+      longName: "Nom complet de l'organisation",
       ceoName: 'Nom du directeur général',
       agencyEmail: 'Email professionnel',
       yearFounded: 'Année de création',
@@ -180,7 +180,7 @@ export default function SignUp() {
       taxNumber: 'Numéro fiscal',
       continueBtn: 'Continuer',
       backBtn: 'Retour',
-      createAgencyBtn: 'Créer Agence',
+      createAgencyBtn: 'Créer Organisation',
       alreadyAccount: 'Déjà un compte ?',
       login: 'Se connecter',
       acceptCGU: "J'accepte les ",
@@ -205,12 +205,12 @@ export default function SignUp() {
     },
     en: {
       titleStep1: 'Create account',
-      titleStep3: 'Create agency',
+      titleStep3: 'Create organization',
       subtitleStep1: 'Join the platform',
-      subtitleStep3: 'Complete your agency information',
+      subtitleStep3: 'Complete your organization information',
       sectionPersonal: 'Personal information',
       sectionAccountType: 'Account type',
-      sectionAgency: 'Agency details',
+      sectionAgency: 'Organization details',
       chooseType: 'Choose the account type that suits you',
       firstName: 'First name',
       firstNamePlaceholder: 'Your first name',
@@ -233,9 +233,9 @@ export default function SignUp() {
       female: 'Female',
       client: 'Client',
       clientDesc: 'Simple account to travel easily on the platform.',
-      agency: 'Travel agency',
-      agencyDesc: 'Account to manage a travel agency and your activities.',
-      longName: 'Agency full name',
+      agency: 'Organization',
+      agencyDesc: 'Account to manage an organization and your travel agencies.',
+      longName: 'Organization full name',
       ceoName: 'CEO name',
       agencyEmail: 'Professional email',
       yearFounded: 'Year founded',
@@ -243,7 +243,7 @@ export default function SignUp() {
       taxNumber: 'Tax number',
       continueBtn: 'Continue',
       backBtn: 'Back',
-      createAgencyBtn: 'Create Agency',
+      createAgencyBtn: 'Create Organization',
       alreadyAccount: 'Already have an account?',
       login: 'Log in',
       acceptCGU: 'I accept the ',
@@ -360,6 +360,23 @@ export default function SignUp() {
       const data = await response.json();
 
       if (response.ok || response.status === 201) {
+        await fetch(`${API_URL}/auth/me`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            email: form1.email,
+            username: form1.username,
+            password: form1.password,
+            gender: form1.gender,
+            first_name: form1.first_name,
+            last_name: form1.last_name,
+            phone_number: form1.phone_number,
+            role: ['ORGANISATION'],
+          }),
+        });
         toast.success(t.accountCreated);
         navigation.replace('SignUpSuccess');
       } else if (response.status === 409) {
@@ -386,7 +403,7 @@ export default function SignUp() {
     setErrors3(prev => ({ ...prev, [key]: undefined }));
   };
 
-  const totalSteps = role === 'AGENCE_VOYAGE' ? 3 : 2;
+  const totalSteps = role === 'ORGANISATION' ? 3 : 2;
 
   return (
     <KeyboardAvoidingView
@@ -909,25 +926,25 @@ export default function SignUp() {
                 styles.roleCard,
                 {
                   borderColor:
-                    role === 'AGENCE_VOYAGE' ? colors.primary : theme.border,
+                    role === 'ORGANISATION' ? colors.primary : theme.border,
                   backgroundColor:
-                    role === 'AGENCE_VOYAGE'
+                    role === 'ORGANISATION'
                       ? `${colors.primary}10`
                       : theme.background,
                 },
               ]}
-              onPress={() => setRole('AGENCE_VOYAGE')}
+              onPress={() => setRole('ORGANISATION')}
             >
               <View
                 style={[
                   styles.radio,
                   {
                     borderColor:
-                      role === 'AGENCE_VOYAGE' ? colors.primary : theme.border,
+                      role === 'ORGANISATION' ? colors.primary : theme.border,
                   },
                 ]}
               >
-                {role === 'AGENCE_VOYAGE' && (
+                {role === 'ORGANISATION' && (
                   <View
                     style={[
                       styles.radioInner,
@@ -940,7 +957,7 @@ export default function SignUp() {
                 <Ionicons
                   name="briefcase-outline"
                   size={28}
-                  color={role === 'AGENCE_VOYAGE' ? colors.primary : theme.text}
+                  color={role === 'ORGANISATION' ? colors.primary : theme.text}
                   style={styles.roleIcon}
                 />
                 <View style={{ flex: 1 }}>

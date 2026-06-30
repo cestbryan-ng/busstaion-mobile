@@ -15,6 +15,7 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
 import { logout } from '../../utils/logout';
+import { getHomeRoute } from '../../utils/home-routing';
 import type { RootStackParamList } from '../../navigation';
 import { resetPin } from '../../utils/reset-pin';
 
@@ -83,14 +84,7 @@ export default function PinVerify() {
       const userRaw = await AsyncStorage.getItem('user');
       const user = userRaw ? JSON.parse(userRaw) : null;
       const roles: string[] = user?.role ?? [];
-
-      if (roles.includes('BUS_STATION_MANAGER')) {
-        navigation.replace('BsmDashboard');
-      } else if (roles.includes('AGENCE_VOYAGE')) {
-        navigation.replace('AgencyDashboard');
-      } else {
-        navigation.replace('ClientHome');
-      }
+      navigation.replace(getHomeRoute(roles));
     } else {
       Vibration.vibrate(400);
       const newAttempts = attempts + 1;

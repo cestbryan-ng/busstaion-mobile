@@ -7,5 +7,6 @@ export async function logout(navigation: any) {
   await AsyncStorage.removeItem('isCustomerAuthenticated');
   await AsyncStorage.removeItem('isAgencyConnected');
   await AsyncStorage.removeItem('isOrganizationConnected');
+  await AsyncStorage.removeItem('isBsmAuthenticated');
   navigation.replace('Login');
 }

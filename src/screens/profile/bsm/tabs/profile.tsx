@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   useColorScheme,
   RefreshControl,
@@ -299,15 +298,7 @@ export default function BsmProfil() {
                 { backgroundColor: `${colors.primary}15` },
               ]}
             >
-              {user?.profile_picture ? (
-                <Image
-                  source={{ uri: user.profile_picture }}
-                  style={styles.avatarImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Ionicons name="person" size={32} color={colors.primary} />
-              )}
+              <Ionicons name="person" size={32} color={colors.primary} />
             </View>
             <View style={styles.profileInfo}>
               <Text style={[styles.profileName, { color: theme.textStrong }]}>

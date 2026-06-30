@@ -519,12 +519,12 @@ export default function StationDetail() {
                       {new Date(trip.dateDepartPrev).toLocaleDateString(
                         lang === 'fr' ? 'fr-FR' : 'en-GB',
                         { day: 'numeric', month: 'short', year: 'numeric' },
-                      )
+                      )}
                     </Text>
                   </View>
-                  {trip.agencyName && (
+                  {trip.nomAgence && (
                     <Text style={[styles.tripAgency, { color: theme.text }]}>
-                      {trip.agencyName}
+                      {trip.nomAgence}
                     </Text>
                   )}
                   <View

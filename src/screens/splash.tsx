@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../theme/colors';
 import { logout } from '../utils/logout';
+import { getHomeRoute } from '../utils/home-routing';
 import type { RootStackParamList } from '../navigation';
 
 export default function Splash() {
@@ -40,13 +41,7 @@ export default function Splash() {
           const userRaw = await AsyncStorage.getItem('user');
           const user = userRaw ? JSON.parse(userRaw) : null;
           const roles: string[] = user?.role ?? [];
-          if (roles.includes('BUS_STATION_MANAGER')) {
-            navigation.replace('BsmMain');
-          } else if (roles.includes('AGENCE_VOYAGE')) {
-            navigation.replace('AgencyMain');
-          } else {
-            navigation.replace('ClientMain');
-          }
+          navigation.replace(getHomeRoute(roles));
         }
       } else {
         await logout(navigation);

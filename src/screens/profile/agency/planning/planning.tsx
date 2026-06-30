@@ -253,7 +253,7 @@ export default function AgencyPlanning() {
             {t.creationDate}
           </Text>
           <Text style={[styles.infoValue, { color: theme.textStrong }]}>
-            {agency?.foundedYear ? `15 Mars ${agency.foundedYear}` : '—'}
+            {'—'}
           </Text>
         </View>
         <View style={styles.infoRow}>
@@ -277,7 +277,7 @@ export default function AgencyPlanning() {
             {t.region}
           </Text>
           <Text style={[styles.infoValue, { color: theme.textStrong }]}>
-            {agency?.region || agency?.location || '—'}
+            {agency?.location || '—'}
           </Text>
         </View>
       </View>

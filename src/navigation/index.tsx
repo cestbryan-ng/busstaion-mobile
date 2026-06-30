@@ -34,6 +34,22 @@ import AgencyNewTrip from '../screens/profile/agency/trips/new-trip';
 import AgencyCalendarDay from '../screens/profile/agency/calendar/calendar-day';
 import AgencyInfo from '../screens/profile/agency/profile/agency-info';
 import AgencySubscription from '../screens/profile/agency/profile/subscription';
+import OrgHome from '../screens/profile/organization/org-main';
+import OrgMyAgencies from '../screens/profile/organization/agencies/my-agencies';
+import OrgAgencyDetail from '../screens/profile/organization/agencies/agency-detail';
+import OrgStations from '../screens/profile/organization/stations/stations';
+import OrgStationDetail from '../screens/profile/organization/stations/station-detail';
+import OrgServiceLines from '../screens/profile/organization/services/service-lines';
+import OrgServiceLineDetail from '../screens/profile/organization/services/service-line-detail';
+import OrgLineSlots from '../screens/profile/organization/services/line-slots';
+import OrgAffiliationTaxes from '../screens/profile/organization/affiliations/affiliation-taxes';
+import OrgVehicles from '../screens/profile/organization/vehicles/vehicles';
+import OrgAffiliations from '../screens/profile/organization/affiliations/affiliations';
+import OrgCreateAgency from '../screens/profile/organization/agencies/create-agency';
+import OrgCreateAgencySuccess from '../screens/profile/organization/agencies/create-agency-success';
+import OrgEmployees from '../screens/profile/organization/resources/employees';
+import OrgMyOrganization from '../screens/profile/organization/profile/my-organization';
+import OrgEditOrganization from '../screens/profile/organization/profile/edit-organization';
 import BsmMain from '../screens/profile/bsm/bsm-main';
 import StationDetailBsm from '../screens/profile/bsm/stations/station-detail';
 import AgencyDetailBsm from '../screens/profile/bsm/agencies/agency-detail';
@@ -73,6 +89,22 @@ export type RootStackParamList = {
   AgencyCalendarDay: { dateStr: string; trips: any[] };
   AgencyInfo: undefined;
   AgencySubscription: undefined;
+  OrgMain: undefined;
+  OrgMyAgencies: undefined;
+  OrgAgencyDetail: { agencyId: string };
+  OrgStations: undefined;
+  OrgStationDetail: { stationId: string };
+  OrgServiceLines: { agencyId: string; agencyName?: string };
+  OrgServiceLineDetail: { lineId: string; agencyId: string };
+  OrgLineSlots: { lineId: string; agencyId: string; lineName?: string };
+  OrgAffiliationTaxes: { agencyId: string; agencyName?: string };
+  OrgVehicles: { agencyId: string };
+  OrgAffiliations: { agencyId: string };
+  OrgCreateAgency: undefined;
+  OrgCreateAgencySuccess: undefined;
+  OrgEmployees: { agencyId: string; agencyName?: string };
+  OrgMyOrganization: undefined;
+  OrgEditOrganization: undefined;
   BsmMain: undefined;
   StationDetailBsm: undefined;
   AgencyDetailBsm: { agencyId: string };
@@ -90,61 +122,95 @@ export default function Navigation() {
   return (
     <NavigationContainer>
       <ToastProvider>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          contentStyle: {
-            backgroundColor: isDark
-              ? colors.dark.background
-              : colors.light.background,
-          },
-        }}
-      >
-        <Stack.Screen name="Splash" component={Splash} />
-        <Stack.Screen name="Onboard1" component={Onboard1} />
-        <Stack.Screen name="Onboard2" component={Onboard2} />
-        <Stack.Screen name="Onboard3" component={Onboard3} />
-        <Stack.Screen name="Login" component={Login} />
-        <Stack.Screen name="SignUp" component={SignUp} />
-        <Stack.Screen name="SignUpSuccess" component={SignUpSuccess} />
-        <Stack.Screen name="SignUpError" component={SignUpError} />
-        <Stack.Screen name="PinSetup" component={PinSetup} />
-        <Stack.Screen name="PinVerify" component={PinVerify} />
-        <Stack.Screen name="ClientMain" component={ClientMain} />
-        <Stack.Screen name="BookingDetails" component={BookingDetails} />
-        <Stack.Screen name="TripsList" component={TripsList} />
-        <Stack.Screen name="TripsFilter" component={TripsFilter} />
-        <Stack.Screen name="TripDetail" component={TripDetailScreen} />
-        <Stack.Screen name="AgencyDetail" component={AgencyDetail} />
-        <Stack.Screen name="StationDetail" component={StationDetail} />
-        <Stack.Screen name="ProfileSettings" component={ProfileSettings} />
-        <Stack.Screen name="Dashboard" component={Dashboard} />
-        <Stack.Screen name="Coupons" component={CouponsScreen} />
-        <Stack.Screen name="AgencyMain" component={AgencyMain} />
-        <Stack.Screen name="AgencyPlanning" component={AgencyPlanning} />
-        <Stack.Screen name="AgencyTripDetail" component={AgencyTripDetail} />
-        <Stack.Screen
-          name="AgencyTripBookings"
-          component={AgencyTripBookings}
-        />
-        <Stack.Screen name="AgencyNewTrip" component={AgencyNewTrip} />
-        <Stack.Screen name="AgencyCalendarDay" component={AgencyCalendarDay} />
-        <Stack.Screen name="AgencyInfo" component={AgencyInfo} />
-        <Stack.Screen
-          name="AgencySubscription"
-          component={AgencySubscription}
-        />
-        <Stack.Screen name="BsmMain" component={BsmMain} />
-        <Stack.Screen name="StationDetailBsm" component={StationDetailBsm} />
-        <Stack.Screen name="AgencyDetailBsm" component={AgencyDetailBsm} />
-        <Stack.Screen name="AgencyTripsBsm" component={AgencyTripsBsm} />
-        <Stack.Screen name="TaxDetailBsm" component={TaxDetailBsm} />
-        <Stack.Screen name="TaxFormBsm" component={TaxFormBsm} />
-        <Stack.Screen
-          name="TaxeAffiliationBsm"
-          component={TaxeAffiliationBsm}
-        />
-      </Stack.Navigator>
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            contentStyle: {
+              backgroundColor: isDark
+                ? colors.dark.background
+                : colors.light.background,
+            },
+          }}
+        >
+          <Stack.Screen name="Splash" component={Splash} />
+          <Stack.Screen name="Onboard1" component={Onboard1} />
+          <Stack.Screen name="Onboard2" component={Onboard2} />
+          <Stack.Screen name="Onboard3" component={Onboard3} />
+          <Stack.Screen name="Login" component={Login} />
+          <Stack.Screen name="SignUp" component={SignUp} />
+          <Stack.Screen name="SignUpSuccess" component={SignUpSuccess} />
+          <Stack.Screen name="SignUpError" component={SignUpError} />
+          <Stack.Screen name="PinSetup" component={PinSetup} />
+          <Stack.Screen name="PinVerify" component={PinVerify} />
+          <Stack.Screen name="ClientMain" component={ClientMain} />
+          <Stack.Screen name="BookingDetails" component={BookingDetails} />
+          <Stack.Screen name="TripsList" component={TripsList} />
+          <Stack.Screen name="TripsFilter" component={TripsFilter} />
+          <Stack.Screen name="TripDetail" component={TripDetailScreen} />
+          <Stack.Screen name="AgencyDetail" component={AgencyDetail} />
+          <Stack.Screen name="StationDetail" component={StationDetail} />
+          <Stack.Screen name="ProfileSettings" component={ProfileSettings} />
+          <Stack.Screen name="Dashboard" component={Dashboard} />
+          <Stack.Screen name="Coupons" component={CouponsScreen} />
+          <Stack.Screen name="AgencyMain" component={AgencyMain} />
+          <Stack.Screen name="AgencyPlanning" component={AgencyPlanning} />
+          <Stack.Screen name="AgencyTripDetail" component={AgencyTripDetail} />
+          <Stack.Screen
+            name="AgencyTripBookings"
+            component={AgencyTripBookings}
+          />
+          <Stack.Screen name="AgencyNewTrip" component={AgencyNewTrip} />
+          <Stack.Screen
+            name="AgencyCalendarDay"
+            component={AgencyCalendarDay}
+          />
+          <Stack.Screen name="AgencyInfo" component={AgencyInfo} />
+          <Stack.Screen
+            name="AgencySubscription"
+            component={AgencySubscription}
+          />
+          <Stack.Screen name="OrgMain" component={OrgHome} />
+          <Stack.Screen name="OrgMyAgencies" component={OrgMyAgencies} />
+          <Stack.Screen name="OrgAgencyDetail" component={OrgAgencyDetail} />
+          <Stack.Screen name="OrgStations" component={OrgStations} />
+          <Stack.Screen name="OrgStationDetail" component={OrgStationDetail} />
+          <Stack.Screen name="OrgServiceLines" component={OrgServiceLines} />
+          <Stack.Screen
+            name="OrgServiceLineDetail"
+            component={OrgServiceLineDetail}
+          />
+          <Stack.Screen name="OrgLineSlots" component={OrgLineSlots} />
+          <Stack.Screen
+            name="OrgAffiliationTaxes"
+            component={OrgAffiliationTaxes}
+          />
+          <Stack.Screen name="OrgVehicles" component={OrgVehicles} />
+          <Stack.Screen name="OrgAffiliations" component={OrgAffiliations} />
+          <Stack.Screen name="OrgCreateAgency" component={OrgCreateAgency} />
+          <Stack.Screen
+            name="OrgCreateAgencySuccess"
+            component={OrgCreateAgencySuccess}
+          />
+          <Stack.Screen name="OrgEmployees" component={OrgEmployees} />
+          <Stack.Screen
+            name="OrgMyOrganization"
+            component={OrgMyOrganization}
+          />
+          <Stack.Screen
+            name="OrgEditOrganization"
+            component={OrgEditOrganization}
+          />
+          <Stack.Screen name="BsmMain" component={BsmMain} />
+          <Stack.Screen name="StationDetailBsm" component={StationDetailBsm} />
+          <Stack.Screen name="AgencyDetailBsm" component={AgencyDetailBsm} />
+          <Stack.Screen name="AgencyTripsBsm" component={AgencyTripsBsm} />
+          <Stack.Screen name="TaxDetailBsm" component={TaxDetailBsm} />
+          <Stack.Screen name="TaxFormBsm" component={TaxFormBsm} />
+          <Stack.Screen
+            name="TaxeAffiliationBsm"
+            component={TaxeAffiliationBsm}
+          />
+        </Stack.Navigator>
       </ToastProvider>
     </NavigationContainer>
   );

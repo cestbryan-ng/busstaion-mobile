@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, CGU_URL } from '../../utils/config';
+import { getHomeRoute } from '../../utils/home-routing';
 import { useToast } from '../../components/toast';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -149,31 +150,11 @@ export default function Login() {
 
         setTimeout(async () => {
           const roles: string[] = data.role;
-          const flags: Record<string, string> = {};
-
-          if (roles.includes('BUS_STATION_MANAGER')) {
-            flags.isAgencyConnected = 'true';
-            flags.isOrganizationConnected = 'true';
-          } else if (roles.includes('AGENCE_VOYAGE')) {
-            flags.isAgencyConnected = 'true';
-          } else {
-            flags.isCustomerAuthenticated = 'true';
-          }
-
-          for (const [key, value] of Object.entries(flags)) {
-            await AsyncStorage.setItem(key, value);
-          }
-
           const pinEnabled = await AsyncStorage.getItem('pin_enabled');
+          const dest = getHomeRoute(roles);
 
           if (pinEnabled === 'true') {
-            if (roles.includes('BUS_STATION_MANAGER')) {
-              navigation.replace('BsmMain');
-            } else if (roles.includes('AGENCE_VOYAGE')) {
-              navigation.replace('AgencyMain');
-            } else {
-              navigation.replace('ClientMain');
-            }
+            navigation.replace(dest);
           } else {
             navigation.replace('PinSetup', { fromSettings: false });
           }
@@ -340,11 +321,7 @@ export default function Login() {
             {t.cguText}
             <Text
               style={[styles.cguLink, { color: colors.primary }]}
-              onPress={() =>
-                Linking.openURL(
-                  `${CGU_URL}`,
-                )
-              }
+              onPress={() => Linking.openURL(`${CGU_URL}`)}
             >
               {t.cguLink}
             </Text>
