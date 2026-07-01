@@ -71,7 +71,7 @@ export default function Login() {
       errorPasswordLength:
         'Le mot de passe doit contenir au moins 8 caractères.',
       successMessage: 'Connexion réussie !',
-      errorInvalidCredentials: 'Identifiants incorrects, veuillez réessayer !',
+      errorInvalidCredentials: 'Compte non trouvé, veuillez réessayer !',
       errorUserNotFound: 'Utilisateur non trouvé, veuillez réessayer !',
       errorGeneric:
         'Le serveur est actuellement indisponible. Veuillez réessayer plus tard.',
@@ -96,7 +96,7 @@ export default function Login() {
       errorPasswordEmpty: 'Password is required.',
       errorPasswordLength: 'Password must be at least 8 characters.',
       successMessage: 'Login successful!',
-      errorInvalidCredentials: 'Invalid credentials, please try again!',
+      errorInvalidCredentials: 'Account not found, please try again!',
       errorUserNotFound: 'User not found, please try again!',
       errorGeneric:
         'The server is currently unavailable. Please try again later.',
@@ -132,7 +132,8 @@ export default function Login() {
         body: JSON.stringify({ username, password }),
       });
 
-      const data = await response.json();
+      const rawText = await response.text();
+      const data = rawText ? JSON.parse(rawText) : {};
 
       if (response.ok) {
         const expiresAt = new Date();
@@ -164,7 +165,7 @@ export default function Login() {
           toast.error(t.wrongCredentials);
           setStatus({ text: t.errorUserNotFound, type: 'error' });
         } else if (response.status === 401 || response.status === 403) {
-          toast.error(t.wrongCredentials);
+          toast.error(t.errorInvalidCredentials);
           setStatus({ text: t.errorInvalidCredentials, type: 'error' });
         } else {
           setStatus({ text: data.message || t.errorGeneric, type: 'error' });

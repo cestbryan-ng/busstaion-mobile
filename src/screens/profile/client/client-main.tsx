@@ -96,7 +96,9 @@ export default function ClientMain() {
         <Tab.Screen name="Réservations" component={Bookings} />
         <Tab.Screen name="Historique" component={History} />
         <Tab.Screen name="Explorer" component={Explore} />
-        <Tab.Screen name="Profil" component={Profile} />
+        <Tab.Screen name="Profil">
+          {() => <Profile setDrawerOpen={setDrawerOpen} />}
+        </Tab.Screen>
       </Tab.Navigator>
 
       <DrawerMenu

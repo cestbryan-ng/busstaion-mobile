@@ -419,23 +419,24 @@ export default function SignUp() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() =>
-              step === 1
-                ? navigation.goBack()
-                : setStep(prev => (prev - 1) as Step)
-            }
-          >
-            <Image
-              source={
-                isDark
-                  ? require('../../assets/images/arrowback_light.png')
-                  : require('../../assets/images/arrowback_dark.png')
+          {step !== 2 && (
+            <TouchableOpacity
+              onPress={() =>
+                step === 1 ? navigation.goBack() : setStep(2)
               }
-              style={styles.backIcon}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
+            >
+              <Image
+                source={
+                  isDark
+                    ? require('../../assets/images/arrowback_light.png')
+                    : require('../../assets/images/arrowback_dark.png')
+                }
+                style={styles.backIcon}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          )}
+          {step === 2 && <View style={styles.backIcon} />}
           <Text style={[styles.title, { color: theme.textStrong }]}>
             {step === 3 ? t.titleStep3 : t.titleStep1}
           </Text>
@@ -971,31 +972,15 @@ export default function SignUp() {
               </View>
             </TouchableOpacity>
 
-            {/* Boutons */}
-            <View style={styles.btnRow}>
-              <TouchableOpacity
-                style={[styles.secondaryBtn, { borderColor: colors.primary }]}
-                onPress={() => setStep(1)}
-              >
-                <Text
-                  style={[styles.secondaryBtnText, { color: colors.primary }]}
-                >
-                  {t.backBtn.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.primaryBtn,
-                  styles.btnFlex,
-                  { backgroundColor: colors.primary },
-                ]}
-                onPress={handleStep2}
-              >
-                <Text style={styles.primaryBtnText}>
-                  {t.continueBtn.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {/* Bouton */}
+            <TouchableOpacity
+              style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+              onPress={handleStep2}
+            >
+              <Text style={styles.primaryBtnText}>
+                {t.continueBtn.toUpperCase()}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 

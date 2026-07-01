@@ -21,12 +21,19 @@ import { resetPin } from '../../utils/reset-pin';
 
 const PIN_LENGTH = 4;
 
-const KEYPAD = [
-  ['1', '2', '3'],
-  ['4', '5', '6'],
-  ['7', '8', '9'],
-  ['', '0', '⌫'],
-];
+function shuffleKeypad(): string[][] {
+  const digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+  for (let i = digits.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [digits[i], digits[j]] = [digits[j], digits[i]];
+  }
+  return [
+    [digits[0], digits[1], digits[2]],
+    [digits[3], digits[4], digits[5]],
+    [digits[6], digits[7], digits[8]],
+    ['', digits[9], '⌫'],
+  ];
+}
 
 export default function PinVerify() {
   const navigation =
@@ -38,6 +45,7 @@ export default function PinVerify() {
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const [keypad, setKeypad] = useState<string[][]>(shuffleKeypad);
 
   const t = {
     fr: {
@@ -90,6 +98,7 @@ export default function PinVerify() {
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
       setPin('');
+      setKeypad(shuffleKeypad());
 
       if (newAttempts >= 5) {
         await logout(navigation);
@@ -149,7 +158,7 @@ export default function PinVerify() {
 
       {/* Keypad */}
       <View style={styles.keypad}>
-        {KEYPAD.map((row, rowIndex) => (
+        {keypad.map((row, rowIndex) => (
           <View key={rowIndex} style={styles.keyRow}>
             {row.map((key, keyIndex) => (
               <TouchableOpacity

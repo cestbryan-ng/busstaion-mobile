@@ -94,7 +94,7 @@ export default function DrawerMenu({
     } else {
       Animated.parallel([
         Animated.timing(slideAnim, {
-          toValue: -DRAWER_WIDTH,
+          toValue: DRAWER_WIDTH,
           duration: 220,
           useNativeDriver: true,
         }),

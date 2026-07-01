@@ -33,7 +33,7 @@ type User = {
   role: string[];
 };
 
-export default function Profile() {
+export default function Profile({ setDrawerOpen }: { setDrawerOpen: (open: boolean) => void }) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
   const navigation =
@@ -208,16 +208,14 @@ export default function Profile() {
         <Text style={[styles.title, { color: theme.textStrong }]}>
           {t.title}
         </Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('ProfileSettings')}
-        >
+        <TouchableOpacity onPress={() => setDrawerOpen(true)}>
           <View
             style={[
               styles.avatarSmall,
               { backgroundColor: theme.backgroundAlt },
             ]}
           >
-            <Ionicons name="person-outline" size={18} color={theme.text} />
+            <Ionicons name="menu-outline" size={22} color={theme.text} />
           </View>
         </TouchableOpacity>
       </View>

@@ -125,7 +125,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               {
                 backgroundColor: theme.background,
                 borderColor: theme.border,
-                borderLeftColor: conf.color,
                 transform: [{ translateY }],
                 opacity,
               },
@@ -164,7 +163,6 @@ const s = StyleSheet.create({
     paddingVertical: spacing.sm + 2,
     borderRadius: 4,
     borderWidth: 1,
-    borderLeftWidth: 4,
     zIndex: 9999,
     elevation: 8,
     shadowColor: '#000',

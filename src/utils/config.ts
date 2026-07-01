@@ -17,7 +17,7 @@ export const CGU_URL =
   'https://www.termsfeed.com/live/2b6bd548-23a3-47e6-aee9-0e5dd0edb278';
 
 export const SUPPORT_URL =
-  'https://drive.google.com/file/d/1Iutmua2a-BlsRm43J2Gsyz59aN6ab1ln/view?usp=sharing';
+  'https://mega.nz/file/DEhFCTZZ#w_Q4cGKXBr5ysZv-1Zkkjct1CnOC3tBQki4LI6DEVQQ';
 
 export const config = {
   apiUrl: ENV_API_URL,
