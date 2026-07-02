@@ -25,6 +25,7 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
+import { MonthPickerModal } from '../../../../components/month-picker-modal';
 import { useDebounce } from '../../../../hooks/useDebounce';
 
 type Passager = {
@@ -153,6 +154,10 @@ export default function Historique() {
   useScrollToTop(scrollRef);
   const [tab, setTab] = useState<TabType>('reservations');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search);
   const [historiques, setHistoriques] = useState<HistoriqueEnrichi[]>([]);
@@ -177,6 +182,9 @@ export default function Historique() {
       compensation: 'Compensation',
       cancelReason: 'Motif',
       cancelDate: "Date d'annulation",
+      calTitle: 'Sélectionner un mois',
+      calApply: 'Appliquer',
+      calClear: 'Effacer',
     },
     en: {
       title: 'History',
@@ -195,6 +203,9 @@ export default function Historique() {
       compensation: 'Compensation',
       cancelReason: 'Reason',
       cancelDate: 'Cancellation date',
+      calTitle: 'Select a month',
+      calApply: 'Apply',
+      calClear: 'Clear',
     },
   }[lang];
 
@@ -267,6 +278,10 @@ export default function Historique() {
     if (tab === 'reservations' && h.statusHistorique === 'ANNULE') return false;
     if (tab === 'annulations' && h.statusHistorique !== 'ANNULE') return false;
     if (!isInDateRange(h.dateReservation, dateFilter)) return false;
+    if (calMonth !== null) {
+      const d = new Date(h.dateReservation);
+      if (d.getMonth() !== calMonth || d.getFullYear() !== calYear) return false;
+    }
 
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.toLowerCase();
@@ -642,7 +657,73 @@ export default function Historique() {
                 onChangeText={setSearch}
               />
             </View>
+            <TouchableOpacity
+              style={[
+                styles.filterIconBtn,
+                {
+                  borderColor: dateFilter !== 'all' ? colors.primary : theme.border,
+                  backgroundColor: dateFilter !== 'all' ? `${colors.primary}10` : undefined,
+                },
+              ]}
+              onPress={() => setShowFilters(v => !v)}
+            >
+              <Ionicons
+                name="options-outline"
+                size={20}
+                color={dateFilter !== 'all' ? colors.primary : theme.textStrong}
+              />
+              {dateFilter !== 'all' && <View style={styles.filterBadge} />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.filterIconBtn,
+                {
+                  borderColor: calMonth !== null ? colors.primary : theme.border,
+                  backgroundColor: calMonth !== null ? `${colors.primary}10` : undefined,
+                },
+              ]}
+              onPress={() => setShowCalendar(true)}
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={20}
+                color={calMonth !== null ? colors.primary : theme.textStrong}
+              />
+              {calMonth !== null && <View style={styles.filterBadge} />}
+            </TouchableOpacity>
           </View>
+
+          {/* Date filter chips — toggle */}
+          {showFilters && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dateFiltersRow}
+            >
+              {DATE_FILTERS.map(f => (
+                <TouchableOpacity
+                  key={f.key}
+                  style={[
+                    styles.dateChip,
+                    {
+                      borderColor: dateFilter === f.key ? colors.primary : theme.border,
+                      backgroundColor: dateFilter === f.key ? colors.primary : 'transparent',
+                    },
+                  ]}
+                  onPress={() => setDateFilter(f.key)}
+                >
+                  <Text
+                    style={[
+                      styles.dateChipText,
+                      { color: dateFilter === f.key ? '#fff' : theme.text },
+                    ]}
+                  >
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
 
           {/* Tabs */}
           <View
@@ -680,43 +761,14 @@ export default function Historique() {
             ))}
           </View>
 
-          {/* Date filters */}
-          <View style={styles.dateFiltersRow}>
-            {DATE_FILTERS.map(f => (
-              <TouchableOpacity
-                key={f.key}
-                style={[
-                  styles.dateChip,
-                  {
-                    borderColor:
-                      dateFilter === f.key ? colors.primary : theme.border,
-                    backgroundColor:
-                      dateFilter === f.key ? colors.primary : 'transparent',
-                  },
-                ]}
-                onPress={() => setDateFilter(f.key)}
-              >
-                <Text
-                  style={[
-                    styles.dateChipText,
-                    { color: dateFilter === f.key ? '#fff' : theme.text },
-                  ]}
-                >
-                  {f.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-
-            <TouchableOpacity
-              style={[styles.calendarBtn, { borderColor: theme.border }]}
-            >
-              <Ionicons
-                name="calendar-outline"
-                size={18}
-                color={theme.textStrong}
-              />
-            </TouchableOpacity>
-          </View>
+          <MonthPickerModal
+            visible={showCalendar}
+            lang={lang}
+            selectedYear={calYear}
+            selectedMonth={calMonth}
+            onApply={(year, month) => { setCalYear(year); setCalMonth(month); }}
+            onClose={() => setShowCalendar(false)}
+          />
 
           {/* List */}
           <View style={styles.list}>
@@ -757,10 +809,14 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.xl,
   },
   searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+    gap: spacing.sm,
   },
   searchInput: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
@@ -958,5 +1014,27 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.body,
     fontSize: typography.sizes.md,
+  },
+  filterIconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 4,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
+  calApplyText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+    color: '#fff',
   },
 });

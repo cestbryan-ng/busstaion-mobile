@@ -132,6 +132,7 @@ export default function Bookings() {
   useScrollToTop(scrollRef);
   const [tab, setTab] = useState<TabType>('avenir');
   const [filter, setFilter] = useState<FilterType>('TOUS');
+  const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -521,48 +522,60 @@ export default function Bookings() {
               />
             </View>
             <TouchableOpacity
-              style={[styles.filterIconBtn, { borderColor: theme.border }]}
+              style={[
+                styles.filterIconBtn,
+                {
+                  borderColor: filter !== 'TOUS' ? colors.primary : theme.border,
+                  backgroundColor: filter !== 'TOUS' ? `${colors.primary}10` : undefined,
+                },
+              ]}
+              onPress={() => setShowFilters(v => !v)}
             >
               <Ionicons
                 name="options-outline"
                 size={20}
-                color={theme.textStrong}
+                color={filter !== 'TOUS' ? colors.primary : theme.textStrong}
               />
+              {filter !== 'TOUS' && (
+                <View style={styles.filterBadge} />
+              )}
             </TouchableOpacity>
           </View>
 
-          {/* Filter chips */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filtersRow}
-          >
-            {FILTERS.map(f => (
-              <TouchableOpacity
-                key={f.key}
-                style={[
-                  styles.chip,
-                  {
-                    borderColor:
-                      filter === f.key ? colors.primary : theme.border,
-                  },
-                  filter === f.key && {
-                    backgroundColor: `${colors.primary}10`,
-                  },
-                ]}
-                onPress={() => setFilter(f.key)}
-              >
-                <Text
+          {/* Filter chips — visibles seulement si showFilters */}
+          {showFilters && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filtersRow}
+            >
+              {FILTERS.map(f => (
+                <TouchableOpacity
+                  key={f.key}
                   style={[
-                    styles.chipText,
-                    { color: filter === f.key ? colors.primary : theme.text },
+                    styles.chip,
+                    {
+                      borderColor:
+                        filter === f.key ? colors.primary : theme.border,
+                    },
+                    filter === f.key && {
+                      backgroundColor: `${colors.primary}10`,
+                    },
                   ]}
+                  onPress={() => setFilter(f.key)}
                 >
-                  {f.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+                  <Text
+                    style={[
+                      styles.chipText,
+                      { color: filter === f.key ? colors.primary : theme.text },
+                    ]}
+                  >
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
 
           {/* List */}
           <View style={styles.list}>
@@ -648,6 +661,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
   },
   filtersRow: {
     paddingHorizontal: spacing.lg,

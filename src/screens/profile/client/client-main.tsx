@@ -16,11 +16,28 @@ import Profile from './tabs/profile';
 const Tab = createBottomTabNavigator();
 
 const TAB_ICONS: Record<string, { active: string; inactive: string }> = {
-  Accueil: { active: 'home', inactive: 'home-outline' },
-  Réservations: { active: 'calendar', inactive: 'calendar-outline' },
-  Historique: { active: 'time', inactive: 'time-outline' },
-  Explorer: { active: 'compass', inactive: 'compass-outline' },
-  Profil: { active: 'person', inactive: 'person-outline' },
+  home: { active: 'home', inactive: 'home-outline' },
+  bookings: { active: 'calendar', inactive: 'calendar-outline' },
+  history: { active: 'time', inactive: 'time-outline' },
+  explore: { active: 'compass', inactive: 'compass-outline' },
+  profile: { active: 'person', inactive: 'person-outline' },
+};
+
+const TAB_LABELS = {
+  fr: {
+    home: 'Accueil',
+    bookings: 'Réservations',
+    history: 'Historique',
+    explore: 'Explorer',
+    profile: 'Profil',
+  },
+  en: {
+    home: 'Home',
+    bookings: 'Bookings',
+    history: 'History',
+    explore: 'Explore',
+    profile: 'Profile',
+  },
 };
 
 export default function ClientMain() {
@@ -83,7 +100,10 @@ export default function ClientMain() {
           },
         })}
       >
-        <Tab.Screen name="Accueil">
+        <Tab.Screen
+          name="home"
+          options={{ tabBarLabel: TAB_LABELS[lang].home }}
+        >
           {() => (
             <Home
               drawerOpen={drawerOpen}
@@ -93,10 +113,25 @@ export default function ClientMain() {
             />
           )}
         </Tab.Screen>
-        <Tab.Screen name="Réservations" component={Bookings} />
-        <Tab.Screen name="Historique" component={History} />
-        <Tab.Screen name="Explorer" component={Explore} />
-        <Tab.Screen name="Profil">
+        <Tab.Screen
+          name="bookings"
+          component={Bookings}
+          options={{ tabBarLabel: TAB_LABELS[lang].bookings }}
+        />
+        <Tab.Screen
+          name="history"
+          component={History}
+          options={{ tabBarLabel: TAB_LABELS[lang].history }}
+        />
+        <Tab.Screen
+          name="explore"
+          component={Explore}
+          options={{ tabBarLabel: TAB_LABELS[lang].explore }}
+        />
+        <Tab.Screen
+          name="profile"
+          options={{ tabBarLabel: TAB_LABELS[lang].profile }}
+        >
           {() => <Profile setDrawerOpen={setDrawerOpen} />}
         </Tab.Screen>
       </Tab.Navigator>

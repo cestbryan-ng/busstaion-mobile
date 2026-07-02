@@ -117,6 +117,9 @@ export default function AgencyTrips() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search);
   const [agencyId, setAgencyId] = useState('');
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const t = {
     fr: {
@@ -143,7 +146,8 @@ export default function AgencyTrips() {
     },
   }[lang];
 
-  const loadTrips = useCallback(async () => {
+  const loadTrips = useCallback(async (pageNum = 0, existingAgencyId = '') => {
+    if (pageNum === 0) setLoading(true);
     try {
       const [token, userRaw, storedLang] = await Promise.all([
         AsyncStorage.getItem('token'),
@@ -152,42 +156,69 @@ export default function AgencyTrips() {
       ]);
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-      const user = userRaw ? JSON.parse(userRaw) : null;
-      const chefId = user?.userId || user?.id;
-      if (!chefId) return;
-
       const headers = { Authorization: `Bearer ${token}` };
-      const agencyRes = await fetch(`${API_URL}/agence/chef-agence/${chefId}`, {
-        headers,
-      });
-      if (!agencyRes.ok) return;
-      const agencyData = await agencyRes.json();
-      setAgencyId(agencyData.agencyId);
+      let currentAgencyId = existingAgencyId;
+
+      if (!currentAgencyId) {
+        const user = userRaw ? JSON.parse(userRaw) : null;
+        const chefId = user?.userId || user?.id;
+        if (!chefId) return;
+        const agencyRes = await fetch(
+          `${API_URL}/agence/chef-agence/${chefId}`,
+          { headers },
+        );
+        if (!agencyRes.ok) return;
+        const agencyData = await agencyRes.json();
+        currentAgencyId = agencyData.agencyId;
+        setAgencyId(currentAgencyId);
+      }
 
       const tripsRes = await fetch(
-        `${API_URL}/voyage/agence/${agencyData.agencyId}?size=100`,
+        `${API_URL}/voyage/agence/${currentAgencyId}?page=${pageNum}&size=20`,
         { headers },
       );
       if (tripsRes.ok) {
         const data = await tripsRes.json();
-        setTrips(data.content || data || []);
+        const items: Trip[] = data.content || data || [];
+        setTrips(prev => (pageNum === 0 ? items : [...prev, ...items]));
+        setTotalPages(data.totalPages ?? 1);
+        setPage(pageNum);
       }
     } catch {
       // silent
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
-    loadTrips();
+    loadTrips(0);
   }, [loadTrips]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadTrips();
+    await loadTrips(0);
     setRefreshing(false);
   }, [loadTrips]);
+
+  const handleScroll = useCallback(
+    (e: {
+      nativeEvent: {
+        contentOffset: { y: number };
+        layoutMeasurement: { height: number };
+        contentSize: { height: number };
+      };
+    }) => {
+      const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+      const nearBottom =
+        contentOffset.y + layoutMeasurement.height >= contentSize.height - 200;
+      if (!nearBottom || loadingMore || page + 1 >= totalPages) return;
+      setLoadingMore(true);
+      loadTrips(page + 1, agencyId);
+    },
+    [loadingMore, page, totalPages, agencyId, loadTrips],
+  );
 
   const counts = useMemo<CountByStatus>(
     () => ({
@@ -512,6 +543,8 @@ export default function AgencyTrips() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.list}
+          onScroll={handleScroll}
+          scrollEventThrottle={300}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -528,6 +561,13 @@ export default function AgencyTrips() {
             />
           ) : (
             filtered.map(item => <TripCard key={item.idVoyage} item={item} />)
+          )}
+          {loadingMore && (
+            <ActivityIndicator
+              size="small"
+              color={colors.primary}
+              style={{ marginVertical: spacing.md }}
+            />
           )}
           <View style={{ height: 80 }} />
         </ScrollView>

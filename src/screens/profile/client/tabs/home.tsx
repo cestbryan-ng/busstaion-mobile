@@ -25,6 +25,11 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import { RootStackParamList } from '../../../../navigation';
 import { SkeletonHome } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
+import {
+  DatePickerModal,
+  formatDateDisplay,
+} from '../../../../components/date-picker-modal';
 
 type Trip = {
   idVoyage: string;
@@ -35,7 +40,7 @@ type Trip = {
   nomClasseVoyage: string;
   amenities: string[];
   prix: number;
-  dureeVoyage: number;
+  dureeVoyage: string | number;
   nbrPlaceRestante: number;
   smallImage?: string;
   nomAgence?: string;
@@ -55,7 +60,7 @@ type Gare = {
   ville: string;
   quartier?: string;
   services: string[];
-  nbreAgence: number;
+  nbreAgence: number | null;
   photoUrl?: string;
 };
 
@@ -81,6 +86,10 @@ const AMENITY_ICONS: Record<string, string> = {
   SNACKS: 'fast-food-outline',
   PRISES: 'flash-outline',
   DIVERTISSEMENT: 'tv-outline',
+  COMFORTABLE_SEATS: 'ribbon-outline',
+  LUGGAGE_STORAGE: 'briefcase-outline',
+  POWER_OUTLETS: 'flash-outline',
+  ENTERTAINMENT: 'tv-outline',
 };
 
 const SERVICE_ICONS: Record<string, string> = {
@@ -90,9 +99,23 @@ const SERVICE_ICONS: Record<string, string> = {
   SALLE_ATTENTE: 'people-outline',
   TOILETTES: 'water-outline',
   SECURITE: 'shield-checkmark-outline',
+  CLIMATISATION: 'snow-outline',
+  CONSIGNE: 'lock-closed-outline',
+  MOBILE_MONEY: 'phone-portrait-outline',
+  BILLETTERIE_ELECTRONIQUE: 'card-outline',
+  INFIRMERIE: 'medkit-outline',
+  BOUTIQUES: 'bag-outline',
 };
 
-function formatDuration(hours: number): string {
+function parseDuration(raw: string | number): number {
+  if (typeof raw === 'number') return raw;
+  const match = raw.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+  if (!match) return 0;
+  return parseInt(match[1] || '0', 10) + parseInt(match[2] || '0', 10) / 60;
+}
+
+function formatDuration(raw: string | number): string {
+  const hours = parseDuration(raw);
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
   return m > 0 ? `${h}h ${m}m` : `${h}h 00m`;
@@ -132,6 +155,7 @@ export default function Home({
   const [departure, setDeparture] = useState('');
   const [arrival, setArrival] = useState('');
   const [date, setDate] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [passengers, setPassengers] = useState(1);
   const [searchHistory, setSearchHistory] = useState<
     { departure: string; arrival: string; date: string }[]
@@ -160,6 +184,9 @@ export default function Home({
       noTrips: 'Aucun voyage disponible',
       noAgencies: 'Aucune agence disponible',
       noGares: 'Aucune gare disponible',
+      promoTitle: '-20% sur vos voyages',
+      promoDesc: 'Utilisez le code',
+      promoValidity: "Valable jusqu'au 30 août 2026",
     },
     en: {
       greeting: 'Hello',
@@ -183,6 +210,9 @@ export default function Home({
       noTrips: 'No trips available',
       noAgencies: 'No agencies available',
       noGares: 'No stations available',
+      promoTitle: '20% off your trips',
+      promoDesc: 'Use the code',
+      promoValidity: 'Valid until August 30, 2026',
     },
   }[lang];
 
@@ -317,15 +347,15 @@ export default function Home({
             { backgroundColor: classColor + '18' },
           ]}
         >
-          {item.smallImage ? (
-            <Image
-              source={{ uri: item.smallImage }}
-              style={styles.tripImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <Ionicons name="bus-outline" size={36} color={classColor} />
-          )}
+          <Image
+            source={
+              item.smallImage
+                ? { uri: item.smallImage }
+                : require('../../../../assets/placeholders/trips.jpg')
+            }
+            style={styles.tripImage}
+            resizeMode="cover"
+          />
           <View style={[styles.classBadge, { backgroundColor: classColor }]}>
             <Text style={styles.classBadgeText}>{item.nomClasseVoyage}</Text>
           </View>
@@ -390,49 +420,50 @@ export default function Home({
     );
   };
 
-  const AgencyCard = ({ item }: { item: Agency }) => (
-    <TouchableOpacity
-      style={[
-        styles.agencyCard,
-        { backgroundColor: theme.background, borderColor: theme.border },
-      ]}
-      activeOpacity={0.85}
-    >
-      <View
+  const AgencyCard = ({ item }: { item: Agency }) => {
+    const logoSource =
+      item.logoUrl && !item.logoUrl.includes('placeholder')
+        ? { uri: item.logoUrl }
+        : require('../../../../assets/placeholders/logos.jpg');
+
+    return (
+      <TouchableOpacity
         style={[
-          styles.agencyLogoContainer,
-          { backgroundColor: theme.backgroundAlt },
+          styles.agencyCard,
+          { backgroundColor: theme.background, borderColor: theme.border },
         ]}
+        activeOpacity={0.85}
       >
-        {item.logoUrl ? (
+        <View
+          style={[
+            styles.agencyLogoContainer,
+            { backgroundColor: theme.backgroundAlt },
+          ]}
+        >
           <Image
-            source={{ uri: item.logoUrl }}
-            style={styles.agencyLogo}
-            resizeMode="contain"
+            source={logoSource}
+            style={{ width: 64, height: 64 }}
+            resizeMode="cover"
           />
-        ) : (
-          <Text style={[styles.agencyInitial, { color: colors.primary }]}>
-            {item.longName.charAt(0).toUpperCase()}
-          </Text>
-        )}
-      </View>
-      <Text
-        style={[styles.agencyCardName, { color: theme.textStrong }]}
-        numberOfLines={2}
-      >
-        {item.longName}
-      </Text>
-      {item.rating !== undefined && (
-        <View style={styles.ratingRow}>
-          <Ionicons name="star" size={11} color="#f59e0b" />
-          <Text style={[styles.ratingText, { color: theme.text }]}>
-            {' '}
-            {item.rating.toFixed(1)}
-          </Text>
         </View>
-      )}
-    </TouchableOpacity>
-  );
+        <Text
+          style={[styles.agencyCardName, { color: theme.textStrong }]}
+          numberOfLines={2}
+        >
+          {item.longName}
+        </Text>
+        {item.rating !== undefined && (
+          <View style={styles.ratingRow}>
+            <Ionicons name="star" size={11} color="#f59e0b" />
+            <Text style={[styles.ratingText, { color: theme.text }]}>
+              {' '}
+              {item.rating.toFixed(1)}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   const GareCard = ({ item }: { item: Gare }) => {
     const visibleServices = item.services?.slice(0, 4) || [];
@@ -451,15 +482,15 @@ export default function Home({
             { backgroundColor: theme.backgroundAlt },
           ]}
         >
-          {item.photoUrl ? (
-            <Image
-              source={{ uri: item.photoUrl }}
-              style={styles.gareImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <Ionicons name="business-outline" size={28} color={theme.text} />
-          )}
+          <Image
+            source={
+              item.photoUrl
+                ? { uri: item.photoUrl }
+                : require('../../../../assets/placeholders/stations.jpg')
+            }
+            style={styles.gareImage}
+            resizeMode="cover"
+          />
         </View>
         <View style={styles.gareContent}>
           <Text
@@ -496,7 +527,7 @@ export default function Home({
             ]}
           >
             <Text style={[styles.gareBadgeText, { color: colors.primary }]}>
-              {t.agenciesCount(item.nbreAgence)}
+              {t.agenciesCount(item.nbreAgence ?? 0)}
             </Text>
           </View>
         </View>
@@ -504,7 +535,9 @@ export default function Home({
     );
   };
 
-  if (loading) { return <SkeletonHome />; }
+  if (loading) {
+    return <SkeletonHome />;
+  }
 
   return (
     <KeyboardAvoidingView
@@ -654,29 +687,38 @@ export default function Home({
 
           {/* Date + Passengers */}
           <View style={styles.searchRow}>
-            <View
+            <TouchableOpacity
               style={[
                 styles.searchField,
                 {
-                  borderColor: theme.border,
+                  borderColor: date ? colors.primary : theme.border,
                   backgroundColor: theme.backgroundAlt,
                   flex: 1,
                 },
               ]}
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.7}
             >
               <Ionicons
                 name="calendar-outline"
                 size={15}
-                color={colors.primary}
+                color={date ? colors.primary : colors.primary}
               />
-              <TextInput
-                style={[styles.searchFieldText, { color: theme.textStrong }]}
-                placeholder={t.datePlaceholder}
-                placeholderTextColor={theme.text}
-                value={date}
-                onChangeText={setDate}
-              />
-            </View>
+              <Text
+                style={[
+                  styles.searchFieldText,
+                  { color: date ? theme.textStrong : theme.text, flex: 1 },
+                ]}
+                numberOfLines={1}
+              >
+                {date ? formatDateDisplay(date, lang) : t.datePlaceholder}
+              </Text>
+              {date ? (
+                <TouchableOpacity onPress={() => setDate('')}>
+                  <Ionicons name="close-circle" size={15} color={theme.text} />
+                </TouchableOpacity>
+              ) : null}
+            </TouchableOpacity>
 
             <View
               style={[
@@ -799,9 +841,11 @@ export default function Home({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.horizontalList}
           ListEmptyComponent={
-            <Text style={[styles.emptyText, { color: theme.text }]}>
-              {t.noTrips}
-            </Text>
+            <EmptyState
+              type="result"
+              message={t.noTrips}
+              textColor={theme.text}
+            />
           }
         />
 
@@ -815,9 +859,11 @@ export default function Home({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.horizontalList}
           ListEmptyComponent={
-            <Text style={[styles.emptyText, { color: theme.text }]}>
-              {t.noAgencies}
-            </Text>
+            <EmptyState
+              type="result"
+              message={t.noAgencies}
+              textColor={theme.text}
+            />
           }
         />
 
@@ -831,9 +877,11 @@ export default function Home({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.horizontalList}
           ListEmptyComponent={
-            <Text style={[styles.emptyText, { color: theme.text }]}>
-              {t.noGares}
-            </Text>
+            <EmptyState
+              type="result"
+              message={t.noGares}
+              textColor={theme.text}
+            />
           }
         />
 
@@ -864,10 +912,10 @@ export default function Home({
           </View>
           <View style={styles.promoContent}>
             <Text style={[styles.promoTitle, { color: colors.primary }]}>
-              -20% sur vos voyages
+              {t.promoTitle}
             </Text>
             <Text style={[styles.promoDesc, { color: theme.text }]}>
-              Utilisez le code{' '}
+              {t.promoDesc}{' '}
               <Text
                 style={[
                   styles.promoCode,
@@ -878,12 +926,20 @@ export default function Home({
               </Text>
             </Text>
             <Text style={[styles.promoValidity, { color: theme.text }]}>
-              Valable jusqu'au 30 juin 2026
+              {t.promoValidity}
             </Text>
           </View>
           <Ionicons name="bus" size={52} color={`${colors.primary}20`} />
         </View>
       </ScrollView>
+
+      <DatePickerModal
+        visible={showDatePicker}
+        lang={lang}
+        selectedDate={date || null}
+        onApply={d => setDate(d ?? '')}
+        onClose={() => setShowDatePicker(false)}
+      />
     </KeyboardAvoidingView>
   );
 }

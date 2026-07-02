@@ -14,9 +14,14 @@ import OrgProfil from './tabs/profil';
 const Tab = createBottomTabNavigator();
 
 const TAB_ICONS: Record<string, { active: string; inactive: string }> = {
-  Accueil: { active: 'home', inactive: 'home-outline' },
-  Agences: { active: 'business', inactive: 'business-outline' },
-  Profil: { active: 'person', inactive: 'person-outline' },
+  home: { active: 'home', inactive: 'home-outline' },
+  agencies: { active: 'business', inactive: 'business-outline' },
+  profile: { active: 'person', inactive: 'person-outline' },
+};
+
+const TAB_LABELS = {
+  fr: { home: 'Accueil', agencies: 'Agences', profile: 'Profil' },
+  en: { home: 'Home', agencies: 'Agencies', profile: 'Profile' },
 };
 
 export default function OrgHome() {
@@ -72,7 +77,10 @@ export default function OrgHome() {
           },
         })}
       >
-        <Tab.Screen name="Accueil">
+        <Tab.Screen
+          name="home"
+          options={{ tabBarLabel: TAB_LABELS[lang].home }}
+        >
           {() => (
             <OrgDashboard
               drawerOpen={drawerOpen}
@@ -82,8 +90,16 @@ export default function OrgHome() {
             />
           )}
         </Tab.Screen>
-        <Tab.Screen name="Agences" component={OrgAgencies} />
-        <Tab.Screen name="Profil" component={OrgProfil} />
+        <Tab.Screen
+          name="agencies"
+          component={OrgAgencies}
+          options={{ tabBarLabel: TAB_LABELS[lang].agencies }}
+        />
+        <Tab.Screen
+          name="profile"
+          component={OrgProfil}
+          options={{ tabBarLabel: TAB_LABELS[lang].profile }}
+        />
       </Tab.Navigator>
 
       <DrawerMenu

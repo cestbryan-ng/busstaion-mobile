@@ -15,10 +15,15 @@ import BsmProfil from './tabs/profile';
 const Tab = createBottomTabNavigator();
 
 const TAB_ICONS: Record<string, { active: string; inactive: string }> = {
-  Accueil: { active: 'home', inactive: 'home-outline' },
-  Agences: { active: 'business', inactive: 'business-outline' },
-  Taxes: { active: 'document-text', inactive: 'document-text-outline' },
-  Profil: { active: 'person', inactive: 'person-outline' },
+  home: { active: 'home', inactive: 'home-outline' },
+  agencies: { active: 'business', inactive: 'business-outline' },
+  taxes: { active: 'document-text', inactive: 'document-text-outline' },
+  profile: { active: 'person', inactive: 'person-outline' },
+};
+
+const TAB_LABELS = {
+  fr: { home: 'Accueil', agencies: 'Agences', taxes: 'Taxes', profile: 'Profil' },
+  en: { home: 'Home', agencies: 'Agencies', taxes: 'Taxes', profile: 'Profile' },
 };
 
 export default function BsmMain() {
@@ -74,7 +79,10 @@ export default function BsmMain() {
           },
         })}
       >
-        <Tab.Screen name="Accueil">
+        <Tab.Screen
+          name="home"
+          options={{ tabBarLabel: TAB_LABELS[lang].home }}
+        >
           {() => (
             <BsmDashboard
               drawerOpen={drawerOpen}
@@ -84,9 +92,21 @@ export default function BsmMain() {
             />
           )}
         </Tab.Screen>
-        <Tab.Screen name="Agences" component={BsmAgencies} />
-        <Tab.Screen name="Taxes" component={BsmTaxes} />
-        <Tab.Screen name="Profil" component={BsmProfil} />
+        <Tab.Screen
+          name="agencies"
+          component={BsmAgencies}
+          options={{ tabBarLabel: TAB_LABELS[lang].agencies }}
+        />
+        <Tab.Screen
+          name="taxes"
+          component={BsmTaxes}
+          options={{ tabBarLabel: TAB_LABELS[lang].taxes }}
+        />
+        <Tab.Screen
+          name="profile"
+          component={BsmProfil}
+          options={{ tabBarLabel: TAB_LABELS[lang].profile }}
+        />
       </Tab.Navigator>
 
       <DrawerMenu

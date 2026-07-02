@@ -16,11 +16,28 @@ import AgencyProfil from './tabs/profile';
 const Tab = createBottomTabNavigator();
 
 const TAB_ICONS: Record<string, { active: string; inactive: string }> = {
-  Dashboard: { active: 'home', inactive: 'home-outline' },
-  Voyages: { active: 'bus', inactive: 'bus-outline' },
-  Calendrier: { active: 'calendar', inactive: 'calendar-outline' },
-  Ressources: { active: 'people', inactive: 'people-outline' },
-  Profil: { active: 'person', inactive: 'person-outline' },
+  dashboard: { active: 'home', inactive: 'home-outline' },
+  trips: { active: 'bus', inactive: 'bus-outline' },
+  calendar: { active: 'calendar', inactive: 'calendar-outline' },
+  resources: { active: 'people', inactive: 'people-outline' },
+  profile: { active: 'person', inactive: 'person-outline' },
+};
+
+const TAB_LABELS = {
+  fr: {
+    dashboard: 'Dashboard',
+    trips: 'Voyages',
+    calendar: 'Calendrier',
+    resources: 'Ressources',
+    profile: 'Profil',
+  },
+  en: {
+    dashboard: 'Dashboard',
+    trips: 'Trips',
+    calendar: 'Calendar',
+    resources: 'Resources',
+    profile: 'Profile',
+  },
 };
 
 export default function AgencyMain() {
@@ -76,7 +93,10 @@ export default function AgencyMain() {
           },
         })}
       >
-        <Tab.Screen name="Dashboard">
+        <Tab.Screen
+          name="dashboard"
+          options={{ tabBarLabel: TAB_LABELS[lang].dashboard }}
+        >
           {() => (
             <AgencyDashboard
               drawerOpen={drawerOpen}
@@ -86,10 +106,26 @@ export default function AgencyMain() {
             />
           )}
         </Tab.Screen>
-        <Tab.Screen name="Voyages" component={AgencyTrips} />
-        <Tab.Screen name="Calendrier" component={AgencyCalendar} />
-        <Tab.Screen name="Ressources" component={AgencyResources} />
-        <Tab.Screen name="Profil" component={AgencyProfil} />
+        <Tab.Screen
+          name="trips"
+          component={AgencyTrips}
+          options={{ tabBarLabel: TAB_LABELS[lang].trips }}
+        />
+        <Tab.Screen
+          name="calendar"
+          component={AgencyCalendar}
+          options={{ tabBarLabel: TAB_LABELS[lang].calendar }}
+        />
+        <Tab.Screen
+          name="resources"
+          component={AgencyResources}
+          options={{ tabBarLabel: TAB_LABELS[lang].resources }}
+        />
+        <Tab.Screen
+          name="profile"
+          component={AgencyProfil}
+          options={{ tabBarLabel: TAB_LABELS[lang].profile }}
+        />
       </Tab.Navigator>
 
       <DrawerMenu

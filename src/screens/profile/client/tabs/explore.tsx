@@ -47,9 +47,10 @@ type Gare = {
   nomGareRoutiere: string;
   ville: string;
   quartier?: string;
-  photoUrl?: string;
+  photoUrl?: string | null;
   services: string[];
-  nbreAgence: number;
+  nbreAgence: number | null;
+  open?: boolean;
   ratingAverage?: number;
   numberOfReviews?: number;
 };
@@ -63,6 +64,12 @@ const SERVICES = [
   'SALLE_ATTENTE',
   'TOILETTES',
   'SECURITE',
+  'CLIMATISATION',
+  'CONSIGNE',
+  'MOBILE_MONEY',
+  'BILLETTERIE_ELECTRONIQUE',
+  'INFIRMERIE',
+  'BOUTIQUES',
 ];
 
 const SERVICE_ICONS: Record<string, string> = {
@@ -72,6 +79,12 @@ const SERVICE_ICONS: Record<string, string> = {
   SALLE_ATTENTE: 'people-outline',
   TOILETTES: 'water-outline',
   SECURITE: 'shield-checkmark-outline',
+  CLIMATISATION: 'snow-outline',
+  CONSIGNE: 'lock-closed-outline',
+  MOBILE_MONEY: 'phone-portrait-outline',
+  BILLETTERIE_ELECTRONIQUE: 'card-outline',
+  INFIRMERIE: 'medkit-outline',
+  BOUTIQUES: 'bag-outline',
 };
 
 const SERVICE_LABELS: Record<string, { fr: string; en: string }> = {
@@ -81,6 +94,12 @@ const SERVICE_LABELS: Record<string, { fr: string; en: string }> = {
   SALLE_ATTENTE: { fr: 'Salle attente', en: 'Waiting room' },
   TOILETTES: { fr: 'Toilettes', en: 'Toilets' },
   SECURITE: { fr: 'Sécurité', en: 'Security' },
+  CLIMATISATION: { fr: 'Climatisation', en: 'A/C' },
+  CONSIGNE: { fr: 'Consigne', en: 'Luggage' },
+  MOBILE_MONEY: { fr: 'Mobile Money', en: 'Mobile Money' },
+  BILLETTERIE_ELECTRONIQUE: { fr: 'Billetterie', en: 'E-Ticketing' },
+  INFIRMERIE: { fr: 'Infirmerie', en: 'Medical' },
+  BOUTIQUES: { fr: 'Boutiques', en: 'Shops' },
 };
 
 export default function Explore() {
@@ -99,12 +118,19 @@ export default function Explore() {
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [showAllServices, setShowAllServices] = useState(false);
+  const [showServiceFilters, setShowServiceFilters] = useState(false);
 
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [gares, setGares] = useState<Gare[]>([]);
   const [loadingAgencies, setLoadingAgencies] = useState(true);
   const [loadingGares, setLoadingGares] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [agencyPage, setAgencyPage] = useState(0);
+  const [agencyTotalPages, setAgencyTotalPages] = useState(1);
+  const [agencyLoadingMore, setAgencyLoadingMore] = useState(false);
+  const [garePage, setGarePage] = useState(0);
+  const [gareTotalPages, setGareTotalPages] = useState(1);
+  const [gareLoadingMore, setGareLoadingMore] = useState(false);
 
   const t = {
     fr: {
@@ -173,7 +199,8 @@ export default function Explore() {
     await AsyncStorage.removeItem('search_history_explore');
   };
 
-  const loadAgencies = useCallback(async () => {
+  const loadAgencies = useCallback(async (pageNum = 0) => {
+    if (pageNum === 0) setLoadingAgencies(true);
     try {
       const [token, storedLang] = await Promise.all([
         AsyncStorage.getItem('token'),
@@ -181,50 +208,94 @@ export default function Explore() {
       ]);
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-      const res = await fetch(`${API_URL}/agence`, {
+      const res = await fetch(`${API_URL}/agence?page=${pageNum}&size=15`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
-        setAgencies(data.content || data || []);
+        const items: Agency[] = data.content || data || [];
+        setAgencies(prev => (pageNum === 0 ? items : [...prev, ...items]));
+        setAgencyTotalPages(data.totalPages ?? 1);
+        setAgencyPage(pageNum);
       }
     } catch {
       // silent
     } finally {
       setLoadingAgencies(false);
+      setAgencyLoadingMore(false);
     }
   }, []);
 
-  const loadGares = useCallback(async (services: string[] = []) => {
+  const loadGares = useCallback(async (pageNum = 0, services: string[] = []) => {
+    if (pageNum === 0) setLoadingGares(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const params = services.length ? `?services=${services.join(',')}` : '';
-      const res = await fetch(`${API_URL}/gare${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const serviceParam = services.length ? `&services=${services.join(',')}` : '';
+      const res = await fetch(
+        `${API_URL}/gare?page=${pageNum}&size=15${serviceParam}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
       if (res.ok) {
         const data = await res.json();
-        setGares(data.content || data || []);
+        const items: Gare[] = data.content || data || [];
+        setGares(prev => (pageNum === 0 ? items : [...prev, ...items]));
+        setGareTotalPages(data.totalPages ?? 1);
+        setGarePage(pageNum);
       }
     } catch {
       // silent
     } finally {
       setLoadingGares(false);
+      setGareLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
-    loadAgencies();
+    loadAgencies(0);
   }, [loadAgencies]);
   useEffect(() => {
-    loadGares(selectedServices);
+    loadGares(0, selectedServices);
   }, [loadGares, selectedServices]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadAgencies(), loadGares(selectedServices)]);
+    await Promise.all([loadAgencies(0), loadGares(0, selectedServices)]);
     setRefreshing(false);
   }, [loadAgencies, loadGares, selectedServices]);
+
+  const handleScroll = useCallback(
+    (e: {
+      nativeEvent: {
+        contentOffset: { y: number };
+        layoutMeasurement: { height: number };
+        contentSize: { height: number };
+      };
+    }) => {
+      const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+      const nearBottom =
+        contentOffset.y + layoutMeasurement.height >= contentSize.height - 200;
+      if (!nearBottom) return;
+      if (tab === 'agencies' && !agencyLoadingMore && agencyPage + 1 < agencyTotalPages) {
+        setAgencyLoadingMore(true);
+        loadAgencies(agencyPage + 1);
+      } else if (tab === 'gares' && !gareLoadingMore && garePage + 1 < gareTotalPages) {
+        setGareLoadingMore(true);
+        loadGares(garePage + 1, selectedServices);
+      }
+    },
+    [
+      tab,
+      agencyLoadingMore,
+      agencyPage,
+      agencyTotalPages,
+      gareLoadingMore,
+      garePage,
+      gareTotalPages,
+      loadAgencies,
+      loadGares,
+      selectedServices,
+    ],
+  );
 
   const toggleService = (s: string) => {
     setSelectedServices(prev =>
@@ -275,16 +346,18 @@ export default function Explore() {
       <View
         style={[styles.agencyLogo, { backgroundColor: theme.backgroundAlt }]}
       >
-        {item.logoUrl ? (
+        {item.logoUrl && !item.logoUrl.includes('placeholder') ? (
           <Image
             source={{ uri: item.logoUrl }}
             style={styles.agencyLogoImage}
             resizeMode="contain"
           />
         ) : (
-          <Text style={[styles.agencyLogoLetter, { color: colors.primary }]}>
-            {item.longName.charAt(0).toUpperCase()}
-          </Text>
+          <Image
+            source={require('../../../../assets/placeholders/logos.jpg')}
+            style={styles.agencyLogoImage}
+            resizeMode="cover"
+          />
         )}
       </View>
 
@@ -357,7 +430,11 @@ export default function Explore() {
               resizeMode="cover"
             />
           ) : (
-            <Ionicons name="business-outline" size={28} color={theme.text} />
+            <Image
+              source={require('../../../../assets/placeholders/stations.jpg')}
+              style={styles.gareImageInner}
+              resizeMode="cover"
+            />
           )}
         </View>
 
@@ -427,7 +504,7 @@ export default function Explore() {
             <Ionicons name="people-outline" size={12} color={theme.text} />
             <Text style={[styles.locationText, { color: theme.text }]}>
               {' '}
-              {t.affiliatedAgencies(item.nbreAgence)}
+              {t.affiliatedAgencies(item.nbreAgence ?? 0)}
             </Text>
           </View>
         </View>
@@ -455,27 +532,17 @@ export default function Explore() {
             },
           ]}
         >
-          <View style={styles.headerLeft}>
-            <Text style={[styles.title, { color: theme.textStrong }]}>
-              {t.title}
-            </Text>
-            <Text style={[styles.subtitle, { color: theme.text }]}>
-              {t.subtitle}
-            </Text>
-          </View>
-          <TouchableOpacity>
-            <Ionicons
-              name="notifications-outline"
-              size={24}
-              color={theme.textStrong}
-            />
-          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.textStrong }]}>
+            {t.title}
+          </Text>
         </View>
 
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          onScroll={handleScroll}
+          scrollEventThrottle={300}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -503,6 +570,7 @@ export default function Explore() {
               onPress={() => {
                 setTab('agencies');
                 setSearch('');
+                scrollRef.current?.scrollTo({ y: 0, animated: false });
               }}
             >
               <Ionicons
@@ -532,6 +600,7 @@ export default function Explore() {
               onPress={() => {
                 setTab('gares');
                 setSearch('');
+                scrollRef.current?.scrollTo({ y: 0, animated: false });
               }}
             >
               <Ionicons
@@ -584,15 +653,22 @@ export default function Explore() {
                 </TouchableOpacity>
               )}
             </View>
-            <TouchableOpacity
-              style={[styles.filterBtn, { borderColor: theme.border }]}
-            >
-              <Ionicons
-                name="options-outline"
-                size={20}
-                color={theme.textStrong}
-              />
-            </TouchableOpacity>
+            {tab === 'gares' && (
+              <TouchableOpacity
+                style={[styles.filterBtn, {
+                  borderColor: selectedServices.length > 0 ? colors.primary : theme.border,
+                  backgroundColor: selectedServices.length > 0 ? `${colors.primary}10` : undefined,
+                }]}
+                onPress={() => setShowServiceFilters(v => !v)}
+              >
+                <Ionicons
+                  name="options-outline"
+                  size={20}
+                  color={selectedServices.length > 0 ? colors.primary : theme.textStrong}
+                />
+                {selectedServices.length > 0 && <View style={styles.filterBadge} />}
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Search History dropdown */}
@@ -659,7 +735,7 @@ export default function Explore() {
           )}
 
           {/* Service filters — only for gares tab */}
-          {tab === 'gares' && (
+          {tab === 'gares' && showServiceFilters && (
             <View
               style={[
                 styles.serviceFiltersSection,
@@ -773,6 +849,13 @@ export default function Explore() {
                 <GareCard key={item.idGareRoutiere} item={item} />
               ))
             )}
+            {(tab === 'agencies' ? agencyLoadingMore : gareLoadingMore) && (
+              <ActivityIndicator
+                size="small"
+                color={colors.primary}
+                style={{ marginVertical: spacing.md }}
+              />
+            )}
           </View>
         </ScrollView>
       </View>
@@ -783,22 +866,13 @@ export default function Explore() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
-  headerLeft: { flex: 1 },
   title: { ...typography.heading, fontSize: typography.sizes.xl },
-  subtitle: {
-    ...typography.body,
-    fontSize: typography.sizes.sm,
-    lineHeight: 20,
-    marginTop: 2,
-  },
 
   tabsContainer: {
     flexDirection: 'row',
@@ -843,6 +917,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
   },
 
   serviceFiltersSection: {
