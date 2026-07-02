@@ -10,6 +10,7 @@ import {
   useColorScheme,
   Share,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,6 +23,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonAgencyDetail } from '../../../../components/skeleton';
 
 type Agency = {
   id: string;
@@ -67,6 +69,7 @@ export default function AgencyDetailBsm() {
   const [suspending, setSuspending] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [confirmIsActive, setConfirmIsActive] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -125,6 +128,12 @@ export default function AgencyDetailBsm() {
     }, [load]),
   );
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
   const handleShare = async () => {
     if (!agency) return;
     try {
@@ -168,13 +177,7 @@ export default function AgencyDetailBsm() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonAgencyDetail />;
 
   if (!agency) return null;
 
@@ -204,7 +207,7 @@ export default function AgencyDetailBsm() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* Banner / Logo */}
         <View
           style={[

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   useColorScheme,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,6 +17,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonListScreen } from '../../../../components/skeleton';
 
 type Slot = {
   id_creneau: string;
@@ -36,23 +38,29 @@ export default function OrgLineSlots() {
 
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const token = await AsyncStorage.getItem('token');
-        const res = await fetch(`${API_URL}/ligne-service/${lineId}/creneaux`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) setSlots(await res.json());
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+  const loadData = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const res = await fetch(`${API_URL}/ligne-service/${lineId}/creneaux`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setSlots(await res.json());
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [lineId]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const formatTime = (t?: { hour: number; minute: number }) =>
     t
@@ -62,13 +70,7 @@ export default function OrgLineSlots() {
         )}`
       : '—';
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonListScreen />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -104,6 +106,7 @@ export default function OrgLineSlots() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         {slots.map((slot, i) => (
           <View

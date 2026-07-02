@@ -12,6 +12,8 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonListScreen } from '../../../../components/skeleton';
+import { useDebounce } from '../../../../hooks/useDebounce';
 
 type Vehicle = {
   idVehicule: string;
@@ -46,6 +48,7 @@ export default function OrgVehicles() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
 
   const t = {
     fr: {
@@ -98,16 +101,10 @@ export default function OrgVehicles() {
   }, [loadData]);
 
   const filteredVehicles = useMemo(() =>
-    vehicles.filter(v => !search.trim() || [v.nom, v.modele, v.plaqueMatricule].some(f => f?.toLowerCase().includes(search.toLowerCase()))),
-  [vehicles, search]);
+    vehicles.filter(v => !debouncedSearch.trim() || [v.nom, v.modele, v.plaqueMatricule].some(f => f?.toLowerCase().includes(debouncedSearch.toLowerCase()))),
+  [vehicles, debouncedSearch]);
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonListScreen />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>

@@ -22,6 +22,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonAgencyInfo } from '../../../../components/skeleton';
 
 type Agency = {
   agencyId: string;
@@ -178,13 +179,7 @@ export default function AgencyInfo() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonAgencyInfo />;
 
   return (
     <KeyboardAvoidingView

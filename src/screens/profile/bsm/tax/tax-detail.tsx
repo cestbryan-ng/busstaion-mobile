@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   useColorScheme,
   Share,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,6 +22,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import type { PolicyOrTax } from '../tabs/taxes';
+import { SkeletonTaxDetail } from '../../../../components/skeleton';
 
 function formatPrice(price: number): string {
   return price.toLocaleString('fr-FR') + ' FCFA';
@@ -46,6 +48,7 @@ export default function TaxDetailBsm() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -84,27 +87,32 @@ export default function TaxDetailBsm() {
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const res = await fetch(`${API_URL}/politique-et-taxes/${itemId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) setItem(await res.json());
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+      const res = await fetch(`${API_URL}/politique-et-taxes/${itemId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setItem(await res.json());
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [itemId]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const handleShare = async () => {
     if (!item) return;
@@ -143,13 +151,7 @@ export default function TaxDetailBsm() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonTaxDetail />;
 
   if (!item) return null;
 
@@ -185,7 +187,7 @@ export default function TaxDetailBsm() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* Hero card */}
         <View
           style={[

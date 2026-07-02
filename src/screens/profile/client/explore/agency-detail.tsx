@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   useColorScheme,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,6 +21,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
+import { SkeletonAgencyDetail } from '../../../../components/skeleton';
 
 type Agency = {
   id: string;
@@ -71,6 +73,7 @@ export default function AgencyDetail() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -106,45 +109,46 @@ export default function AgencyDetail() {
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const [agencyRes, tripsRes] = await Promise.all([
-          fetch(`${API_URL}/agence/${agencyId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API_URL}/voyage/agence/${agencyId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
+      const [agencyRes, tripsRes] = await Promise.all([
+        fetch(`${API_URL}/agence/${agencyId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_URL}/voyage/agence/${agencyId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
 
-        if (agencyRes.ok) setAgency(await agencyRes.json());
-        if (tripsRes.ok) {
-          const data = await tripsRes.json();
-          setTrips(data.content || data || []);
-        }
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
+      if (agencyRes.ok) setAgency(await agencyRes.json());
+      if (tripsRes.ok) {
+        const data = await tripsRes.json();
+        setTrips(data.content || data || []);
       }
-    };
-    load();
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [agencyId]);
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
+  if (loading) return <SkeletonAgencyDetail />;
 
   if (!agency) return null;
 
@@ -175,7 +179,7 @@ export default function AgencyDetail() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* Banner */}
         <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
           <View

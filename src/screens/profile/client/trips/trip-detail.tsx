@@ -11,6 +11,8 @@ import {
   Dimensions,
   FlatList,
   Linking,
+  RefreshControl,
+  Share,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,6 +25,7 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import SeatSelectionModal from './seat-selection-modal';
 import PaymentModal from './payment-modal';
+import { SkeletonTripDetail } from '../../../../components/skeleton';
 
 const { width } = Dimensions.get('window');
 
@@ -60,8 +63,6 @@ export type TripDetail = {
     plaqueMatricule: string;
   };
 };
-
-// ─── Constants ───────────────────────────────────────────────────────────────
 
 const CLASS_COLORS: Record<string, string> = {
   VIP: '#1e3a8a',
@@ -118,8 +119,6 @@ const AMENITY_LABELS: Record<string, { fr: string; en: string }> = {
   AIRPORT_DROP_OFF: { fr: 'Dépôt aéroport', en: 'Airport drop-off' },
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
   return new Date(dateStr).toLocaleDateString(
     lang === 'fr' ? 'fr-FR' : 'en-GB',
@@ -130,8 +129,6 @@ function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
 function formatPrice(price: number): string {
   return price.toLocaleString('fr-FR') + ' FCFA';
 }
-
-// ─── Component ───────────────────────────────────────────────────────────────
 
 export default function TripDetailScreen() {
   const isDark = useColorScheme() === 'dark';
@@ -152,6 +149,7 @@ export default function TripDetailScreen() {
   const [reservationSuccess, setReservationSuccess] = useState(false);
   const [reservationId, setReservationId] = useState('');
   const [showAllAmenities, setShowAllAmenities] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const carouselRef = useRef<FlatList>(null);
   const autoPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -160,6 +158,7 @@ export default function TripDetailScreen() {
     fr: {
       title: 'Détail du voyage',
       published: 'PUBLIE',
+      share: 'Partager ce voyage',
       itinerary: 'Itinéraire et horaires',
       departure: 'Point de départ',
       arrival: "Point d'arrivée",
@@ -188,6 +187,7 @@ export default function TripDetailScreen() {
     en: {
       title: 'Trip detail',
       published: 'PUBLISHED',
+      share: 'Share this trip',
       itinerary: 'Itinerary & schedule',
       departure: 'Departure point',
       arrival: 'Arrival point',
@@ -215,31 +215,50 @@ export default function TripDetailScreen() {
     },
   }[lang];
 
-  // ─── Load ──────────────────────────────────────────────────────────────────
+  const loadData = useCallback(async () => {
+    try {
+      const [token, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
-
-        const res = await fetch(`${API_URL}/voyage/${tripId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) setTrip(await res.json());
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+      const res = await fetch(`${API_URL}/voyage/${tripId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setTrip(await res.json());
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [tripId]);
 
-  // ─── Carousel ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
+  const handleShare = useCallback(async () => {
+    if (!trip) return;
+    const date = formatDate(trip.dateDepartPrev, lang);
+    const price = formatPrice(trip.prix);
+    const amenitiesList = trip.amenities?.slice(0, 3).map(a => `• ${a}`).join('\n') || '';
+    const message =
+      lang === 'fr'
+        ? `🚌 Voyage : ${trip.lieuDepart} → ${trip.lieuArrive}\n📅 Départ : ${date} à ${trip.heureDepartEffectif}\n💰 Prix : ${price} / personne\n🏢 Agence : ${trip.nomAgence}\n${amenitiesList ? `\n✨ Équipements :\n${amenitiesList}` : ''}\n\n📲 Réservez via BusStation APK`
+        : `🚌 Trip: ${trip.lieuDepart} → ${trip.lieuArrive}\n📅 Departure: ${date} at ${trip.heureDepartEffectif}\n💰 Price: ${price} / person\n🏢 Agency: ${trip.nomAgence}\n${amenitiesList ? `\n✨ Amenities:\n${amenitiesList}` : ''}\n\n📲 Book via BusStation APK`;
+    try {
+      await Share.share({ message });
+    } catch {
+      // user cancelled or error
+    }
+  }, [trip, lang]);
 
   const images = trip ? [trip.smallImage, trip.bigImage].filter(Boolean) : [];
 
@@ -270,23 +289,13 @@ export default function TripDetailScreen() {
     };
   }, [images.length, nextImage]);
 
-  // ─── Amenities ────────────────────────────────────────────────────────────
-
   const visibleAmenities = showAllAmenities
     ? trip?.amenities || []
     : (trip?.amenities || []).slice(0, 5);
 
   const extraAmenities = Math.max(0, (trip?.amenities?.length || 0) - 5);
 
-  // ─── Render ────────────────────────────────────────────────────────────────
-
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonTripDetail />;
 
   if (!trip) return null;
 
@@ -314,10 +323,12 @@ export default function TripDetailScreen() {
           <Text style={[styles.headerTitle, { color: theme.textStrong }]}>
             {t.title}
           </Text>
-          <View style={{ width: 24 }} />
+          <TouchableOpacity onPress={handleShare}>
+            <Ionicons name="share-social-outline" size={24} color={theme.textStrong} />
+          </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
           {/* ── Image Carousel ── */}
           <View style={styles.carouselContainer}>
             <FlatList
@@ -1113,7 +1124,7 @@ export default function TripDetailScreen() {
                 styles.successBtnOutline,
                 { borderColor: colors.primary },
               ]}
-              onPress={() => navigation.navigate('ClientHome')}
+              onPress={() => navigation.navigate('ClientMain')}
             >
               <Text
                 style={[
@@ -1130,8 +1141,6 @@ export default function TripDetailScreen() {
     </>
   );
 }
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   useColorScheme,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,6 +20,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonOrgAgencyDetail } from '../../../../components/skeleton';
 
 type Agency = {
   id: string;
@@ -61,6 +63,7 @@ export default function OrgAgencyDetail() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('agence');
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -133,43 +136,42 @@ export default function OrgAgencyDetail() {
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const headers = { Authorization: `Bearer ${token}` };
-        const [agencyRes, statsRes] = await Promise.allSettled([
-          fetch(`${API_URL}/agence/${agencyId}`, { headers }),
-          fetch(`${API_URL}/statistiques/agence/${agencyId}/general`, {
-            headers,
-          }),
-        ]);
+      const headers = { Authorization: `Bearer ${token}` };
+      const [agencyRes, statsRes] = await Promise.allSettled([
+        fetch(`${API_URL}/agence/${agencyId}`, { headers }),
+        fetch(`${API_URL}/statistiques/agence/${agencyId}/general`, {
+          headers,
+        }),
+      ]);
 
-        if (agencyRes.status === 'fulfilled' && agencyRes.value.ok)
-          setAgency(await agencyRes.value.json());
-        if (statsRes.status === 'fulfilled' && statsRes.value.ok)
-          setStats(await statsRes.value.json());
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+      if (agencyRes.status === 'fulfilled' && agencyRes.value.ok)
+        setAgency(await agencyRes.value.json());
+      if (statsRes.status === 'fulfilled' && statsRes.value.ok)
+        setStats(await statsRes.value.json());
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [agencyId]);
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
+  if (loading) return <SkeletonOrgAgencyDetail />;
 
   if (!agency) return null;
 
@@ -179,6 +181,7 @@ export default function OrgAgencyDetail() {
     <ScrollView
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.tabContent}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
       <View
         style={[

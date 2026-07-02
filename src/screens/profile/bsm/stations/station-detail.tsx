@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   useColorScheme,
   Share,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,6 +21,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonStationDetail } from '../../../../components/skeleton';
 
 type Station = {
   idGareRoutiere: string;
@@ -61,6 +63,7 @@ export default function StationDetailBsm() {
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [station, setStation] = useState<Station | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -89,40 +92,45 @@ export default function StationDetailBsm() {
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, userRaw, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('user'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, userRaw, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('user'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const user = userRaw ? JSON.parse(userRaw) : null;
-        const managerId = user?.userId || user?.id;
-        if (!managerId) return;
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      const managerId = user?.userId || user?.id;
+      if (!managerId) return;
 
-        const headers = { Authorization: `Bearer ${token}` };
-        const managerRes = await fetch(`${API_URL}/gare/manager/${managerId}`, {
-          headers,
-        });
-        if (!managerRes.ok) return;
-        const stationBasic = await managerRes.json();
+      const headers = { Authorization: `Bearer ${token}` };
+      const managerRes = await fetch(`${API_URL}/gare/manager/${managerId}`, {
+        headers,
+      });
+      if (!managerRes.ok) return;
+      const stationBasic = await managerRes.json();
 
-        const res = await fetch(`${API_URL}/gare/${stationBasic.idGareRoutiere}`, {
-          headers,
-        });
-        if (res.ok) setStation(await res.json());
-        else setStation(stationBasic);
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+      const res = await fetch(`${API_URL}/gare/${stationBasic.idGareRoutiere}`, {
+        headers,
+      });
+      if (res.ok) setStation(await res.json());
+      else setStation(stationBasic);
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const handleShare = async () => {
     if (!station) return;
@@ -138,13 +146,7 @@ export default function StationDetailBsm() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonStationDetail />;
 
   if (!station) return null;
 
@@ -171,7 +173,7 @@ export default function StationDetailBsm() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* Banner */}
         <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
           {station.photoUrl ? (

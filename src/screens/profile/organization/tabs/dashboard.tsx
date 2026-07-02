@@ -19,6 +19,7 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { SkeletonOrgDashboard } from '../../../../components/skeleton';
 import type { RootStackParamList } from '../../../../navigation';
 
 const { width } = Dimensions.get('window');
@@ -581,13 +582,7 @@ export default function OrgDashboard({
     }));
   }, [evolution]);
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonOrgDashboard />;
 
   const userRaw = null; // user name from AsyncStorage loaded at top
   const userName = selectedAgency?.longName.split(' ')[0] || 'Paul';

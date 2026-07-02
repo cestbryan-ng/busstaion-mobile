@@ -23,6 +23,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonListScreen } from '../../../../components/skeleton';
 
 type Employee = {
   employeId: string;
@@ -219,13 +220,7 @@ export default function OrgEmployees() {
   const statusColor = (s?: string) =>
     s === 'ACTIF' ? colors.success : s === 'SUSPENDU' ? colors.error : theme.text;
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonListScreen />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>

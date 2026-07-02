@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   useColorScheme,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,6 +20,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonStationDetail } from '../../../../components/skeleton';
 
 type Station = {
   idGareRoutiere: string;
@@ -77,30 +79,30 @@ export default function OrgStationDetail() {
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [station, setStation] = useState<Station | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const storedLang = await AsyncStorage.getItem('app_lang');
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
-        const res = await fetch(`${API_URL}/gare/${stationId}`);
-        if (res.ok) setStation(await res.json());
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+  const loadData = useCallback(async () => {
+    try {
+      const storedLang = await AsyncStorage.getItem('app_lang');
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+      const res = await fetch(`${API_URL}/gare/${stationId}`);
+      if (res.ok) setStation(await res.json());
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [stationId]);
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
+  if (loading) return <SkeletonStationDetail />;
   if (!station) return null;
 
   return (
@@ -125,7 +127,7 @@ export default function OrgStationDetail() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* Banner */}
         <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
           {station.photoUrl ? (

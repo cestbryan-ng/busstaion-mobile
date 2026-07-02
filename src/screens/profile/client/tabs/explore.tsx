@@ -30,6 +30,7 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
+import { useDebounce } from '../../../../hooks/useDebounce';
 
 type Agency = {
   id: string;
@@ -93,6 +94,9 @@ export default function Explore() {
   useScrollToTop(scrollRef);
   const [tab, setTab] = useState<TabType>('agencies');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [showAllServices, setShowAllServices] = useState(false);
 
@@ -120,6 +124,8 @@ export default function Explore() {
         `${n} gare${n > 1 ? 's' : ''} affiliée${n > 1 ? 's' : ''}`,
       affiliatedAgencies: (n: number) =>
         `${n} agence${n > 1 ? 's' : ''} affiliée${n > 1 ? 's' : ''}`,
+      recentSearches: 'Recherches récentes',
+      clearHistory: 'Effacer',
       noAgencies: 'Aucune agence trouvée',
       noGares: 'Aucune gare trouvée',
     },
@@ -140,10 +146,32 @@ export default function Explore() {
         `${n} affiliated station${n > 1 ? 's' : ''}`,
       affiliatedAgencies: (n: number) =>
         `${n} affiliated agenc${n > 1 ? 'ies' : 'y'}`,
+      recentSearches: 'Recent searches',
+      clearHistory: 'Clear',
       noAgencies: 'No agencies found',
       noGares: 'No stations found',
     },
   }[lang];
+
+  useEffect(() => {
+    AsyncStorage.getItem('search_history_explore').then(raw => {
+      if (raw) setSearchHistory(JSON.parse(raw));
+    });
+  }, []);
+
+  const saveExploreSearch = useCallback(async (query: string) => {
+    if (!query.trim()) return;
+    setSearchHistory(prev => {
+      const updated = [query, ...prev.filter(h => h !== query)].slice(0, 5);
+      AsyncStorage.setItem('search_history_explore', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const clearExploreHistory = async () => {
+    setSearchHistory([]);
+    await AsyncStorage.removeItem('search_history_explore');
+  };
 
   const loadAgencies = useCallback(async () => {
     try {
@@ -207,27 +235,27 @@ export default function Explore() {
   const filteredAgencies = useMemo(
     () =>
       agencies.filter(a => {
-        if (!search.trim()) return true;
-        const q = search.toLowerCase();
+        if (!debouncedSearch.trim()) return true;
+        const q = debouncedSearch.toLowerCase();
         return (
           a.longName.toLowerCase().includes(q) ||
           a.location?.toLowerCase().includes(q)
         );
       }),
-    [agencies, search],
+    [agencies, debouncedSearch],
   );
 
   const filteredGares = useMemo(
     () =>
       gares.filter(g => {
-        if (!search.trim()) return true;
-        const q = search.toLowerCase();
+        if (!debouncedSearch.trim()) return true;
+        const q = debouncedSearch.toLowerCase();
         return (
           g.nomGareRoutiere.toLowerCase().includes(q) ||
           g.ville?.toLowerCase().includes(q)
         );
       }),
-    [gares, search],
+    [gares, debouncedSearch],
   );
 
   const visibleServices = showAllServices ? SERVICES : SERVICES.slice(0, 6);
@@ -352,12 +380,12 @@ export default function Explore() {
               {item.quartier ? `, ${item.quartier}` : ''}
             </Text>
           </View>
-          {item.rating !== undefined && (
+          {item.ratingAverage !== undefined && (
             <View style={styles.ratingRow}>
               <Ionicons name="star" size={12} color="#f59e0b" />
               <Text style={[styles.ratingText, { color: theme.text }]}>
                 {' '}
-                {item.rating.toFixed(1)}
+                {item.ratingAverage.toFixed(1)}
               </Text>
             </View>
           )}
@@ -542,6 +570,13 @@ export default function Explore() {
                 placeholderTextColor={theme.text}
                 value={search}
                 onChangeText={setSearch}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => {
+                  setSearchFocused(false);
+                  saveExploreSearch(search);
+                }}
+                onSubmitEditing={() => saveExploreSearch(search)}
+                returnKeyType="search"
               />
               {search.length > 0 && (
                 <TouchableOpacity onPress={() => setSearch('')}>
@@ -559,6 +594,69 @@ export default function Explore() {
               />
             </TouchableOpacity>
           </View>
+
+          {/* Search History dropdown */}
+          {searchFocused && search.length === 0 && searchHistory.length > 0 && (
+            <View
+              style={[
+                styles.historyDropdown,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <View style={styles.historyDropdownHeader}>
+                <View style={styles.historyDropdownLeft}>
+                  <Ionicons name="time-outline" size={14} color={theme.text} />
+                  <Text
+                    style={[styles.historyDropdownTitle, { color: theme.text }]}
+                  >
+                    {t.recentSearches}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={clearExploreHistory}>
+                  <Text
+                    style={[
+                      styles.historyDropdownClear,
+                      { color: colors.primary },
+                    ]}
+                  >
+                    {t.clearHistory}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {searchHistory.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.historyDropdownItem,
+                    { borderTopColor: theme.border },
+                    index === 0 && { borderTopWidth: 0 },
+                  ]}
+                  onPress={() => {
+                    setSearch(item);
+                    setSearchFocused(false);
+                  }}
+                >
+                  <Ionicons
+                    name="search-outline"
+                    size={14}
+                    color={theme.text}
+                  />
+                  <Text
+                    style={[
+                      styles.historyDropdownItemText,
+                      { color: theme.textStrong },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Service filters — only for gares tab */}
           {tab === 'gares' && (
@@ -856,6 +954,48 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   serviceChipText: { ...typography.body, fontSize: 10 },
+
+  // Search History
+  historyDropdown: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  historyDropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  historyDropdownLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  historyDropdownTitle: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+  },
+  historyDropdownClear: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+  },
+  historyDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+  },
+  historyDropdownItemText: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    flex: 1,
+  },
 
   loader: { marginTop: spacing.xxl },
   empty: {

@@ -24,6 +24,7 @@ import { API_URL } from '../../../../utils/config';
 import ConfirmModal from '../../../../components/confirm-modal';
 import { SkeletonResourcesScreen } from '../../../../components/skeleton';
 import { useToast } from '../../../../components/toast';
+import { useDebounce } from '../../../../hooks/useDebounce';
 
 type Vehicle = {
   idVehicule: string;
@@ -253,6 +254,7 @@ export default function AgencyResources() {
   const [activeTab, setActiveTab] = useState<ResourceTab>('vehicles');
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
 
   // Data
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -491,45 +493,45 @@ export default function AgencyResources() {
     () =>
       vehicles.filter(
         v =>
-          !search.trim() ||
+          !debouncedSearch.trim() ||
           [v.nom, v.modele, v.plaqueMatricule].some(f =>
-            f?.toLowerCase().includes(search.toLowerCase()),
+            f?.toLowerCase().includes(debouncedSearch.toLowerCase()),
           ),
       ),
-    [vehicles, search],
+    [vehicles, debouncedSearch],
   );
 
   const filteredDrivers = useMemo(
     () =>
       drivers.filter(
         d =>
-          !search.trim() ||
+          !debouncedSearch.trim() ||
           [d.first_name, d.last_name, d.phone_number].some(f =>
-            f?.toLowerCase().includes(search.toLowerCase()),
+            f?.toLowerCase().includes(debouncedSearch.toLowerCase()),
           ),
       ),
-    [drivers, search],
+    [drivers, debouncedSearch],
   );
 
   const filteredEmployees = useMemo(
     () =>
       employees.filter(
         e =>
-          !search.trim() ||
+          !debouncedSearch.trim() ||
           [e.firstName, e.lastName, e.poste, e.departement].some(f =>
-            f?.toLowerCase().includes(search.toLowerCase()),
+            f?.toLowerCase().includes(debouncedSearch.toLowerCase()),
           ),
       ),
-    [employees, search],
+    [employees, debouncedSearch],
   );
 
   const filteredClasses = useMemo(
     () =>
       classes.filter(
         c =>
-          !search.trim() || c.nom.toLowerCase().includes(search.toLowerCase()),
+          !debouncedSearch.trim() || c.nom.toLowerCase().includes(debouncedSearch.toLowerCase()),
       ),
-    [classes, search],
+    [classes, debouncedSearch],
   );
 
   const openCreate = () => {

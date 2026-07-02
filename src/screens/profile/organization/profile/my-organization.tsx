@@ -20,6 +20,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonOrgProfile } from '../../../../components/skeleton';
 
 type Organization = {
   organization_id: string;
@@ -162,13 +163,7 @@ export default function OrgMyOrganization() {
         )
       : '—';
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonOrgProfile />;
 
   const InfoRow = ({
     icon,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   useColorScheme,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,6 +18,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonListScreen } from '../../../../components/skeleton';
 
 type Affiliation = {
   id: string;
@@ -67,6 +69,7 @@ export default function OrgAffiliations() {
   const [affiliations, setAffiliations] = useState<Affiliation[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabType>('affiliations');
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -87,35 +90,34 @@ export default function OrgAffiliations() {
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const res = await fetch(`${API_URL}/affiliation/agence/${agencyId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) setAffiliations(await res.json());
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+      const res = await fetch(`${API_URL}/affiliation/agence/${agencyId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setAffiliations(await res.json());
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [agencyId]);
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
+  if (loading) return <SkeletonListScreen />;
 
   const overdueAffiliations = affiliations.filter(
     a => a.statut === 'EN_RETARD',
@@ -176,6 +178,7 @@ export default function OrgAffiliations() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         {tab === 'affiliations' ? (
           affiliations.length === 0 ? (

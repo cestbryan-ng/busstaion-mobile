@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   useColorScheme,
   Share,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,6 +21,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL, QR_API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
+import { SkeletonListScreen } from '../../../../components/skeleton';
 
 type Coupon = {
   idCoupon: string;
@@ -57,6 +59,7 @@ export default function Coupons() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabFilter>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -89,35 +92,42 @@ export default function Coupons() {
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, userRaw, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('user'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, userRaw, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('user'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const user = userRaw ? JSON.parse(userRaw) : null;
-        const userId = user?.userId || user?.id;
-        if (!userId) return;
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      const userId = user?.userId || user?.id;
+      if (!userId) return;
 
-        const res = await fetch(`${API_URL}/coupon/user/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setCoupons(data);
-        }
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
+      const res = await fetch(`${API_URL}/coupon/user/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCoupons(data);
       }
-    };
-    load();
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const filtered = coupons.filter(c => {
     if (activeTab === 'all') return true;
@@ -307,13 +317,7 @@ export default function Coupons() {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonListScreen />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -391,6 +395,7 @@ export default function Coupons() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         {filtered.length === 0 ? (
           <EmptyState

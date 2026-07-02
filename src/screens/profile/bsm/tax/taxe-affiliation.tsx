@@ -11,6 +11,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -24,6 +25,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
+import { SkeletonListScreen } from '../../../../components/skeleton';
 
 type TaxeAffiliation = {
   idTaxe: string;
@@ -68,6 +70,7 @@ export default function TaxeAffiliationBsm() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<TaxeAffiliation | null>(
     null,
   );
@@ -179,6 +182,12 @@ export default function TaxeAffiliationBsm() {
     }, [loadData]),
   );
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
   const openCreate = () => {
     setEditingId(null);
     setForm({ nomTaxe: '', description: '', amountKind: 'FIXE', montantFixe: '', tauxTaxe: '', dateEffet: '' });
@@ -273,13 +282,7 @@ export default function TaxeAffiliationBsm() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonListScreen />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -307,7 +310,7 @@ export default function TaxeAffiliationBsm() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         <View style={styles.list}>
           {items.length === 0 ? (
             <EmptyState

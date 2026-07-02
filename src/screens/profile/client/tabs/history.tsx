@@ -25,6 +25,7 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
+import { useDebounce } from '../../../../hooks/useDebounce';
 
 type Passager = {
   nom: string;
@@ -153,6 +154,7 @@ export default function Historique() {
   const [tab, setTab] = useState<TabType>('reservations');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
   const [historiques, setHistoriques] = useState<HistoriqueEnrichi[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -266,8 +268,8 @@ export default function Historique() {
     if (tab === 'annulations' && h.statusHistorique !== 'ANNULE') return false;
     if (!isInDateRange(h.dateReservation, dateFilter)) return false;
 
-    if (search.trim()) {
-      const q = search.toLowerCase();
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
       const r = h.reservation;
       return (
         r?.lieuDepart?.toLowerCase().includes(q) ||

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,11 @@ import {
   ActivityIndicator,
   useColorScheme,
   Share,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import QRCode from 'react-native-qrcode-svg';
+import { print as printPDF } from 'react-native-print';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -20,6 +22,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import ConfirmModal from '../../../../components/confirm-modal';
 import { useToast } from '../../../../components/toast';
+import { SkeletonBookingDetail } from '../../../../components/skeleton';
 import type { RootStackParamList } from '../../../../navigation';
 
 type Passager = {
@@ -203,6 +206,8 @@ export default function BookingDetails() {
   const [loading, setLoading] = useState(true);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -216,7 +221,8 @@ export default function BookingDetails() {
       unitPrice: 'Prix unitaire',
       serviceFee: 'Frais de service',
       totalPaid: 'Total payé',
-      downloadTicket: 'Télécharger le billet',
+      downloadTicket: 'Exporter en PDF',
+      exportingPdf: 'Préparation...',
       cancelReservation: 'Annuler la réservation',
       cancelTitle: 'Annuler la réservation',
       cancelMessage:
@@ -244,7 +250,8 @@ export default function BookingDetails() {
       unitPrice: 'Unit price',
       serviceFee: 'Service fee',
       totalPaid: 'Total paid',
-      downloadTicket: 'Download ticket',
+      downloadTicket: 'Export as PDF',
+      exportingPdf: 'Preparing...',
       cancelReservation: 'Cancel reservation',
       cancelTitle: 'Cancel reservation',
       cancelMessage:
@@ -263,42 +270,49 @@ export default function BookingDetails() {
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, userRaw, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('user'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, userRaw, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('user'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const user = userRaw ? JSON.parse(userRaw) : null;
-        const userId = user?.userId || user?.id;
-        if (!userId) return;
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      const userId = user?.userId || user?.id;
+      if (!userId) return;
 
-        const res = await fetch(
-          `${API_URL}/reservation/user/${userId}?page=0&size=100`,
-          { headers: { Authorization: `Bearer ${token}` } },
+      const res = await fetch(
+        `${API_URL}/reservation/user/${userId}?page=0&size=100`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const content: ReservationDetail[] = data.content || [];
+        const found = content.find(
+          r =>
+            r.idReservation === reservationId ||
+            r.reservation?.idReservation === reservationId,
         );
-        if (res.ok) {
-          const data = await res.json();
-          const content: ReservationDetail[] = data.content || [];
-          const found = content.find(
-            r =>
-              r.idReservation === reservationId ||
-              r.reservation?.idReservation === reservationId,
-          );
-          if (found) setReservation(found);
-        }
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
+        if (found) setReservation(found);
       }
-    };
-    load();
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [reservationId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const handleShare = async () => {
     if (!reservation) return;
@@ -323,6 +337,18 @@ export default function BookingDetails() {
       });
     } catch {
       // silent
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!reservation || exportingPdf) return;
+    setExportingPdf(true);
+    try {
+      await printPDF({ html: generateTicketHTML(reservation, lang) });
+    } catch {
+      // L'utilisateur a annulé ou erreur silencieuse
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -352,13 +378,7 @@ export default function BookingDetails() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonBookingDetail />;
 
   if (!reservation) return null;
 
@@ -374,6 +394,7 @@ export default function BookingDetails() {
         style={{ backgroundColor: theme.backgroundAlt }}
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         {/* Header */}
         <View
@@ -747,16 +768,20 @@ export default function BookingDetails() {
         {/* ── Actions ── */}
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.downloadBtn, { borderColor: colors.primary }]}
-            onPress={handleShare}
+            style={[
+              styles.downloadBtn,
+              { borderColor: colors.primary, opacity: exportingPdf ? 0.7 : 1 },
+            ]}
+            onPress={handleExportPDF}
+            disabled={exportingPdf}
           >
-            <Ionicons
-              name="download-outline"
-              size={18}
-              color={colors.primary}
-            />
+            {exportingPdf ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Ionicons name="document-outline" size={18} color={colors.primary} />
+            )}
             <Text style={[styles.downloadBtnText, { color: colors.primary }]}>
-              {t.downloadTicket}
+              {exportingPdf ? t.exportingPdf : t.downloadTicket}
             </Text>
           </TouchableOpacity>
 

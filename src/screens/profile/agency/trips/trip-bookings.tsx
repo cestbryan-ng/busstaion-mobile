@@ -11,6 +11,7 @@ import {
   Share,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -24,6 +25,8 @@ import ConfirmModal from '../../../../components/confirm-modal';
 import { EmptyState } from '../../../../components/empty-state';
 import { useToast } from '../../../../components/toast';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonListScreen } from '../../../../components/skeleton';
+import { useDebounce } from '../../../../hooks/useDebounce';
 
 type Booking = {
   reservation: {
@@ -82,10 +85,12 @@ export default function AgencyTripBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [cancelModal, setCancelModal] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -130,49 +135,56 @@ export default function AgencyTripBookings() {
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, userRaw, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('user'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, userRaw, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('user'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const user = userRaw ? JSON.parse(userRaw) : null;
-        const chefId = user?.userId || user?.id;
-        if (!chefId) return;
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      const chefId = user?.userId || user?.id;
+      if (!chefId) return;
 
-        const headers = { Authorization: `Bearer ${token}` };
-        const agencyRes = await fetch(
-          `${API_URL}/agence/chef-agence/${chefId}`,
-          { headers },
-        );
-        if (!agencyRes.ok) return;
-        const agency = await agencyRes.json();
+      const headers = { Authorization: `Bearer ${token}` };
+      const agencyRes = await fetch(
+        `${API_URL}/agence/chef-agence/${chefId}`,
+        { headers },
+      );
+      if (!agencyRes.ok) return;
+      const agency = await agencyRes.json();
 
-        const res = await fetch(
-          `${API_URL}/reservation/agence/${agency.agencyId}?size=100`,
-          { headers },
-        );
-        if (res.ok) {
-          const data = await res.json();
-          const all = data.content || data || [];
-          // Filter by tripId if provided
-          const filtered = tripId
-            ? all.filter((b: Booking) => b.voyage?.idVoyage === tripId)
-            : all;
-          setBookings(filtered);
-        }
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
+      const res = await fetch(
+        `${API_URL}/reservation/agence/${agency.agencyId}?size=100`,
+        { headers },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const all = data.content || data || [];
+        // Filter by tripId if provided
+        const filtered = tripId
+          ? all.filter((b: Booking) => b.voyage?.idVoyage === tripId)
+          : all;
+        setBookings(filtered);
       }
-    };
-    load();
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [tripId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const confirmed = bookings.filter(
     b => b.reservation.statutReservation === 'CONFIRMER',
@@ -197,8 +209,8 @@ export default function AgencyTripBookings() {
       b.reservation.statutReservation !== statusFilter
     )
       return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
       const name = b.customerName || b.passagers?.[0]?.nom || '';
       const id = b.reservation.idReservation;
       const seat = b.passagers?.[0]?.siege || '';
@@ -351,13 +363,7 @@ export default function AgencyTripBookings() {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonListScreen />;
 
   const FILTER_TABS: { key: StatusFilter; label: string }[] = [
     { key: 'ALL', label: t.all },
@@ -534,6 +540,7 @@ export default function AgencyTripBookings() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >
           {/* Bookings list */}
           <View

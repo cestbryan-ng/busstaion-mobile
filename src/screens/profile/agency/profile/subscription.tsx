@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   useColorScheme,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,6 +18,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonSubscription } from '../../../../components/skeleton';
 
 type Plan = {
   idPlan: string;
@@ -98,6 +100,7 @@ export default function AgencySubscription() {
   const [plans, setPlans] = useState<Plan[]>(FALLBACK_PLANS);
   const [billing, setBilling] = useState<BillingItem[]>(FALLBACK_BILLING);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -134,54 +137,61 @@ export default function AgencySubscription() {
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, userRaw, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('user'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, userRaw, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('user'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const user = userRaw ? JSON.parse(userRaw) : null;
-        const chefId = user?.userId || user?.id;
-        if (!chefId) return;
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      const chefId = user?.userId || user?.id;
+      if (!chefId) return;
 
-        const headers = { Authorization: `Bearer ${token}` };
-        const agencyRes = await fetch(
-          `${API_URL}/agence/chef-agence/${chefId}`,
-          { headers },
-        );
-        if (!agencyRes.ok) return;
-        const agency = await agencyRes.json();
+      const headers = { Authorization: `Bearer ${token}` };
+      const agencyRes = await fetch(
+        `${API_URL}/agence/chef-agence/${chefId}`,
+        { headers },
+      );
+      if (!agencyRes.ok) return;
+      const agency = await agencyRes.json();
 
-        // TODO: ces endpoints ne sont pas encore définis
-        const [plansRes, billingRes] = await Promise.allSettled([
-          fetch(`${API_URL}/abonnement/plans/agence/${agency.agencyId}`, {
-            headers,
-          }),
-          fetch(`${API_URL}/facturation/agence/${agency.agencyId}`, {
-            headers,
-          }),
-        ]);
+      // TODO: ces endpoints ne sont pas encore définis
+      const [plansRes, billingRes] = await Promise.allSettled([
+        fetch(`${API_URL}/abonnement/plans/agence/${agency.agencyId}`, {
+          headers,
+        }),
+        fetch(`${API_URL}/facturation/agence/${agency.agencyId}`, {
+          headers,
+        }),
+      ]);
 
-        if (plansRes.status === 'fulfilled' && plansRes.value.ok) {
-          const data = await plansRes.value.json();
-          if (Array.isArray(data) && data.length > 0) setPlans(data);
-        }
-        if (billingRes.status === 'fulfilled' && billingRes.value.ok) {
-          const data = await billingRes.value.json();
-          if (Array.isArray(data) && data.length > 0) setBilling(data);
-        }
-      } catch {
-        // fallback already set
-      } finally {
-        setLoading(false);
+      if (plansRes.status === 'fulfilled' && plansRes.value.ok) {
+        const data = await plansRes.value.json();
+        if (Array.isArray(data) && data.length > 0) setPlans(data);
       }
-    };
-    load();
+      if (billingRes.status === 'fulfilled' && billingRes.value.ok) {
+        const data = await billingRes.value.json();
+        if (Array.isArray(data) && data.length > 0) setBilling(data);
+      }
+    } catch {
+      // fallback already set
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const currentPlan = plans.find(p => p.isCurrent) || plans[0];
   const otherPlans = plans.filter(p => !p.isCurrent);
@@ -199,13 +209,7 @@ export default function AgencySubscription() {
     failed: t.failed,
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonSubscription />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -228,7 +232,7 @@ export default function AgencySubscription() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* Current plan */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>

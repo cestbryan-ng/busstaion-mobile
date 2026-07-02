@@ -133,6 +133,9 @@ export default function Home({
   const [arrival, setArrival] = useState('');
   const [date, setDate] = useState('');
   const [passengers, setPassengers] = useState(1);
+  const [searchHistory, setSearchHistory] = useState<
+    { departure: string; arrival: string; date: string }[]
+  >([]);
 
   const t = {
     fr: {
@@ -152,6 +155,8 @@ export default function Home({
       seeAllFemale: 'Voir toutes',
       seats: (n: number) => `${n} siège${n > 1 ? 's' : ''}`,
       agenciesCount: (n: number) => `${n} agence${n > 1 ? 's' : ''}`,
+      recentSearches: 'Recherches récentes',
+      clearHistory: 'Effacer',
       noTrips: 'Aucun voyage disponible',
       noAgencies: 'Aucune agence disponible',
       noGares: 'Aucune gare disponible',
@@ -173,6 +178,8 @@ export default function Home({
       seeAllFemale: 'See all',
       seats: (n: number) => `${n} seat${n > 1 ? 's' : ''}`,
       agenciesCount: (n: number) => `${n} agenc${n > 1 ? 'ies' : 'y'}`,
+      recentSearches: 'Recent searches',
+      clearHistory: 'Clear',
       noTrips: 'No trips available',
       noAgencies: 'No agencies available',
       noGares: 'No stations available',
@@ -181,11 +188,14 @@ export default function Home({
 
   const loadData = useCallback(async () => {
     try {
-      const [userRaw, tokenRaw, storedLang] = await Promise.all([
+      const [userRaw, tokenRaw, storedLang, historyRaw] = await Promise.all([
         AsyncStorage.getItem('user'),
         AsyncStorage.getItem('token'),
         AsyncStorage.getItem('app_lang'),
+        AsyncStorage.getItem('search_history_trips'),
       ]);
+
+      if (historyRaw) setSearchHistory(JSON.parse(historyRaw));
 
       if (userRaw) setUser(JSON.parse(userRaw));
       if (storedLang === 'en' || storedLang === 'fr') setLang(storedLang);
@@ -235,6 +245,34 @@ export default function Home({
   const swapLocations = () => {
     setDeparture(arrival);
     setArrival(departure);
+  };
+
+  const saveSearch = async () => {
+    if (!departure.trim() && !arrival.trim()) return;
+    const entry = { departure, arrival, date };
+    const updated = [
+      entry,
+      ...searchHistory.filter(
+        h => h.departure !== departure || h.arrival !== arrival,
+      ),
+    ].slice(0, 5);
+    setSearchHistory(updated);
+    await AsyncStorage.setItem('search_history_trips', JSON.stringify(updated));
+  };
+
+  const clearHistory = async () => {
+    setSearchHistory([]);
+    await AsyncStorage.removeItem('search_history_trips');
+  };
+
+  const applyHistoryEntry = (entry: {
+    departure: string;
+    arrival: string;
+    date: string;
+  }) => {
+    setDeparture(entry.departure);
+    setArrival(entry.arrival);
+    setDate(entry.date);
   };
 
   const SectionHeader = ({
@@ -674,7 +712,8 @@ export default function Home({
           {/* Search button */}
           <TouchableOpacity
             style={[styles.searchBtn, { backgroundColor: colors.primary }]}
-            onPress={() =>
+            onPress={() => {
+              saveSearch();
               navigation.navigate('TripsList', {
                 filters: {
                   departure,
@@ -683,12 +722,69 @@ export default function Home({
                   classes: [],
                   amenities: [],
                 },
-              })
-            }
+              });
+            }}
           >
             <Text style={styles.searchBtnText}>{t.searchBtn}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* ── Search History ── */}
+        {searchHistory.length > 0 && (
+          <View
+            style={[
+              styles.historyCard,
+              { backgroundColor: theme.background, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.historyHeader}>
+              <View style={styles.historyHeaderLeft}>
+                <Ionicons name="time-outline" size={15} color={theme.text} />
+                <Text
+                  style={[styles.historyTitle, { color: theme.textStrong }]}
+                >
+                  {t.recentSearches}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={clearHistory}>
+                <Text style={[styles.historyClear, { color: colors.primary }]}>
+                  {t.clearHistory}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {searchHistory.map((entry, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.historyItem,
+                  { borderTopColor: theme.border },
+                  index === 0 && { borderTopWidth: 0 },
+                ]}
+                onPress={() => applyHistoryEntry(entry)}
+              >
+                <Ionicons
+                  name="search-outline"
+                  size={14}
+                  color={theme.text}
+                  style={{ marginRight: spacing.sm }}
+                />
+                <Text
+                  style={[styles.historyItemText, { color: theme.textStrong }]}
+                  numberOfLines={1}
+                >
+                  {entry.departure || '—'} → {entry.arrival || '—'}
+                  {entry.date ? ` · ${entry.date}` : ''}
+                </Text>
+                <Ionicons
+                  name="arrow-up-outline"
+                  size={14}
+                  color={theme.text}
+                  style={{ transform: [{ rotate: '45deg' }] }}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* ── Popular Trips ── */}
         <SectionHeader
@@ -1127,6 +1223,47 @@ const styles = StyleSheet.create({
   gareBadgeText: {
     ...typography.bodyBold,
     fontSize: typography.sizes.xs,
+  },
+
+  // Search History
+  historyCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  historyHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  historyTitle: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+  },
+  historyClear: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+  },
+  historyItemText: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    flex: 1,
   },
 
   // Promo Card

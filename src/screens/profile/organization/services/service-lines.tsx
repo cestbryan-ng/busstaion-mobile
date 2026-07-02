@@ -19,6 +19,8 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonListScreen } from '../../../../components/skeleton';
+import { useDebounce } from '../../../../hooks/useDebounce';
 
 type Line = {
   id_planning: string;
@@ -64,6 +66,7 @@ export default function OrgServiceLines() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
   const [tab, setTab] = useState<TabFilter>('all');
 
   const t = {
@@ -127,22 +130,16 @@ export default function OrgServiceLines() {
         .filter(l => tab === 'all' || l.statut === tab)
         .filter(
           l =>
-            !search.trim() ||
-            l.nom.toLowerCase().includes(search.toLowerCase()),
+            !debouncedSearch.trim() ||
+            l.nom.toLowerCase().includes(debouncedSearch.toLowerCase()),
         ),
-    [lines, tab, search],
+    [lines, tab, debouncedSearch],
   );
 
   const activeCount = lines.filter(l => l.statut === 'ACTIF').length;
   const inactiveCount = lines.filter(l => l.statut === 'INACTIF').length;
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonListScreen />;
 
   const TABS: { key: TabFilter; label: string; count: number }[] = [
     { key: 'all', label: t.all, count: lines.length },

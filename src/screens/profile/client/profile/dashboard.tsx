@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   useColorScheme,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,6 +19,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonClientDashboard } from '../../../../components/skeleton';
 
 type User = {
   first_name: string;
@@ -54,6 +56,7 @@ export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [historiques, setHistoriques] = useState<EnrichedHistorique[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -90,58 +93,65 @@ export default function Dashboard() {
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, userRaw, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('user'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, userRaw, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('user'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const userData = userRaw ? JSON.parse(userRaw) : null;
-        setUser(userData);
-        const userId = userData?.userId || userData?.id;
-        if (!userId) return;
+      const userData = userRaw ? JSON.parse(userRaw) : null;
+      setUser(userData);
+      const userId = userData?.userId || userData?.id;
+      if (!userId) return;
 
-        const histRes = await fetch(
-          `${API_URL}/historique/reservation/${userId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-        if (!histRes.ok) return;
+      const histRes = await fetch(
+        `${API_URL}/historique/reservation/${userId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (!histRes.ok) return;
 
-        const histList: Historique[] = await histRes.json();
+      const histList: Historique[] = await histRes.json();
 
-        // Enrich first 6
-        const enriched = await Promise.all(
-          histList.slice(0, 6).map(async (h): Promise<EnrichedHistorique> => {
-            try {
-              const r = await fetch(
-                `${API_URL}/reservation/${h.idReservation}`,
-                {
-                  headers: { Authorization: `Bearer ${token}` },
-                },
-              );
-              const detail = r.ok ? await r.json() : null;
-              return { ...h, detail };
-            } catch {
-              return { ...h, detail: null };
-            }
-          }),
-        );
+      // Enrich first 6
+      const enriched = await Promise.all(
+        histList.slice(0, 6).map(async (h): Promise<EnrichedHistorique> => {
+          try {
+            const r = await fetch(
+              `${API_URL}/reservation/${h.idReservation}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            );
+            const detail = r.ok ? await r.json() : null;
+            return { ...h, detail };
+          } catch {
+            return { ...h, detail: null };
+          }
+        }),
+      );
 
-        setHistoriques(enriched);
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+      setHistoriques(enriched);
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const completed = historiques.filter(h => h.statusHistorique === 'TERMINE');
   const cancelled = historiques.filter(h => h.statusHistorique === 'ANNULE');
@@ -217,13 +227,7 @@ export default function Dashboard() {
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonClientDashboard />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -251,7 +255,7 @@ export default function Dashboard() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* Welcome Banner */}
         <View
           style={[

@@ -27,6 +27,7 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
+import { useDebounce } from '../../../../hooks/useDebounce';
 
 export type PolicyOrTax = {
   idPolitique: string;
@@ -66,6 +67,7 @@ export default function BsmTaxes() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
   const [tab, setTab] = useState<TabFilter>('ALL');
 
   // Stats (hardcoded — no dedicated endpoint available)
@@ -168,10 +170,10 @@ export default function BsmTaxes() {
         .filter(i => tab === 'ALL' || i.type === tab)
         .filter(
           i =>
-            !search.trim() ||
-            i.nomPolitique.toLowerCase().includes(search.toLowerCase()),
+            !debouncedSearch.trim() ||
+            i.nomPolitique.toLowerCase().includes(debouncedSearch.toLowerCase()),
         ),
-    [items, tab, search],
+    [items, tab, debouncedSearch],
   );
 
   const taxItems = filtered.filter(i => i.type === 'TAXE');

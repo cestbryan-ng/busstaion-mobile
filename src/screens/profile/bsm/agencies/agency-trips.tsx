@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   useColorScheme,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,6 +20,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
+import { SkeletonListScreen } from '../../../../components/skeleton';
 
 type Trip = {
   idVoyage: string;
@@ -105,6 +107,7 @@ export default function AgencyTripsBsm() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -127,35 +130,40 @@ export default function AgencyTripsBsm() {
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const headers = { Authorization: `Bearer ${token}` };
+      const headers = { Authorization: `Bearer ${token}` };
 
-        const [agencyRes, tripsRes] = await Promise.all([
-          fetch(`${API_URL}/agence/${agencyId}`, { headers }),
-          fetch(`${API_URL}/voyage/agence/${agencyId}`, { headers }),
-        ]);
+      const [agencyRes, tripsRes] = await Promise.all([
+        fetch(`${API_URL}/agence/${agencyId}`, { headers }),
+        fetch(`${API_URL}/voyage/agence/${agencyId}`, { headers }),
+      ]);
 
-        if (agencyRes.ok) setAgency(await agencyRes.json());
-        if (tripsRes.ok) {
-          const data = await tripsRes.json();
-          setTrips(data.content || data || []);
-        }
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
+      if (agencyRes.ok) setAgency(await agencyRes.json());
+      if (tripsRes.ok) {
+        const data = await tripsRes.json();
+        setTrips(data.content || data || []);
       }
-    };
-    load();
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [agencyId]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const today = new Date();
   const tomorrow = new Date(today);
@@ -247,13 +255,7 @@ export default function AgencyTripsBsm() {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonListScreen />;
 
   const statusCfg = agency
     ? TAX_STATUS_CONFIG['payé']
@@ -291,7 +293,7 @@ export default function AgencyTripsBsm() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* Agency summary */}
         {agency && (
           <View

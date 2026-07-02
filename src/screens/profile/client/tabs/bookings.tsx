@@ -25,6 +25,7 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
+import { useDebounce } from '../../../../hooks/useDebounce';
 
 type Passager = {
   idPassager: string;
@@ -132,6 +133,7 @@ export default function Bookings() {
   const [tab, setTab] = useState<TabType>('avenir');
   const [filter, setFilter] = useState<FilterType>('TOUS');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -254,8 +256,8 @@ export default function Bookings() {
     if (filter === 'ANNULEE' && r.reservation.statutReservation !== 'ANNULEE')
       return false;
 
-    if (search.trim()) {
-      const q = search.toLowerCase();
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
       return (
         r.voyage.lieuDepart.toLowerCase().includes(q) ||
         r.voyage.lieuArrive.toLowerCase().includes(q) ||

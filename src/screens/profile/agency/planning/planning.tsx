@@ -19,6 +19,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
+import { SkeletonAgencyPlanning } from '../../../../components/skeleton';
 
 type Agency = {
   agencyId: string;
@@ -472,13 +473,7 @@ export default function AgencyPlanning() {
     </View>
   );
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonAgencyPlanning />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>

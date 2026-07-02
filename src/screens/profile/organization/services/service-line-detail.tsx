@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   useColorScheme,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,6 +18,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonServiceLineDetail } from '../../../../components/skeleton';
 
 type Line = {
   id_planning: string;
@@ -67,36 +69,42 @@ export default function OrgServiceLineDetail() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const headers = { Authorization: `Bearer ${token}` };
-        const [lineRes, statsRes] = await Promise.allSettled([
-          fetch(`${API_URL}/ligne-service/${lineId}`, { headers }),
-          fetch(`${API_URL}/statistiques/agence/${agencyId}/general`, {
-            headers,
-          }),
-        ]);
+      const headers = { Authorization: `Bearer ${token}` };
+      const [lineRes, statsRes] = await Promise.allSettled([
+        fetch(`${API_URL}/ligne-service/${lineId}`, { headers }),
+        fetch(`${API_URL}/statistiques/agence/${agencyId}/general`, {
+          headers,
+        }),
+      ]);
 
-        if (lineRes.status === 'fulfilled' && lineRes.value.ok)
-          setLine(await lineRes.value.json());
-        if (statsRes.status === 'fulfilled' && statsRes.value.ok)
-          setStats(await statsRes.value.json());
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+      if (lineRes.status === 'fulfilled' && lineRes.value.ok)
+        setLine(await lineRes.value.json());
+      if (statsRes.status === 'fulfilled' && statsRes.value.ok)
+        setStats(await statsRes.value.json());
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [lineId, agencyId]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
 
   const handleToggle = async () => {
     if (!line) return;
@@ -123,13 +131,7 @@ export default function OrgServiceLineDetail() {
     // Navigate to generate trips flow
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonServiceLineDetail />;
   if (!line) return null;
 
   const statusCfg = STATUS_CONFIG[line.statut] || STATUS_CONFIG.INACTIF;
@@ -157,7 +159,7 @@ export default function OrgServiceLineDetail() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* Line header */}
         <View
           style={[

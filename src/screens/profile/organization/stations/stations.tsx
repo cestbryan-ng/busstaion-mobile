@@ -20,6 +20,8 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonListScreen } from '../../../../components/skeleton';
+import { useDebounce } from '../../../../hooks/useDebounce';
 
 type Station = {
   idGareRoutiere: string;
@@ -52,6 +54,7 @@ export default function OrgStations() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
 
   const t = {
     fr: {
@@ -77,8 +80,8 @@ export default function OrgStations() {
       const storedLang = await AsyncStorage.getItem('app_lang');
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-      const params = search.trim()
-        ? `?searchTerm=${encodeURIComponent(search)}&size=50`
+      const params = debouncedSearch.trim()
+        ? `?searchTerm=${encodeURIComponent(debouncedSearch)}&size=50`
         : '?size=50';
       const res = await fetch(`${API_URL}/gare${params}`);
       if (res.ok) {
@@ -90,16 +93,11 @@ export default function OrgStations() {
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     loadData();
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(() => loadData(), 400);
-    return () => clearTimeout(t);
-  }, [search]);
+  }, [loadData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -107,13 +105,7 @@ export default function OrgStations() {
     setRefreshing(false);
   }, [loadData]);
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonListScreen />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>

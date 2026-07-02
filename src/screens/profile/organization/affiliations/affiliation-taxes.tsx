@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   useColorScheme,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,6 +19,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonListScreen } from '../../../../components/skeleton';
 
 type Tax = {
   idTaxe: string;
@@ -52,6 +54,7 @@ export default function OrgAffiliationTaxes() {
     location?: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -82,43 +85,42 @@ export default function OrgAffiliationTaxes() {
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const headers = { Authorization: `Bearer ${token}` };
-        const [taxRes, agencyRes] = await Promise.allSettled([
-          fetch(`${API_URL}/taxe-affiliation/agence/${agencyId}`, { headers }),
-          fetch(`${API_URL}/agence/${agencyId}`, { headers }),
-        ]);
+      const headers = { Authorization: `Bearer ${token}` };
+      const [taxRes, agencyRes] = await Promise.allSettled([
+        fetch(`${API_URL}/taxe-affiliation/agence/${agencyId}`, { headers }),
+        fetch(`${API_URL}/agence/${agencyId}`, { headers }),
+      ]);
 
-        if (taxRes.status === 'fulfilled' && taxRes.value.ok)
-          setTaxData(await taxRes.value.json());
-        if (agencyRes.status === 'fulfilled' && agencyRes.value.ok) {
-          const d = await agencyRes.value.json();
-          setAgencyInfo({ longName: d.longName, location: d.location });
-        }
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
+      if (taxRes.status === 'fulfilled' && taxRes.value.ok)
+        setTaxData(await taxRes.value.json());
+      if (agencyRes.status === 'fulfilled' && agencyRes.value.ok) {
+        const d = await agencyRes.value.json();
+        setAgencyInfo({ longName: d.longName, location: d.location });
       }
-    };
-    load();
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [agencyId]);
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
+  if (loading) return <SkeletonListScreen />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -146,7 +148,7 @@ export default function OrgAffiliationTaxes() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* Summary */}
         <View
           style={[

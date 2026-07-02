@@ -20,6 +20,7 @@ import { spacing } from '../../../../theme/spacing';
 import { SUPPORT_URL, CGU_URL } from '../../../../utils/config';
 import { logout } from '../../../../utils/logout';
 import type { RootStackParamList } from '../../../../navigation';
+import { SkeletonProfileScreen } from '../../../../components/skeleton';
 
 type User = {
   userId: string;
@@ -201,13 +202,7 @@ export default function OrgProfil() {
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonProfileScreen />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>

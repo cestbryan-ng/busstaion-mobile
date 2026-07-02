@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   useColorScheme,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,6 +21,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL, MAPS_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
+import { SkeletonStationDetail } from '../../../../components/skeleton';
 
 type Gare = {
   idGareRoutiere: string;
@@ -100,6 +102,7 @@ export default function StationDetail() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'agencies' | 'trips'>('agencies');
   const [isFavorite, setIsFavorite] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
@@ -131,52 +134,53 @@ export default function StationDetail() {
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
+  const loadData = useCallback(async () => {
+    try {
+      const [token, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-        const [gareRes, agenciesRes, tripsRes] = await Promise.all([
-          fetch(`${API_URL}/gare/${stationId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API_URL}/agence/gare-routiere/${stationId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API_URL}/voyage/gare/${stationId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
+      const [gareRes, agenciesRes, tripsRes] = await Promise.all([
+        fetch(`${API_URL}/gare/${stationId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_URL}/agence/gare-routiere/${stationId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_URL}/voyage/gare/${stationId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
 
-        if (gareRes.ok) setGare(await gareRes.json());
-        if (agenciesRes.ok) {
-          const data = await agenciesRes.json();
-          setAgencies(data.content || data || []);
-        }
-        if (tripsRes.ok) {
-          const data = await tripsRes.json();
-          setTrips(data.content || data || []);
-        }
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
+      if (gareRes.ok) setGare(await gareRes.json());
+      if (agenciesRes.ok) {
+        const data = await agenciesRes.json();
+        setAgencies(data.content || data || []);
       }
-    };
-    load();
+      if (tripsRes.ok) {
+        const data = await tripsRes.json();
+        setTrips(data.content || data || []);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
   }, [stationId]);
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
+  if (loading) return <SkeletonStationDetail />;
 
   if (!gare) return null;
 
@@ -229,7 +233,7 @@ export default function StationDetail() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* Banner Image */}
         <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
           {gare.photoUrl ? (

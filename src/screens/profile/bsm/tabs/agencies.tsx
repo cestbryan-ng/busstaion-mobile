@@ -30,6 +30,7 @@ import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { useToast } from '../../../../components/toast';
 import ConfirmModal from '../../../../components/confirm-modal';
+import { useDebounce } from '../../../../hooks/useDebounce';
 
 type Agency = {
   id: string;
@@ -84,6 +85,7 @@ export default function BsmAgencies() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Affiliation | null>(null);
 
@@ -262,14 +264,14 @@ export default function BsmAgencies() {
   const filtered = useMemo(
     () =>
       agencies.filter(a => {
-        if (!search.trim()) return true;
-        const q = search.toLowerCase();
+        if (!debouncedSearch.trim()) return true;
+        const q = debouncedSearch.toLowerCase();
         return (
           a.longName.toLowerCase().includes(q) ||
           a.location?.toLowerCase().includes(q)
         );
       }),
-    [agencies, search],
+    [agencies, debouncedSearch],
   );
 
   const AffiliationCard = ({ aff }: { aff: Affiliation }) => {

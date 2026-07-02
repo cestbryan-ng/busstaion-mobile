@@ -30,6 +30,7 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
+import { useDebounce } from '../../../../hooks/useDebounce';
 
 type Trip = {
   idVoyage: string;
@@ -114,6 +115,7 @@ export default function AgencyTrips() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('PUBLIE');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
   const [agencyId, setAgencyId] = useState('');
 
   const t = {
@@ -203,15 +205,15 @@ export default function AgencyTrips() {
       trips
         .filter(t => t.statusVoyage === activeFilter)
         .filter(t => {
-          if (!search.trim()) return true;
-          const q = search.toLowerCase();
+          if (!debouncedSearch.trim()) return true;
+          const q = debouncedSearch.toLowerCase();
           return (
             t.lieuDepart.toLowerCase().includes(q) ||
             t.lieuArrive.toLowerCase().includes(q) ||
             t.titre?.toLowerCase().includes(q)
           );
         }),
-    [trips, activeFilter, search],
+    [trips, activeFilter, debouncedSearch],
   );
 
   const SeatProgress = ({ trip }: { trip: Trip }) => {
