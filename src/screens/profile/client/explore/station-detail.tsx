@@ -199,7 +199,8 @@ export default function StationDetail() {
       }
       if (tripsRes.ok) {
         const data = await tripsRes.json();
-        setTrips((data.content || data || []).filter((t: Trip) => t.statusVoyage === 'PUBLIE'));
+        const now = new Date();
+        setTrips((data.content || data || []).filter((t: Trip) => t.statusVoyage === 'PUBLIE' && t.dateDepartPrev && new Date(t.dateDepartPrev) > now));
       }
     } catch {
       // silent

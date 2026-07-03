@@ -166,7 +166,8 @@ export default function AgencyDetail() {
       }
       if (tripsRes.ok) {
         const data = await tripsRes.json();
-        setTrips((data.content || data || []).filter((t: Trip) => t.statusVoyage === 'PUBLIE'));
+        const now = new Date();
+        setTrips((data.content || data || []).filter((t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now));
       }
     } catch {
       // silent

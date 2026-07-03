@@ -207,8 +207,9 @@ export default function TripsList() {
 
       if (res.ok) {
         const data = await res.json();
+        const now = new Date();
         const published = (data.content || []).filter(
-          (t: Trip) => t.statusVoyage === 'PUBLIE',
+          (t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now,
         );
         setTrips(prev => (reset ? published : [...prev, ...published]));
         setTotalPages(data.totalPages || 1);

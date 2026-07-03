@@ -261,9 +261,10 @@ export default function Home({
 
       if (tripsRes.status === 'fulfilled' && tripsRes.value.ok) {
         const data = await tripsRes.value.json();
+        const now = new Date();
         setTrips(
           (data.content || [])
-            .filter((t: Trip) => t.statusVoyage === 'PUBLIE')
+            .filter((t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now)
             .slice(0, 6),
         );
       }
