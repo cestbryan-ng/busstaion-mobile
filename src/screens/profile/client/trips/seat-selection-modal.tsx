@@ -73,6 +73,25 @@ function formatSeatLabel(seatNum: number, cols: number): string {
   return `${colLetter}${String(row).padStart(2, '0')}`;
 }
 
+function formatTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function parseDuration(raw: string | number): number {
+  if (typeof raw === 'number') return raw;
+  const m = raw.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+  if (!m) return 0;
+  return (parseInt(m[1] || '0') * 60) + parseInt(m[2] || '0');
+}
+
+function formatDuration(raw: string | number): string {
+  const mins = parseDuration(raw);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+}
+
 export default function SeatSelectionModal({
   visible,
   trip,
@@ -86,7 +105,7 @@ export default function SeatSelectionModal({
   const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
   const [temporarySeats, setTemporarySeats] = useState<number[]>([]);
   const [permanentSeats, setPermanentSeats] = useState<number[]>(
-    trip.placeReservees || [],
+    (trip.placeReservees || []).filter(n => n > 0),
   );
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>('connecting');
@@ -110,6 +129,7 @@ export default function SeatSelectionModal({
       online: 'En ligne',
       connecting: 'Connexion...',
       reconnecting: 'Reconnexion...',
+      routeLabel: (from: string, to: string) => `De ${from} vers ${to}`,
     },
     en: {
       title: 'Seat selection',
@@ -122,6 +142,7 @@ export default function SeatSelectionModal({
       online: 'Online',
       connecting: 'Connecting...',
       reconnecting: 'Reconnecting...',
+      routeLabel: (from: string, to: string) => `From ${from} to ${to}`,
     },
   }[lang];
 
@@ -143,9 +164,13 @@ export default function SeatSelectionModal({
           try {
             const data = JSON.parse(message.body);
             const { placeNumber, status } = data;
+            if (placeNumber <= 0) return;
             if (status === 'RESERVED') {
               setTemporarySeats(prev => [...new Set([...prev, placeNumber])]);
             } else if (status === 'FREE') {
+              setTemporarySeats(prev => prev.filter(s => s !== placeNumber));
+            } else if (status === 'PERMANENT' || status === 'CONFIRMED') {
+              setPermanentSeats(prev => [...new Set([...prev, placeNumber])]);
               setTemporarySeats(prev => prev.filter(s => s !== placeNumber));
             }
           } catch {
@@ -171,7 +196,7 @@ export default function SeatSelectionModal({
     if (visible) {
       setSelectedSeats([]);
       setTemporarySeats([]);
-      setPermanentSeats(trip.placeReservees || []);
+      setPermanentSeats((trip.placeReservees || []).filter(n => n > 0));
       connectWebSocket();
     }
 
@@ -205,18 +230,22 @@ export default function SeatSelectionModal({
       // Deselect
       setSelectedSeats(prev => prev.filter(s => s !== seatNum));
       mySeats.current = mySeats.current.filter(s => s !== seatNum);
-      stompClient.current?.publish({
-        destination: `/app/voyage/${trip.idVoyage}/reserver`,
-        body: JSON.stringify({ placeNumber: seatNum, status: 'FREE' }),
-      });
+      if (stompClient.current?.connected) {
+        stompClient.current.publish({
+          destination: `/app/voyage/${trip.idVoyage}/reserver`,
+          body: JSON.stringify({ placeNumber: seatNum, status: 'FREE' }),
+        });
+      }
     } else {
       // Select
       setSelectedSeats(prev => [...prev, seatNum]);
       mySeats.current = [...mySeats.current, seatNum];
-      stompClient.current?.publish({
-        destination: `/app/voyage/${trip.idVoyage}/reserver`,
-        body: JSON.stringify({ placeNumber: seatNum, status: 'RESERVED' }),
-      });
+      if (stompClient.current?.connected) {
+        stompClient.current.publish({
+          destination: `/app/voyage/${trip.idVoyage}/reserver`,
+          body: JSON.stringify({ placeNumber: seatNum, status: 'RESERVED' }),
+        });
+      }
     }
   };
 
@@ -323,7 +352,7 @@ export default function SeatSelectionModal({
                 <Text
                   style={[styles.summaryRoute, { color: theme.textStrong }]}
                 >
-                  {trip.lieuDepart} → {trip.lieuArrive}
+                  {t.routeLabel(trip.lieuDepart, trip.lieuArrive)}
                 </Text>
                 <View
                   style={[
@@ -343,7 +372,7 @@ export default function SeatSelectionModal({
                   lang === 'fr' ? 'fr-FR' : 'en-GB',
                   { day: 'numeric', month: 'long' },
                 )}{' '}
-                · {trip.heureDepartEffectif || ''} · {trip.dureeVoyage}
+                · {formatTime(trip.heureDepartEffectif)} · {formatDuration(trip.dureeVoyage)}
               </Text>
               <Text style={[styles.summaryMeta, { color: theme.text }]}>
                 {trip.nomAgence}
@@ -358,8 +387,8 @@ export default function SeatSelectionModal({
                 style={[
                   styles.legendDot,
                   {
-                    backgroundColor: `${colors.success}40`,
-                    borderColor: colors.success,
+                    backgroundColor: theme.backgroundAlt,
+                    borderColor: theme.border,
                   },
                 ]}
               />

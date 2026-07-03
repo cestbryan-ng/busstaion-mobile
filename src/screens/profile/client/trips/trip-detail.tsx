@@ -26,6 +26,7 @@ import type { RootStackParamList } from '../../../../navigation';
 import SeatSelectionModal from './seat-selection-modal';
 import PaymentModal from './payment-modal';
 import { SkeletonTripDetail } from '../../../../components/skeleton';
+import TripPlaceholder from '../../../../assets/placeholders/product.svg';
 
 const { width } = Dimensions.get('window');
 
@@ -62,6 +63,11 @@ export type TripDetail = {
     lienPhoto: string;
     plaqueMatricule: string;
   };
+  chauffeur?: {
+    first_name: string;
+    last_name: string;
+    phone_number?: string;
+  };
 };
 
 const CLASS_COLORS: Record<string, string> = {
@@ -78,19 +84,20 @@ const AMENITY_ICONS: Record<string, string> = {
   SNACKS: 'fast-food-outline',
   TOILETTES: 'water-outline',
   DIVERTISSEMENT: 'tv-outline',
-  BOISSONS: 'cafe-outline',
-  COMFORTABLE_SEATS: 'body-outline',
-  LUGGAGE_STORAGE: 'bag-outline',
-  RESTROOMS: 'water-outline',
-  POWER_OUTLETS: 'flash-outline',
   ENTERTAINMENT: 'tv-outline',
+  BOISSONS: 'cafe-outline',
+  BEVERAGES: 'cafe-outline',
+  COMFORTABLE_SEATS: 'ribbon-outline',
+  LUGGAGE_STORAGE: 'briefcase-outline',
+  POWER_OUTLETS: 'flash-outline',
+  PRISES: 'flash-outline',
+  RESTROOMS: 'water-outline',
+  MEAL_SERVICE: 'restaurant-outline',
   CHILD_SEATS: 'happy-outline',
   PET_FRIENDLY: 'paw-outline',
-  MEAL_SERVICE: 'restaurant-outline',
   ONBOARD_GUIDE: 'headset-outline',
   SEAT_SELECTION: 'grid-outline',
   GROUP_DISCOUNTS: 'people-outline',
-  BEVERAGES: 'cafe-outline',
   AIRPORT_PICKUP: 'airplane-outline',
   AIRPORT_DROP_OFF: 'airplane-outline',
 };
@@ -124,6 +131,27 @@ function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
     lang === 'fr' ? 'fr-FR' : 'en-GB',
     { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' },
   );
+}
+
+function formatTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function parseDuration(raw: string | number): number {
+  if (typeof raw === 'number') return raw;
+  const match = raw.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+  if (!match) return 0;
+  return parseInt(match[1] || '0', 10) + parseInt(match[2] || '0', 10) / 60;
+}
+
+function formatDuration(raw: string | number): string {
+  const hours = parseDuration(raw);
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h 00m`;
 }
 
 function formatPrice(price: number): string {
@@ -226,7 +254,10 @@ export default function TripDetailScreen() {
       const res = await fetch(`${API_URL}/voyage/${tripId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setTrip(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setTrip(data);
+      }
     } catch {
       // silent
     } finally {
@@ -248,11 +279,31 @@ export default function TripDetailScreen() {
     if (!trip) return;
     const date = formatDate(trip.dateDepartPrev, lang);
     const price = formatPrice(trip.prix);
-    const amenitiesList = trip.amenities?.slice(0, 3).map(a => `• ${a}`).join('\n') || '';
+    const amenitiesList =
+      trip.amenities
+        ?.slice(0, 3)
+        .map(a => `• ${a}`)
+        .join('\n') || '';
     const message =
       lang === 'fr'
-        ? `🚌 Voyage : ${trip.lieuDepart} → ${trip.lieuArrive}\n📅 Départ : ${date} à ${trip.heureDepartEffectif}\n💰 Prix : ${price} / personne\n🏢 Agence : ${trip.nomAgence}\n${amenitiesList ? `\n✨ Équipements :\n${amenitiesList}` : ''}\n\n📲 Réservez via BusStation APK`
-        : `🚌 Trip: ${trip.lieuDepart} → ${trip.lieuArrive}\n📅 Departure: ${date} at ${trip.heureDepartEffectif}\n💰 Price: ${price} / person\n🏢 Agency: ${trip.nomAgence}\n${amenitiesList ? `\n✨ Amenities:\n${amenitiesList}` : ''}\n\n📲 Book via BusStation APK`;
+        ? `🚌 De ${trip.lieuDepart} vers ${
+            trip.lieuArrive
+          }\n📅 Départ : ${date} à ${
+            trip.heureDepartEffectif
+              ? formatTime(trip.heureDepartEffectif)
+              : '—'
+          }\n💰 Prix : ${price} / personne\n🏢 Agence : ${trip.nomAgence}\n${
+            amenitiesList ? `\n✨ Équipements :\n${amenitiesList}` : ''
+          }\n\n📲 Réservez via BusStation`
+        : `🚌 From ${trip.lieuDepart} to ${
+            trip.lieuArrive
+          }\n📅 Departure: ${date} at ${
+            trip.heureDepartEffectif
+              ? formatTime(trip.heureDepartEffectif)
+              : '—'
+          }\n💰 Price: ${price} / person\n🏢 Agency: ${trip.nomAgence}\n${
+            amenitiesList ? `\n✨ Amenities:\n${amenitiesList}` : ''
+          }\n\n📲 Book via BusStations`;
     try {
       await Share.share({ message });
     } catch {
@@ -324,11 +375,24 @@ export default function TripDetailScreen() {
             {t.title}
           </Text>
           <TouchableOpacity onPress={handleShare}>
-            <Ionicons name="share-social-outline" size={24} color={theme.textStrong} />
+            <Ionicons
+              name="share-social-outline"
+              size={24}
+              color={theme.textStrong}
+            />
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        >
           {/* ── Image Carousel ── */}
           <View style={styles.carouselContainer}>
             <FlatList
@@ -353,18 +417,7 @@ export default function TripDetailScreen() {
                       resizeMode="cover"
                     />
                   ) : (
-                    <View
-                      style={[
-                        styles.carouselPlaceholder,
-                        { backgroundColor: theme.backgroundAlt },
-                      ]}
-                    >
-                      <Ionicons
-                        name="bus-outline"
-                        size={64}
-                        color={theme.text}
-                      />
-                    </View>
+                    <TripPlaceholder width="100%" height="100%" />
                   )}
                 </View>
               )}
@@ -403,10 +456,8 @@ export default function TripDetailScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={[
-                styles.thumbnailRow,
-                { backgroundColor: theme.background },
-              ]}
+              style={{ backgroundColor: theme.background, marginBottom: spacing.md }}
+              contentContainerStyle={styles.thumbnailRow}
             >
               {images.map((img, i) => (
                 <TouchableOpacity
@@ -473,8 +524,26 @@ export default function TripDetailScreen() {
             </View>
 
             <Text style={[styles.tripTitle, { color: theme.textStrong }]}>
-              {trip.lieuDepart} → {trip.lieuArrive}
+              {lang === 'fr'
+                ? `De ${trip.lieuDepart} vers ${trip.lieuArrive}`
+                : `From ${trip.lieuDepart} to ${trip.lieuArrive}`}
             </Text>
+
+            <View style={styles.stationsRow}>
+              <View style={styles.stationItem}>
+                <Ionicons name="location" size={13} color={colors.primary} />
+                <Text style={[styles.stationText, { color: theme.text }]} numberOfLines={1}>
+                  {trip.pointDeDepart}
+                </Text>
+              </View>
+              <Ionicons name="arrow-forward" size={13} color={theme.text} />
+              <View style={styles.stationItem}>
+                <Ionicons name="location-outline" size={13} color={theme.text} />
+                <Text style={[styles.stationText, { color: theme.text }]} numberOfLines={1}>
+                  {trip.pointArrivee}
+                </Text>
+              </View>
+            </View>
 
             {/* Date/Time/Duration */}
             <View style={styles.tripMeta}>
@@ -496,7 +565,9 @@ export default function TripDetailScreen() {
                 <Ionicons name="time-outline" size={14} color={theme.text} />
                 <Text style={[styles.tripMetaText, { color: theme.text }]}>
                   {' '}
-                  {trip.heureDepartEffectif}
+                  {trip.heureDepartEffectif
+                    ? formatTime(trip.heureDepartEffectif)
+                    : '—'}
                 </Text>
               </View>
               <View style={styles.tripMetaItem}>
@@ -507,7 +578,7 @@ export default function TripDetailScreen() {
                 />
                 <Text style={[styles.tripMetaText, { color: theme.text }]}>
                   {' '}
-                  {trip.dureeVoyage}
+                  {formatDuration(trip.dureeVoyage)}
                 </Text>
               </View>
             </View>
@@ -524,8 +595,11 @@ export default function TripDetailScreen() {
                   {trip.nomAgence.charAt(0).toUpperCase()}
                 </Text>
               </View>
-              <View>
-                <Text style={[styles.agencyName, { color: theme.textStrong }]}>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[styles.agencyName, { color: theme.textStrong }]}
+                  numberOfLines={2}
+                >
                   {trip.nomAgence}
                 </Text>
                 <View style={styles.ratingRow}>
@@ -536,15 +610,18 @@ export default function TripDetailScreen() {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity
-                style={[styles.callBtn, { borderColor: theme.border }]}
-              >
-                <Ionicons
-                  name="call-outline"
-                  size={18}
-                  color={theme.textStrong}
-                />
-              </TouchableOpacity>
+              {trip.chauffeur?.phone_number && (
+                <TouchableOpacity
+                  style={[styles.callBtn, { borderColor: theme.border }]}
+                  onPress={() => Linking.openURL(`tel:${trip.chauffeur!.phone_number}`)}
+                >
+                  <Ionicons
+                    name="call-outline"
+                    size={18}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Price + Seats */}
@@ -613,7 +690,9 @@ export default function TripDetailScreen() {
                 <Text
                   style={[styles.timelineHour, { color: theme.textStrong }]}
                 >
-                  {trip.heureDepartEffectif}
+                  {trip.heureDepartEffectif
+                    ? formatTime(trip.heureDepartEffectif)
+                    : '—'}
                 </Text>
                 <View style={styles.timelineDot}>
                   <View
@@ -645,7 +724,7 @@ export default function TripDetailScreen() {
                 <Text
                   style={[styles.timelineHour, { color: theme.textStrong }]}
                 >
-                  {trip.heureArrive}
+                  {trip.heureArrive ? formatTime(trip.heureArrive) : '—'}
                 </Text>
                 <View style={styles.timelineDot}>
                   <View
@@ -698,7 +777,9 @@ export default function TripDetailScreen() {
                 <Text
                   style={[styles.infoBlockValue, { color: theme.textStrong }]}
                 >
-                  {trip.heureDepartEffectif}
+                  {trip.heureDepartEffectif
+                    ? formatTime(trip.heureDepartEffectif)
+                    : '—'}
                 </Text>
                 <Text style={[styles.infoBlockTitle, { color: theme.text }]}>
                   {t.depHour}
@@ -713,7 +794,7 @@ export default function TripDetailScreen() {
                 <Text
                   style={[styles.infoBlockValue, { color: theme.textStrong }]}
                 >
-                  {trip.dureeVoyage}
+                  {formatDuration(trip.dureeVoyage)}
                 </Text>
                 <Text style={[styles.infoBlockTitle, { color: theme.text }]}>
                   {t.duration}
@@ -751,7 +832,7 @@ export default function TripDetailScreen() {
                       resizeMode="cover"
                     />
                   ) : (
-                    <Ionicons name="bus-outline" size={32} color={theme.text} />
+                    <TripPlaceholder width="100%" height="100%" />
                   )}
                 </View>
                 <View style={styles.vehicleInfo}>
@@ -766,6 +847,12 @@ export default function TripDetailScreen() {
                   <Text style={[styles.vehicleMeta, { color: theme.text }]}>
                     Plaque : {trip.vehicule.plaqueMatricule}
                   </Text>
+                  {trip.chauffeur && (
+                    <Text style={[styles.vehicleMeta, { color: theme.text }]}>
+                      {lang === 'fr' ? 'Chauffeur' : 'Driver'} :{' '}
+                      {trip.chauffeur.first_name} {trip.chauffeur.last_name}
+                    </Text>
+                  )}
                   <TouchableOpacity
                     style={styles.seePlacesBtn}
                     onPress={() => setShowSeatModal(true)}
@@ -1087,7 +1174,9 @@ export default function TripDetailScreen() {
                     { color: theme.textStrong },
                   ]}
                 >
-                  {trip?.lieuDepart} → {trip?.lieuArrive}
+                  {lang === 'fr'
+                    ? `De ${trip?.lieuDepart} vers ${trip?.lieuArrive}`
+                    : `From ${trip?.lieuDepart} to ${trip?.lieuArrive}`}
                 </Text>
               </View>
               <View
@@ -1241,7 +1330,25 @@ const styles = StyleSheet.create({
   tripTitle: {
     ...typography.heading,
     fontSize: typography.sizes.xl,
+    marginBottom: spacing.xs,
+  },
+  stationsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     marginBottom: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  stationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flex: 1,
+  },
+  stationText: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+    flex: 1,
   },
   tripMeta: {
     flexDirection: 'row',
@@ -1266,7 +1373,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   agencyLogoText: { ...typography.heading, fontSize: typography.sizes.lg },
-  agencyName: { ...typography.bodyBold, fontSize: typography.sizes.md },
+  agencyName: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   ratingRow: { flexDirection: 'row', alignItems: 'center' },
   ratingText: { ...typography.body, fontSize: typography.sizes.xs },
   callBtn: {

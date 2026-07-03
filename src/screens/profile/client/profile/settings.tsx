@@ -19,15 +19,6 @@ import { logout } from '../../../../utils/logout';
 import type { RootStackParamList } from '../../../../navigation';
 import { CGU_URL } from '../../../../utils/config';
 
-type User = {
-  first_name: string;
-  last_name: string;
-  username: string;
-  email: string;
-  phone_number: string;
-  age: number;
-  role: string[];
-};
 
 export default function ProfileSettings() {
   const isDark = useColorScheme() === 'dark';
@@ -37,7 +28,6 @@ export default function ProfileSettings() {
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [pinEnabled, setPinEnabled] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
 
   const t = {
     fr: {
@@ -47,9 +37,6 @@ export default function ProfileSettings() {
       currentLang: 'Français (FR)',
       pinCode: 'Code PIN',
       pinDesc: 'Modifier votre code PIN',
-      account: 'Compte',
-      personalInfo: 'Informations personnelles',
-      personalInfoDesc: 'Voir vos informations de profil',
       security: 'Sécurité',
       pinSecurity: 'Code PIN',
       pinSecurityDesc: 'Modifier votre code PIN',
@@ -65,9 +52,6 @@ export default function ProfileSettings() {
       currentLang: 'English (EN)',
       pinCode: 'PIN Code',
       pinDesc: 'Change your PIN code',
-      account: 'Account',
-      personalInfo: 'Personal information',
-      personalInfoDesc: 'View your profile information',
       security: 'Security',
       pinSecurity: 'PIN Code',
       pinSecurityDesc: 'Change your PIN code',
@@ -80,14 +64,12 @@ export default function ProfileSettings() {
 
   useEffect(() => {
     const load = async () => {
-      const [storedLang, pinVal, userRaw] = await Promise.all([
+      const [storedLang, pinVal] = await Promise.all([
         AsyncStorage.getItem('app_lang'),
         AsyncStorage.getItem('pin_enabled'),
-        AsyncStorage.getItem('user'),
       ]);
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
       setPinEnabled(pinVal === 'true');
-      if (userRaw) setUser(JSON.parse(userRaw));
     };
     load();
   }, []);
@@ -212,23 +194,11 @@ export default function ProfileSettings() {
           />
         </Section>
 
-        {/* Account */}
-        <Section title={t.account}>
-          <MenuItem
-            icon="person-outline"
-            label={t.personalInfo}
-            desc={
-              user ? `${user.first_name} ${user.last_name}` : t.personalInfoDesc
-            }
-            onPress={() => {}}
-          />
-        </Section>
-
         {/* Security */}
         <Section title={t.security}>
           <MenuItem
             icon="lock-closed-outline"
-            label={t.pinSecurity}
+            label={pinEnabled ? t.pinSecurityDesc : t.pinSecurity}
             desc={
               pinEnabled
                 ? lang === 'fr'

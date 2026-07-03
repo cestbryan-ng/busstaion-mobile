@@ -31,6 +31,8 @@ import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
 import { useDebounce } from '../../../../hooks/useDebounce';
+import AgencyPlaceholder from '../../../../assets/placeholders/shape.svg';
+import StationPlaceholder from '../../../../assets/placeholders/building.svg';
 
 type Agency = {
   id: string;
@@ -346,19 +348,9 @@ export default function Explore() {
       <View
         style={[styles.agencyLogo, { backgroundColor: theme.backgroundAlt }]}
       >
-        {item.logoUrl && !item.logoUrl.includes('placeholder') ? (
-          <Image
-            source={{ uri: item.logoUrl }}
-            style={styles.agencyLogoImage}
-            resizeMode="contain"
-          />
-        ) : (
-          <Image
-            source={require('../../../../assets/placeholders/logos.jpg')}
-            style={styles.agencyLogoImage}
-            resizeMode="cover"
-          />
-        )}
+        {item.logoUrl && !item.logoUrl.toLowerCase().includes('placeholder')
+          ? <Image source={{ uri: item.logoUrl }} style={styles.agencyLogoImage} resizeMode="contain" />
+          : <AgencyPlaceholder width="100%" height="100%" />}
       </View>
 
       {/* Info */}
@@ -379,7 +371,7 @@ export default function Explore() {
             {item.location}
           </Text>
         </View>
-        {item.rating !== undefined && (
+        {!!item.rating && (
           <View style={styles.ratingRow}>
             <Ionicons name="star" size={12} color="#f59e0b" />
             <Text style={[styles.ratingText, { color: theme.text }]}>
@@ -423,19 +415,9 @@ export default function Explore() {
         <View
           style={[styles.gareImage, { backgroundColor: theme.backgroundAlt }]}
         >
-          {item.photoUrl ? (
-            <Image
-              source={{ uri: item.photoUrl }}
-              style={styles.gareImageInner}
-              resizeMode="cover"
-            />
-          ) : (
-            <Image
-              source={require('../../../../assets/placeholders/stations.jpg')}
-              style={styles.gareImageInner}
-              resizeMode="cover"
-            />
-          )}
+          {item.photoUrl
+            ? <Image source={{ uri: item.photoUrl }} style={styles.gareImageInner} resizeMode="cover" />
+            : <StationPlaceholder width="100%" height="100%" />}
         </View>
 
         {/* Info */}
@@ -500,13 +482,15 @@ export default function Explore() {
             )}
           </View>
 
-          <View style={styles.locationRow}>
-            <Ionicons name="people-outline" size={12} color={theme.text} />
-            <Text style={[styles.locationText, { color: theme.text }]}>
-              {' '}
-              {t.affiliatedAgencies(item.nbreAgence ?? 0)}
-            </Text>
-          </View>
+          {item.nbreAgence != null && (
+            <View style={styles.locationRow}>
+              <Ionicons name="people-outline" size={12} color={theme.text} />
+              <Text style={[styles.locationText, { color: theme.text }]}>
+                {' '}
+                {t.affiliatedAgencies(item.nbreAgence)}
+              </Text>
+            </View>
+          )}
         </View>
 
         <Ionicons name="chevron-forward" size={18} color={theme.text} />

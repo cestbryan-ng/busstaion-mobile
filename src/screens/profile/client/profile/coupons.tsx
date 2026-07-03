@@ -60,6 +60,7 @@ export default function Coupons() {
   const [activeTab, setActiveTab] = useState<TabFilter>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [refreshing, setRefreshing] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   const t = {
     fr: {
@@ -337,10 +338,27 @@ export default function Coupons() {
         <Text style={[styles.title, { color: theme.textStrong }]}>
           {t.title}
         </Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity
+          onPress={() => setShowFilters(v => !v)}
+          style={[
+            styles.filterBtn,
+            {
+              borderColor: activeTab !== 'all' ? colors.primary : theme.border,
+              backgroundColor: activeTab !== 'all' ? `${colors.primary}10` : undefined,
+            },
+          ]}
+        >
+          <Ionicons
+            name="options-outline"
+            size={18}
+            color={activeTab !== 'all' ? colors.primary : theme.textStrong}
+          />
+          {activeTab !== 'all' && <View style={styles.filterBadge} />}
+        </TouchableOpacity>
       </View>
 
       {/* Tabs */}
+      {showFilters && (
       <View
         style={[
           styles.tabsRow,
@@ -391,6 +409,7 @@ export default function Coupons() {
           </TouchableOpacity>
         </View>
       </View>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -450,6 +469,23 @@ const styles = StyleSheet.create({
   },
   tabText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   viewToggle: { flexDirection: 'row', gap: spacing.md, marginLeft: 'auto' },
+  filterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 4,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
   scroll: { padding: spacing.lg },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   list: { gap: spacing.md },

@@ -22,19 +22,22 @@ import { API_URL, MAPS_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonStationDetail } from '../../../../components/skeleton';
+import AgencyPlaceholder from '../../../../assets/placeholders/shape.svg';
+import BannerPlaceholder from '../../../../assets/placeholders/building.svg';
 
 type Gare = {
   idGareRoutiere: string;
   nomGareRoutiere: string;
   ville: string;
   quartier?: string;
-  adresse?: string;
-  description?: string;
-  photoUrl?: string;
+  adresse?: string | null;
+  description?: string | null;
+  photoUrl?: string | null;
   services: string[];
-  nbreAgence: number;
-  horaires?: Record<string, string>;
+  nbreAgence: number | null;
+  horaires?: string | null;
   contact?: { phone?: string; email?: string };
+  localisation?: { latitude: number; longitude: number } | null;
 };
 
 type Agency = {
@@ -46,14 +49,17 @@ type Agency = {
 
 type Trip = {
   idVoyage: string;
-  lieuDepart: string;
-  lieuArrive: string;
-  dateDepartPrev: string;
-  nomClasseVoyage: string;
+  lieuDepart: string | null;
+  lieuArrive: string | null;
+  dateDepartPrev: string | null;
+  nomClasseVoyage: string | null;
+  dureeVoyage: string | number;
   amenities: string[];
   prix: number;
   nbrPlaceRestante: number;
-  nomAgence?: string;
+  nomAgence?: string | null;
+  smallImage?: string | null;
+  statusVoyage?: string;
 };
 
 const SERVICE_ICONS: Record<string, string> = {
@@ -63,6 +69,12 @@ const SERVICE_ICONS: Record<string, string> = {
   SALLE_ATTENTE: 'people-outline',
   TOILETTES: 'water-outline',
   SECURITE: 'shield-checkmark-outline',
+  CLIMATISATION: 'snow-outline',
+  CONSIGNE: 'lock-closed-outline',
+  MOBILE_MONEY: 'phone-portrait-outline',
+  BILLETTERIE_ELECTRONIQUE: 'card-outline',
+  INFIRMERIE: 'medkit-outline',
+  BOUTIQUES: 'bag-outline',
 };
 
 const SERVICE_LABELS: Record<string, { fr: string; en: string }> = {
@@ -72,6 +84,12 @@ const SERVICE_LABELS: Record<string, { fr: string; en: string }> = {
   SALLE_ATTENTE: { fr: 'Salle attente', en: 'Waiting' },
   TOILETTES: { fr: 'Toilettes', en: 'Toilets' },
   SECURITE: { fr: 'Sécurité', en: 'Security' },
+  CLIMATISATION: { fr: 'Climatisation', en: 'A/C' },
+  CONSIGNE: { fr: 'Consigne', en: 'Luggage' },
+  MOBILE_MONEY: { fr: 'Mobile Money', en: 'Mobile Money' },
+  BILLETTERIE_ELECTRONIQUE: { fr: 'Billetterie', en: 'E-Ticketing' },
+  INFIRMERIE: { fr: 'Infirmerie', en: 'Medical' },
+  BOUTIQUES: { fr: 'Boutiques', en: 'Shops' },
 };
 
 const CLASS_COLORS: Record<string, string> = {
@@ -81,11 +99,28 @@ const CLASS_COLORS: Record<string, string> = {
   ECONOMY: '#6b7280',
 };
 
-const DAY_LABELS: Record<string, { fr: string; en: string }> = {
-  lundi: { fr: 'Lundi - Vendredi', en: 'Mon - Fri' },
-  samedi: { fr: 'Samedi', en: 'Saturday' },
-  dimanche: { fr: 'Dimanche', en: 'Sunday' },
-};
+function getClassColor(nomClasse: string | null): string {
+  if (!nomClasse) return colors.primary;
+  const upper = nomClasse.toUpperCase();
+  if (upper.includes('VIP')) return CLASS_COLORS.VIP;
+  if (upper.includes('PREMIUM')) return CLASS_COLORS.PREMIUM;
+  if (upper.includes('STANDARD') || upper.includes('CLASSIQUE')) return CLASS_COLORS.STANDARD;
+  return CLASS_COLORS.ECONOMY;
+}
+
+function parseDuration(raw: string | number): number {
+  if (typeof raw === 'number') return raw;
+  const m = raw.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+  if (!m) return 0;
+  return (parseInt(m[1] || '0') * 60) + parseInt(m[2] || '0');
+}
+
+function formatDuration(raw: string | number): string {
+  const mins = parseDuration(raw);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+}
 
 export default function StationDetail() {
   const isDark = useColorScheme() === 'dark';
@@ -154,14 +189,17 @@ export default function StationDetail() {
         }),
       ]);
 
-      if (gareRes.ok) setGare(await gareRes.json());
+      if (gareRes.ok) { 
+        const data = await gareRes.json();
+        setGare(data);
+       }
       if (agenciesRes.ok) {
         const data = await agenciesRes.json();
         setAgencies(data.content || data || []);
       }
       if (tripsRes.ok) {
         const data = await tripsRes.json();
-        setTrips(data.content || data || []);
+        setTrips((data.content || data || []).filter((t: Trip) => t.statusVoyage === 'PUBLIE'));
       }
     } catch {
       // silent
@@ -184,27 +222,7 @@ export default function StationDetail() {
 
   if (!gare) return null;
 
-  // Build schedules (deduplicate)
-  const scheduleGroups: { label: string; hours: string }[] = [];
-  if (gare.horaires) {
-    const h = gare.horaires;
-    // Weekdays
-    if (h.lundi)
-      scheduleGroups.push({
-        label: lang === 'fr' ? 'Lundi - Vendredi' : 'Mon - Fri',
-        hours: h.lundi,
-      });
-    if (h.samedi)
-      scheduleGroups.push({
-        label: lang === 'fr' ? 'Samedi' : 'Saturday',
-        hours: h.samedi,
-      });
-    if (h.dimanche)
-      scheduleGroups.push({
-        label: lang === 'fr' ? 'Dimanche' : 'Sunday',
-        hours: h.dimanche,
-      });
-  }
+  // horaires is a plain string from backend e.g. "Lun–Dim : 04h00–23h00"
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -236,26 +254,12 @@ export default function StationDetail() {
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* Banner Image */}
         <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
-          {gare.photoUrl ? (
-            <Image
-              source={{ uri: gare.photoUrl }}
-              style={styles.bannerImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <View
-              style={[
-                styles.bannerPlaceholder,
-                { backgroundColor: `${colors.primary}10` },
-              ]}
-            >
-              <Ionicons
-                name="business-outline"
-                size={56}
-                color={colors.primary}
-              />
-            </View>
-          )}
+          {gare.photoUrl && !gare.photoUrl.toLowerCase().includes('placeholder')
+            ? <Image source={{ uri: gare.photoUrl }} style={styles.bannerImage} resizeMode="cover" />
+            : <View style={[styles.bannerPlaceholder, { backgroundColor: theme.backgroundAlt }]}>
+                <BannerPlaceholder width="100%" height="100%" />
+              </View>
+          }
         </View>
 
         {/* Gare Info */}
@@ -278,11 +282,13 @@ export default function StationDetail() {
             </Text>
           </View>
 
-          <View style={styles.ratingRow}>
-            <Text style={[styles.affiliatedText, { color: theme.text }]}>
-              {t.agencies(gare.nbreAgence)}
-            </Text>
-          </View>
+          {gare.nbreAgence != null && gare.nbreAgence > 0 && (
+            <View style={styles.ratingRow}>
+              <Text style={[styles.affiliatedText, { color: theme.text }]}>
+                {t.agencies(gare.nbreAgence)}
+              </Text>
+            </View>
+          )}
 
           {gare.description && (
             <Text style={[styles.description, { color: theme.text }]}>
@@ -329,7 +335,7 @@ export default function StationDetail() {
         </View>
 
         {/* Schedules */}
-        {scheduleGroups.length > 0 && (
+        {!!gare.horaires && (
           <View
             style={[
               styles.section,
@@ -339,22 +345,12 @@ export default function StationDetail() {
             <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
               {t.schedulesTitle}
             </Text>
-            {scheduleGroups.map((sg, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.scheduleRow,
-                  i > 0 && { borderTopWidth: 1, borderTopColor: theme.border },
-                ]}
-              >
-                <Text style={[styles.scheduleDay, { color: theme.textStrong }]}>
-                  {sg.label}
-                </Text>
-                <Text style={[styles.scheduleHours, { color: theme.text }]}>
-                  {sg.hours.replace('-', ' - ')}
-                </Text>
-              </View>
-            ))}
+            <View style={styles.scheduleRow}>
+              <Ionicons name="time-outline" size={16} color={theme.text} />
+              <Text style={[styles.scheduleHours, { color: theme.text }]}>
+                {' '}{gare.horaires}
+              </Text>
+            </View>
           </View>
         )}
 
@@ -429,20 +425,8 @@ export default function StationDetail() {
                     })
                   }
                 >
-                  <View
-                    style={[
-                      styles.agencyLogo,
-                      { backgroundColor: theme.backgroundAlt },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.agencyLogoLetter,
-                        { color: colors.primary },
-                      ]}
-                    >
-                      {a.longName.charAt(0).toUpperCase()}
-                    </Text>
+                  <View style={[styles.agencyLogo, { backgroundColor: theme.backgroundAlt }]}>
+                    <AgencyPlaceholder width="100%" height="100%" />
                   </View>
                   <View style={styles.agencyInfo}>
                     <Text
@@ -480,69 +464,55 @@ export default function StationDetail() {
             />
           ) : (
             trips.map(trip => {
-              const classColor = CLASS_COLORS[trip.nomClasseVoyage] || colors.primary;
+              const classColor = getClassColor(trip.nomClasseVoyage);
               return (
                 <TouchableOpacity
                   key={trip.idVoyage}
-                  style={[
-                    styles.tripCard,
-                    {
-                      backgroundColor: theme.background,
-                      borderColor: theme.border,
-                    },
-                  ]}
+                  style={[styles.tripCard, { backgroundColor: theme.background, borderColor: theme.border }]}
                   activeOpacity={0.85}
-                  onPress={() =>
-                    navigation.navigate('TripDetail', { tripId: trip.idVoyage })
-                  }
+                  onPress={() => navigation.navigate('TripDetail', { tripId: trip.idVoyage })}
                 >
                   <View style={styles.tripRow}>
-                    <Text
-                      style={[styles.tripRoute, { color: theme.textStrong }]}
-                      numberOfLines={1}
-                    >
-                      {trip.lieuDepart} → {trip.lieuArrive}
+                    <Text style={[styles.tripRoute, { color: theme.textStrong }]} numberOfLines={1}>
+                      {trip.lieuDepart && trip.lieuArrive
+                        ? lang === 'fr'
+                          ? `De ${trip.lieuDepart} vers ${trip.lieuArrive}`
+                          : `From ${trip.lieuDepart} to ${trip.lieuArrive}`
+                        : '—'}
                     </Text>
-                    <View
-                      style={[
-                        styles.classBadge,
-                        { backgroundColor: classColor },
-                      ]}
-                    >
-                      <Text style={styles.classBadgeText}>{trip.nomClasseVoyage}</Text>
-                    </View>
+                    {trip.nomClasseVoyage && (
+                      <View style={[styles.classBadge, { backgroundColor: classColor }]}>
+                        <Text style={styles.classBadgeText}>{trip.nomClasseVoyage}</Text>
+                      </View>
+                    )}
                   </View>
                   <View style={styles.tripMeta}>
-                    <Ionicons
-                      name="calendar-outline"
-                      size={12}
-                      color={theme.text}
-                    />
+                    {trip.dateDepartPrev && (
+                      <>
+                        <Ionicons name="calendar-outline" size={12} color={theme.text} />
+                        <Text style={[styles.tripMetaText, { color: theme.text }]}>
+                          {' '}{new Date(trip.dateDepartPrev).toLocaleDateString(
+                            lang === 'fr' ? 'fr-FR' : 'en-GB',
+                            { day: 'numeric', month: 'short', year: 'numeric' },
+                          )}
+                        </Text>
+                        <Text style={[styles.tripMetaText, { color: theme.text }]}> · </Text>
+                      </>
+                    )}
+                    <Ionicons name="time-outline" size={12} color={theme.text} />
                     <Text style={[styles.tripMetaText, { color: theme.text }]}>
-                      {' '}
-                      {new Date(trip.dateDepartPrev).toLocaleDateString(
-                        lang === 'fr' ? 'fr-FR' : 'en-GB',
-                        { day: 'numeric', month: 'short', year: 'numeric' },
-                      )}
+                      {' '}{formatDuration(trip.dureeVoyage)}
                     </Text>
                   </View>
-                  {trip.nomAgence && (
-                    <Text style={[styles.tripAgency, { color: theme.text }]}>
-                      {trip.nomAgence}
-                    </Text>
-                  )}
-                  <View
-                    style={[
-                      styles.tripFooter,
-                      { borderTopColor: theme.border },
-                    ]}
-                  >
+                  <View style={[styles.tripFooter, { borderTopColor: theme.border }]}>
                     <Text style={[styles.seatsText, { color: colors.primary }]}>
                       {t.seats(trip.nbrPlaceRestante)}
                     </Text>
-                    <Text style={[styles.tripPrice, { color: colors.primary }]}>
-                      {trip.prix.toLocaleString('fr-FR')} FCFA
-                    </Text>
+                    {trip.prix > 0 && (
+                      <Text style={[styles.tripPrice, { color: colors.primary }]}>
+                        {trip.prix.toLocaleString('fr-FR')} FCFA
+                      </Text>
+                    )}
                   </View>
                 </TouchableOpacity>
               );
@@ -555,13 +525,10 @@ export default function StationDetail() {
           <TouchableOpacity
             style={[styles.mapBtn, { backgroundColor: colors.primary }]}
             onPress={() => {
-              if (gare.adresse) {
-                Linking.openURL(
-                  `${MAPS_URL}?q=${encodeURIComponent(
-                    `${gare.nomGareRoutiere} ${gare.adresse}`,
-                  )}`,
-                );
-              }
+              const query = gare.localisation
+                ? `${gare.localisation.latitude},${gare.localisation.longitude}`
+                : encodeURIComponent(`${gare.nomGareRoutiere} ${gare.ville}`);
+              Linking.openURL(`${MAPS_URL}?q=${query}`);
             }}
           >
             <Ionicons name="location-outline" size={18} color="#fff" />
@@ -659,9 +626,9 @@ const styles = StyleSheet.create({
 
   scheduleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   scheduleDay: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   scheduleHours: { ...typography.body, fontSize: typography.sizes.sm },

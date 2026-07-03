@@ -115,7 +115,8 @@ export default function Dashboard() {
       );
       if (!histRes.ok) return;
 
-      const histList: Historique[] = await histRes.json();
+      const data = await histRes.json();
+      const histList: Historique[] = data;
 
       // Enrich first 6
       const enriched = await Promise.all(
@@ -241,18 +242,13 @@ export default function Dashboard() {
           },
         ]}
       >
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
+        </TouchableOpacity>
         <Text style={[styles.title, { color: theme.textStrong }]}>
           {t.title}
         </Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('ProfileSettings')}
-        >
-          <Ionicons
-            name="settings-outline"
-            size={24}
-            color={theme.textStrong}
-          />
-        </TouchableOpacity>
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>

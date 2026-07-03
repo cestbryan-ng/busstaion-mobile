@@ -20,6 +20,8 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { TripDetail } from './trip-detail';
+import SuccessComponent from '../../../../components/success';
+import ErrorComponent from '../../../../components/error';
 
 type Props = {
   visible: boolean;
@@ -33,6 +35,11 @@ type Props = {
 type Step = 'passenger' | 'payment' | 'processing' | 'result';
 type PayStatus = 'SUCCESS' | 'ERROR' | 'FAILED';
 type Operator = 'MTN' | 'ORANGE';
+
+function formatTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
 
 function formatPhone(v: string): string {
   const d = v.replace(/\D/g, '').slice(0, 9);
@@ -86,9 +93,9 @@ export default function PaymentModal({
       stepPassenger: 'Informations passager',
       stepPayment: 'Méthode de paiement',
       nameLabel: 'Nom complet',
-      namePlaceholder: 'Jean Dupont',
+      namePlaceholder: 'Votre nom',
       cniLabel: 'Numéro CNI',
-      cniPlaceholder: '12345678',
+      cniPlaceholder: 'AA12345678',
       genreLabel: 'Genre',
       genreMale: 'Homme',
       genreFemale: 'Femme',
@@ -129,9 +136,9 @@ export default function PaymentModal({
       stepPassenger: 'Passenger information',
       stepPayment: 'Payment method',
       nameLabel: 'Full name',
-      namePlaceholder: 'John Doe',
+      namePlaceholder: 'Your name',
       cniLabel: 'ID number',
-      cniPlaceholder: '12345678',
+      cniPlaceholder: 'AA12345678',
       genreLabel: 'Gender',
       genreMale: 'Male',
       genreFemale: 'Female',
@@ -394,21 +401,37 @@ export default function PaymentModal({
       </View>
       <View style={styles.tripInfo}>
         <Text style={[styles.tripRoute, { color: theme.textStrong }]}>
-          {trip.lieuDepart} → {trip.lieuArrive}
+          {lang === 'fr'
+            ? `De ${trip.lieuDepart} vers ${trip.lieuArrive}`
+            : `From ${trip.lieuDepart} to ${trip.lieuArrive}`}
         </Text>
+        <View style={styles.stationsCol}>
+          <View style={styles.stationLine}>
+            <Ionicons name="location" size={11} color={colors.primary} />
+            <Text style={[styles.stationText, { color: theme.text }]} numberOfLines={1}>
+              {trip.pointDeDepart}
+            </Text>
+          </View>
+          <View style={styles.stationLine}>
+            <Ionicons name="location-outline" size={11} color={theme.text} />
+            <Text style={[styles.stationText, { color: theme.text }]} numberOfLines={1}>
+              {trip.pointArrivee}
+            </Text>
+          </View>
+        </View>
         <Text style={[styles.tripMeta, { color: theme.text }]}>
           {new Date(trip.dateDepartPrev).toLocaleDateString(
             lang === 'fr' ? 'fr-FR' : 'en-GB',
             { day: 'numeric', month: 'long', year: 'numeric' },
           )}{' '}
-          · {trip.heureDepartEffectif || ''}
+          · {formatTime(trip.heureDepartEffectif)}
         </Text>
-        <View style={styles.tripBottom}>
-          <Text style={[styles.tripMeta, { color: theme.text }]}>{trip.nomAgence}</Text>
-          <Text style={[styles.tripPrice, { color: colors.primary }]}>
-            {totalPrice.toLocaleString('fr-FR')} FCFA
-          </Text>
-        </View>
+        <Text style={[styles.tripMeta, { color: theme.text }]} numberOfLines={1}>
+          {trip.nomAgence}
+        </Text>
+        <Text style={[styles.tripPrice, { color: colors.primary }]}>
+          {totalPrice.toLocaleString('fr-FR')} FCFA
+        </Text>
       </View>
     </View>
   );
@@ -627,7 +650,6 @@ export default function PaymentModal({
           onPress={() => { if (validatePassenger()) { setFieldErrors({}); setStep('payment'); } }}
         >
           <Text style={styles.actionBtnText}>{t.next}</Text>
-          <Ionicons name="arrow-forward" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
     </>
@@ -671,9 +693,11 @@ export default function PaymentModal({
                     </Text>
                     <Text style={[styles.operatorDesc, { color: theme.text }]}>MoMo</Text>
                   </View>
-                  <View style={[styles.operatorIcon, { backgroundColor: '#fbbf24' }]}>
-                    <Text style={styles.operatorIconText}>M</Text>
-                  </View>
+                  <Image
+                    source={require('../../../../assets/images/momo.jpg')}
+                    style={styles.operatorLogo}
+                    resizeMode="contain"
+                  />
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -695,9 +719,11 @@ export default function PaymentModal({
                     </Text>
                     <Text style={[styles.operatorDesc, { color: theme.text }]}>OM</Text>
                   </View>
-                  <View style={[styles.operatorIcon, { backgroundColor: '#f97316' }]}>
-                    <Text style={styles.operatorIconText}>O</Text>
-                  </View>
+                  <Image
+                    source={require('../../../../assets/images/om.png')}
+                    style={styles.operatorLogo}
+                    resizeMode="contain"
+                  />
                 </TouchableOpacity>
               </View>
             </View>
@@ -757,33 +783,23 @@ export default function PaymentModal({
   // ── STEP 4: Result ─────────────────────────────────────────────────────────
   const renderResultStep = () => {
     const isSuccess = payStatus === 'SUCCESS';
+    if (isSuccess) {
+      return (
+        <SuccessComponent
+          title={t.successTitle}
+          message={t.successMsg}
+          buttonText={t.done}
+          onPress={handleClose}
+        />
+      );
+    }
     return (
-      <View style={styles.centeredStep}>
-        <View
-          style={[
-            styles.resultIcon,
-            { backgroundColor: isSuccess ? '#dcfce7' : '#fee2e2' },
-          ]}
-        >
-          <Ionicons
-            name={isSuccess ? 'checkmark-circle' : 'close-circle'}
-            size={56}
-            color={isSuccess ? '#16a34a' : colors.error}
-          />
-        </View>
-        <Text style={[styles.resultTitle, { color: theme.textStrong }]}>
-          {isSuccess ? t.successTitle : payStatus === 'FAILED' ? t.failedTitle : t.errorTitle}
-        </Text>
-        <Text style={[styles.resultMsg, { color: theme.text }]}>
-          {isSuccess ? t.successMsg : payStatus === 'FAILED' ? t.failedMsg : t.errorMsg}
-        </Text>
-        <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: isSuccess ? '#16a34a' : colors.primary, marginTop: spacing.xl }]}
-          onPress={isSuccess ? handleClose : () => { setStep('payment'); setPayStatus(null); }}
-        >
-          <Text style={styles.actionBtnText}>{isSuccess ? t.done : t.retry}</Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorComponent
+        title={payStatus === 'FAILED' ? t.failedTitle : t.errorTitle}
+        message={payStatus === 'FAILED' ? t.failedMsg : t.errorMsg}
+        buttonText={t.retry}
+        onPress={() => { setStep('payment'); setPayStatus(null); }}
+      />
     );
   };
 
@@ -958,6 +974,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   operatorIconText: { ...typography.bodyBold, fontSize: 16, color: '#fff' },
+  operatorLogo: { width: 40, height: 40, borderRadius: 4 },
 
   footer: {
     paddingHorizontal: spacing.lg,
@@ -989,6 +1006,19 @@ const styles = StyleSheet.create({
   processingText: { ...typography.bodyBold, fontSize: typography.sizes.md, textAlign: 'center' },
   processingSubText: { ...typography.body, fontSize: typography.sizes.sm, textAlign: 'center' },
   resultIcon: { width: 96, height: 96, borderRadius: 48, justifyContent: 'center', alignItems: 'center' },
+  retryBtn: {
+    height: 52,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 26,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  retryBtnText: { ...typography.bodyBold, fontSize: typography.sizes.md, letterSpacing: 0.3 },
   resultTitle: { ...typography.heading, fontSize: typography.sizes.xl, textAlign: 'center' },
   resultMsg: { ...typography.body, fontSize: typography.sizes.sm, textAlign: 'center' },
+  stationsRow: { flexDirection: 'row', alignItems: 'center', gap: 3, flexWrap: 'nowrap' },
+  stationsCol: { gap: 2 },
+  stationLine: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  stationText: { ...typography.body, fontSize: typography.sizes.xs, flexShrink: 1 },
 });

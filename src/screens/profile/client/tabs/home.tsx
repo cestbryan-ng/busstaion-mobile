@@ -30,6 +30,9 @@ import {
   DatePickerModal,
   formatDateDisplay,
 } from '../../../../components/date-picker-modal';
+import TripPlaceholder from '../../../../assets/placeholders/product.svg';
+import AgencyPlaceholder from '../../../../assets/placeholders/shape.svg';
+import StationPlaceholder from '../../../../assets/placeholders/building.svg';
 
 type Trip = {
   idVoyage: string;
@@ -161,9 +164,24 @@ export default function Home({
     { departure: string; arrival: string; date: string }[]
   >([]);
 
+  const hour = new Date().getHours();
+  const getGreeting = (
+    morning: string,
+    afternoon: string,
+    evening: string,
+    night: string,
+  ) => {
+    if (hour >= 5 && hour < 12) return morning;
+    if (hour >= 12 && hour < 18) return afternoon;
+    if (hour >= 18 && hour < 22) return evening;
+    return night;
+  };
+
   const t = {
     fr: {
-      greeting: 'Bonjour',
+      greeting: getGreeting('Bonjour ☀️', 'Bonne après-midi 🌤️', 'Bonsoir 🌆', 'Bonne nuit 🌙'),
+      routeLabel: (from: string, to: string) => `De ${from} vers ${to}`,
+      historyRoute: (from: string, to: string) => `De ${from} vers ${to}`,
       tagline: 'Voyagez en toute confiance',
       searchTitle: 'Rechercher un voyage',
       departurePlaceholder: 'Départ',
@@ -189,7 +207,9 @@ export default function Home({
       promoValidity: "Valable jusqu'au 30 août 2026",
     },
     en: {
-      greeting: 'Hello',
+      greeting: getGreeting('Good morning ☀️', 'Good afternoon 🌤️', 'Good evening 🌆', 'Good night 🌙'),
+      routeLabel: (from: string, to: string) => `From ${from} to ${to}`,
+      historyRoute: (from: string, to: string) => `From ${from} to ${to}`,
       tagline: 'Travel with confidence',
       searchTitle: 'Search a trip',
       departurePlaceholder: 'Departure',
@@ -252,7 +272,7 @@ export default function Home({
         setAgencies((data.content || data || []).slice(0, 5));
       }
       if (garesRes.status === 'fulfilled' && garesRes.value.ok) {
-        const data = await garesRes.value.json();
+        const data = await garesRes.value.json(); 
         setGares((data.content || data || []).slice(0, 4));
       }
     } catch {
@@ -339,6 +359,7 @@ export default function Home({
           { backgroundColor: theme.background, borderColor: theme.border },
         ]}
         activeOpacity={0.85}
+        onPress={() => navigation.navigate('TripDetail', { tripId: item.idVoyage })}
       >
         {/* Image */}
         <View
@@ -347,15 +368,9 @@ export default function Home({
             { backgroundColor: classColor + '18' },
           ]}
         >
-          <Image
-            source={
-              item.smallImage
-                ? { uri: item.smallImage }
-                : require('../../../../assets/placeholders/trips.jpg')
-            }
-            style={styles.tripImage}
-            resizeMode="cover"
-          />
+          {item.smallImage
+            ? <Image source={{ uri: item.smallImage }} style={styles.tripImage} resizeMode="cover" />
+            : <TripPlaceholder width="100%" height="100%" />}
           <View style={[styles.classBadge, { backgroundColor: classColor }]}>
             <Text style={styles.classBadgeText}>{item.nomClasseVoyage}</Text>
           </View>
@@ -367,10 +382,17 @@ export default function Home({
             style={[styles.tripRoute, { color: theme.textStrong }]}
             numberOfLines={1}
           >
-            {item.lieuDepart} → {item.lieuArrive}
+            {t.routeLabel(item.lieuDepart, item.lieuArrive)}
           </Text>
 
           <View style={styles.tripMeta}>
+            <View style={styles.tripMetaItem}>
+              <Ionicons name="calendar-outline" size={11} color={theme.text} />
+              <Text style={[styles.tripMetaText, { color: theme.text }]}>
+                {' '}
+                {new Date(item.dateDepartPrev).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'short' })}
+              </Text>
+            </View>
             <View style={styles.tripMetaItem}>
               <Ionicons name="time-outline" size={11} color={theme.text} />
               <Text style={[styles.tripMetaText, { color: theme.text }]}>
@@ -378,13 +400,13 @@ export default function Home({
                 {formatDuration(item.dureeVoyage)}
               </Text>
             </View>
-            <View style={styles.tripMetaItem}>
-              <Ionicons name="people-outline" size={11} color={theme.text} />
-              <Text style={[styles.tripMetaText, { color: theme.text }]}>
-                {' '}
-                {t.seats(item.nbrPlaceRestante)}
-              </Text>
-            </View>
+          </View>
+          <View style={[styles.tripMetaItem, { marginBottom: spacing.sm }]}>
+            <Ionicons name="people-outline" size={11} color={theme.text} />
+            <Text style={[styles.tripMetaText, { color: theme.text }]}>
+              {' '}
+              {t.seats(item.nbrPlaceRestante)}
+            </Text>
           </View>
 
           <View style={styles.amenitiesRow}>
@@ -421,11 +443,6 @@ export default function Home({
   };
 
   const AgencyCard = ({ item }: { item: Agency }) => {
-    const logoSource =
-      item.logoUrl && !item.logoUrl.includes('placeholder')
-        ? { uri: item.logoUrl }
-        : require('../../../../assets/placeholders/logos.jpg');
-
     return (
       <TouchableOpacity
         style={[
@@ -433,6 +450,7 @@ export default function Home({
           { backgroundColor: theme.background, borderColor: theme.border },
         ]}
         activeOpacity={0.85}
+        onPress={() => navigation.navigate('AgencyDetail', { agencyId: item.id })}
       >
         <View
           style={[
@@ -440,11 +458,9 @@ export default function Home({
             { backgroundColor: theme.backgroundAlt },
           ]}
         >
-          <Image
-            source={logoSource}
-            style={{ width: 64, height: 64 }}
-            resizeMode="cover"
-          />
+          {item.logoUrl && !item.logoUrl.toLowerCase().includes('placeholder')
+            ? <Image source={{ uri: item.logoUrl }} style={{ width: 64, height: 64 }} resizeMode="cover" />
+            : <AgencyPlaceholder width={64} height={64} />}
         </View>
         <Text
           style={[styles.agencyCardName, { color: theme.textStrong }]}
@@ -482,15 +498,9 @@ export default function Home({
             { backgroundColor: theme.backgroundAlt },
           ]}
         >
-          <Image
-            source={
-              item.photoUrl
-                ? { uri: item.photoUrl }
-                : require('../../../../assets/placeholders/stations.jpg')
-            }
-            style={styles.gareImage}
-            resizeMode="cover"
-          />
+          {item.photoUrl
+            ? <Image source={{ uri: item.photoUrl }} style={styles.gareImage} resizeMode="cover" />
+            : <StationPlaceholder width="100%" height="100%" />}
         </View>
         <View style={styles.gareContent}>
           <Text
@@ -814,7 +824,7 @@ export default function Home({
                   style={[styles.historyItemText, { color: theme.textStrong }]}
                   numberOfLines={1}
                 >
-                  {entry.departure || '—'} → {entry.arrival || '—'}
+                  {t.historyRoute(entry.departure || '—', entry.arrival || '—')}
                   {entry.date ? ` · ${entry.date}` : ''}
                 </Text>
                 <Ionicons

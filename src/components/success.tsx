@@ -17,7 +17,8 @@ type Props = {
   title?: string;
   message: string;
   buttonText: string;
-  navigateTo: string;
+  navigateTo?: string;
+  onPress?: () => void;
 };
 
 export default function Success({
@@ -25,6 +26,7 @@ export default function Success({
   message,
   buttonText,
   navigateTo,
+  onPress,
 }: Props) {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const isDark = useColorScheme() === 'dark';
@@ -54,7 +56,7 @@ export default function Success({
       {/* Button */}
       <TouchableOpacity
         style={[styles.button, { backgroundColor: colors.primary }]}
-        onPress={() => navigation.navigate(navigateTo)}
+        onPress={onPress ?? (() => navigation.navigate(navigateTo!))}
       >
         <Text style={styles.buttonText}>{buttonText}</Text>
       </TouchableOpacity>

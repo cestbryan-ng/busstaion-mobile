@@ -21,6 +21,7 @@ import { API_URL } from '../../../../utils/config';
 import { logout } from '../../../../utils/logout';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonProfileScreen } from '../../../../components/skeleton';
+import AvatarPlaceholder from '../../../../assets/placeholders/avatar-2.svg';
 
 type User = {
   userId: string;
@@ -243,16 +244,10 @@ export default function Profile({ setDrawerOpen }: { setDrawerOpen: (open: boole
             <View
               style={[
                 styles.avatar,
-                { backgroundColor: `${colors.primary}20` },
+                { backgroundColor: theme.backgroundAlt },
               ]}
             >
-              <Text
-                style={[styles.avatarInitials, { color: colors.primary }]}
-              >
-                {user
-                  ? `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`
-                  : '?'}
-              </Text>
+              <AvatarPlaceholder width="100%" height="100%" />
             </View>
 
             {/* Info */}

@@ -26,6 +26,11 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import type { TripFilters } from './trips-filter';
 import { EmptyState } from '../../../../components/empty-state';
+import {
+  DatePickerModal,
+  formatDateDisplay,
+} from '../../../../components/date-picker-modal';
+import TripPlaceholder from '../../../../assets/placeholders/product.svg';
 
 type Trip = {
   idVoyage: string;
@@ -36,7 +41,7 @@ type Trip = {
   nomClasseVoyage: string;
   amenities: string[];
   prix: number;
-  dureeVoyage: number;
+  dureeVoyage: string | number;
   nbrPlaceRestante: number;
   smallImage?: string;
   nomAgence?: string;
@@ -59,7 +64,12 @@ const AMENITY_ICONS: Record<string, string> = {
   SNACKS: 'fast-food-outline',
   TOILETTES: 'water-outline',
   DIVERTISSEMENT: 'tv-outline',
+  ENTERTAINMENT: 'tv-outline',
   BOISSONS: 'cafe-outline',
+  COMFORTABLE_SEATS: 'ribbon-outline',
+  LUGGAGE_STORAGE: 'briefcase-outline',
+  POWER_OUTLETS: 'flash-outline',
+  PRISES: 'flash-outline',
 };
 
 function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
@@ -69,7 +79,15 @@ function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
   );
 }
 
-function formatDuration(hours: number): string {
+function parseDuration(raw: string | number): number {
+  if (typeof raw === 'number') return raw;
+  const match = raw.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+  if (!match) return 0;
+  return parseInt(match[1] || '0', 10) + parseInt(match[2] || '0', 10) / 60;
+}
+
+function formatDuration(raw: string | number): string {
+  const hours = parseDuration(raw);
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
   return m > 0 ? `${h}h ${m}m` : `${h}h 00m`;
@@ -96,13 +114,13 @@ export default function TripsList() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalElements, setTotalElements] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
 
   // Search state (editable in this page)
   const [departure, setDeparture] = useState(initialFilters?.departure || '');
   const [arrival, setArrival] = useState(initialFilters?.arrival || '');
   const [date, setDate] = useState(initialFilters?.date || '');
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Active filters from filter page
   const [activeFilters, setActiveFilters] = useState<TripFilters>(
@@ -127,10 +145,10 @@ export default function TripsList() {
       sortBy: 'Trier par',
       grid: 'Grille',
       list: 'Liste',
-      results: (n: number) =>
-        `${n} voyage${n > 1 ? 's' : ''} trouvé${n > 1 ? 's' : ''}`,
       seats: (n: number) =>
         `${n} siège${n > 1 ? 's' : ''} disponible${n > 1 ? 's' : ''}`,
+      routeLabel: (from: string, to: string) => `De ${from} vers ${to}`,
+      filters: 'Filtres',
       noTrips: 'Aucun voyage trouvé',
       sortOptions: {
         price_asc: 'Prix croissant',
@@ -150,8 +168,9 @@ export default function TripsList() {
       sortBy: 'Sort by',
       grid: 'Grid',
       list: 'List',
-      results: (n: number) => `${n} trip${n > 1 ? 's' : ''} found`,
       seats: (n: number) => `${n} seat${n > 1 ? 's' : ''} available`,
+      routeLabel: (from: string, to: string) => `From ${from} to ${to}`,
+      filters: 'Filters',
       noTrips: 'No trips found',
       sortOptions: {
         price_asc: 'Price: low to high',
@@ -193,7 +212,6 @@ export default function TripsList() {
         );
         setTrips(prev => (reset ? published : [...prev, ...published]));
         setTotalPages(data.totalPages || 1);
-        setTotalElements(data.totalElements || published.length);
         setCurrentPage(page);
       }
     } catch {
@@ -248,7 +266,7 @@ export default function TripsList() {
     .sort((a, b) => {
       if (sortBy === 'price_asc') return a.prix - b.prix;
       if (sortBy === 'price_desc') return b.prix - a.prix;
-      if (sortBy === 'duration_asc') return a.dureeVoyage - b.dureeVoyage;
+      if (sortBy === 'duration_asc') return parseDuration(a.dureeVoyage) - parseDuration(b.dureeVoyage);
       if (sortBy === 'seats_desc') return b.nbrPlaceRestante - a.nbrPlaceRestante;
       return 0;
     });
@@ -278,15 +296,9 @@ export default function TripsList() {
               { backgroundColor: theme.backgroundAlt },
             ]}
           >
-            {item.smallImage ? (
-              <Image
-                source={{ uri: item.smallImage }}
-                style={styles.listCardImageInner}
-                resizeMode="cover"
-              />
-            ) : (
-              <Ionicons name="bus-outline" size={28} color={theme.text} />
-            )}
+            {item.smallImage
+              ? <Image source={{ uri: item.smallImage }} style={styles.listCardImageInner} resizeMode="cover" />
+              : <TripPlaceholder width="100%" height="100%" />}
           </View>
 
           {/* Info */}
@@ -298,8 +310,8 @@ export default function TripsList() {
               >
                 <Text style={styles.classBadgeText}>{item.nomClasseVoyage}</Text>
               </View>
-              <Text style={[styles.listCardRoute, { color: theme.textStrong }]}>
-                {item.lieuDepart} → {item.lieuArrive}
+              <Text style={[styles.listCardRoute, { color: theme.textStrong }]} numberOfLines={1}>
+                {t.routeLabel(item.lieuDepart, item.lieuArrive)}
               </Text>
             </View>
 
@@ -388,15 +400,9 @@ export default function TripsList() {
             { backgroundColor: theme.backgroundAlt },
           ]}
         >
-          {item.smallImage ? (
-            <Image
-              source={{ uri: item.smallImage }}
-              style={styles.gridCardImageInner}
-              resizeMode="cover"
-            />
-          ) : (
-            <Ionicons name="bus-outline" size={32} color={theme.text} />
-          )}
+          {item.smallImage
+            ? <Image source={{ uri: item.smallImage }} style={styles.gridCardImageInner} resizeMode="cover" />
+            : <TripPlaceholder width="100%" height="100%" />}
           <View
             style={[
               styles.classBadge,
@@ -414,7 +420,7 @@ export default function TripsList() {
             style={[styles.gridCardRoute, { color: theme.textStrong }]}
             numberOfLines={1}
           >
-            {item.lieuDepart} → {item.lieuArrive}
+            {t.routeLabel(item.lieuDepart, item.lieuArrive)}
           </Text>
           <View style={styles.metaRow}>
             <Ionicons name="calendar-outline" size={11} color={theme.text} />
@@ -454,6 +460,10 @@ export default function TripsList() {
             )}
           </View>
 
+          <Text style={[styles.gridCardPrice, { color: colors.primary }]}>
+            {formatPrice(item.prix)}
+          </Text>
+
           <View style={styles.gridCardFooter}>
             {item.nomAgence && (
               <Text
@@ -463,14 +473,10 @@ export default function TripsList() {
                 {item.nomAgence}
               </Text>
             )}
-            <Text style={[styles.price, { color: colors.primary }]}>
-              {formatPrice(item.prix)}
+            <Text style={[styles.seatsText, { color: colors.primary }]}>
+              {t.seats(item.nbrPlaceRestante)}
             </Text>
           </View>
-
-          <Text style={[styles.seatsText, { color: colors.primary }]}>
-            {t.seats(item.nbrPlaceRestante)}
-          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -587,29 +593,34 @@ export default function TripsList() {
             </View>
 
             {/* Date */}
-            <View
+            <TouchableOpacity
               style={[
                 styles.searchField,
                 styles.searchFieldFull,
                 {
-                  borderColor: theme.border,
+                  borderColor: date ? colors.primary : theme.border,
                   backgroundColor: theme.backgroundAlt,
                 },
               ]}
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.7}
             >
-              <Ionicons name="options-outline" size={14} color={theme.text} />
-              <TextInput
+              <Ionicons name="calendar-outline" size={14} color={colors.primary} />
+              <Text
                 style={[
                   styles.searchFieldLabel,
-                  { color: theme.textStrong, flex: 1 },
+                  { color: date ? theme.textStrong : theme.text, flex: 1 },
                 ]}
-                placeholder={t.datePlaceholder}
-                placeholderTextColor={theme.text}
-                value={date}
-                onChangeText={setDate}
-              />
-              <Ionicons name="calendar-outline" size={16} color={theme.text} />
-            </View>
+                numberOfLines={1}
+              >
+                {date ? formatDateDisplay(date, lang) : t.datePlaceholder}
+              </Text>
+              {date ? (
+                <TouchableOpacity onPress={() => setDate('')}>
+                  <Ionicons name="close-circle" size={15} color={theme.text} />
+                </TouchableOpacity>
+              ) : null}
+            </TouchableOpacity>
 
             {/* Search button */}
             <TouchableOpacity
@@ -620,123 +631,124 @@ export default function TripsList() {
             </TouchableOpacity>
           </View>
 
-          {/* ── Filter dropdowns ── */}
-          <View
-            style={[
-              styles.filterBar,
-              {
-                backgroundColor: theme.background,
-                borderBottomColor: theme.border,
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={[styles.dropdown, { borderColor: theme.border }]}
-              onPress={() =>
-                navigation.navigate('TripsFilter', { filters: activeFilters })
-              }
-            >
-              <Text
-                style={[styles.dropdownText, { color: theme.textStrong }]}
-                numberOfLines={1}
-              >
-                {activeFilters.departure || t.allDepartures}
-              </Text>
-              <Ionicons name="chevron-down" size={14} color={theme.text} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.dropdown, { borderColor: theme.border }]}
-              onPress={() =>
-                navigation.navigate('TripsFilter', { filters: activeFilters })
-              }
-            >
-              <Text
-                style={[styles.dropdownText, { color: theme.textStrong }]}
-                numberOfLines={1}
-              >
-                {activeFilters.arrival || t.allArrivals}
-              </Text>
-              <Ionicons name="chevron-down" size={14} color={theme.text} />
-            </TouchableOpacity>
-          </View>
-
-          {/* ── Sort + View mode ── */}
-          <View
-            style={[
-              styles.sortBar,
-              {
-                backgroundColor: theme.background,
-                borderBottomColor: theme.border,
-              },
-            ]}
-          >
-            {/* Sort */}
-            <TouchableOpacity
-              style={styles.sortBtn}
-              onPress={() => setShowSortMenu(!showSortMenu)}
-            >
-              <Text style={[styles.sortLabel, { color: theme.text }]}>
-                {t.sortBy}
-              </Text>
-              <Ionicons
-                name="swap-vertical-outline"
-                size={16}
-                color={theme.textStrong}
-              />
-            </TouchableOpacity>
-
-            {/* View toggle */}
-            <View style={styles.viewToggle}>
-              <TouchableOpacity
+          {/* ── Filter + Sort + View mode ── */}
+          {(() => {
+            const activeCount =
+              (activeFilters.classes?.length || 0) +
+              (activeFilters.amenities?.length || 0) +
+              (activeFilters.departure ? 1 : 0) +
+              (activeFilters.arrival ? 1 : 0);
+            return (
+              <View
                 style={[
-                  styles.viewBtn,
-                  { borderColor: theme.border },
-                  viewMode === 'grid' && {
-                    backgroundColor: colors.primary,
-                    borderColor: colors.primary,
+                  styles.sortBar,
+                  {
+                    backgroundColor: theme.background,
+                    borderBottomColor: theme.border,
                   },
                 ]}
-                onPress={() => setViewMode('grid')}
               >
-                <Ionicons
-                  name="grid-outline"
-                  size={14}
-                  color={viewMode === 'grid' ? '#fff' : theme.text}
-                />
-                <Text
+                {/* Filter */}
+                <TouchableOpacity
                   style={[
-                    styles.viewBtnText,
-                    { color: viewMode === 'grid' ? '#fff' : theme.text },
+                    styles.filterBtn,
+                    {
+                      borderColor: activeCount > 0 ? colors.primary : theme.border,
+                      backgroundColor: activeCount > 0 ? `${colors.primary}10` : theme.backgroundAlt,
+                    },
                   ]}
+                  onPress={() =>
+                    navigation.navigate('TripsFilter', { filters: activeFilters })
+                  }
                 >
-                  {t.grid}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.viewBtn,
-                  { borderColor: theme.border },
-                  viewMode === 'list' && styles.viewBtnActive,
-                ]}
-                onPress={() => setViewMode('list')}
-              >
-                <Ionicons
-                  name="list-outline"
-                  size={14}
-                  color={viewMode === 'list' ? '#fff' : theme.text}
-                />
-                <Text
-                  style={[
-                    styles.viewBtnText,
-                    { color: viewMode === 'list' ? '#fff' : theme.text },
-                  ]}
+                  <Ionicons
+                    name="options-outline"
+                    size={16}
+                    color={activeCount > 0 ? colors.primary : theme.textStrong}
+                  />
+                  <Text
+                    style={[
+                      styles.filterBtnText,
+                      { color: activeCount > 0 ? colors.primary : theme.textStrong },
+                    ]}
+                  >
+                    {t.filters}
+                  </Text>
+                  {activeCount > 0 && (
+                    <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
+                      <Text style={styles.filterBadgeText}>{activeCount}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {/* Sort */}
+                <TouchableOpacity
+                  style={styles.sortBtn}
+                  onPress={() => setShowSortMenu(!showSortMenu)}
                 >
-                  {t.list}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+                  <Text style={[styles.sortLabel, { color: theme.text }]}>
+                    {t.sortBy}
+                  </Text>
+                  <Ionicons
+                    name="swap-vertical-outline"
+                    size={16}
+                    color={theme.textStrong}
+                  />
+                </TouchableOpacity>
+
+                {/* View toggle */}
+                <View style={styles.viewToggle}>
+                  <TouchableOpacity
+                    style={[
+                      styles.viewBtn,
+                      { borderColor: theme.border },
+                      viewMode === 'grid' && {
+                        backgroundColor: colors.primary,
+                        borderColor: colors.primary,
+                      },
+                    ]}
+                    onPress={() => setViewMode('grid')}
+                  >
+                    <Ionicons
+                      name="grid-outline"
+                      size={14}
+                      color={viewMode === 'grid' ? '#fff' : theme.text}
+                    />
+                    <Text
+                      style={[
+                        styles.viewBtnText,
+                        { color: viewMode === 'grid' ? '#fff' : theme.text },
+                      ]}
+                    >
+                      {t.grid}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.viewBtn,
+                      { borderColor: theme.border },
+                      viewMode === 'list' && styles.viewBtnActive,
+                    ]}
+                    onPress={() => setViewMode('list')}
+                  >
+                    <Ionicons
+                      name="list-outline"
+                      size={14}
+                      color={viewMode === 'list' ? '#fff' : theme.text}
+                    />
+                    <Text
+                      style={[
+                        styles.viewBtnText,
+                        { color: viewMode === 'list' ? '#fff' : theme.text },
+                      ]}
+                    >
+                      {t.list}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })()}
 
           {/* Sort menu */}
           {showSortMenu && (
@@ -784,11 +796,6 @@ export default function TripsList() {
             </View>
           )}
 
-          {/* Results count */}
-          <Text style={[styles.resultsCount, { color: theme.textStrong }]}>
-            {t.results(filtered.length || totalElements)}
-          </Text>
-
           {/* ── List ── */}
           {filtered.length === 0 ? (
             <EmptyState
@@ -819,6 +826,14 @@ export default function TripsList() {
           )}
         </ScrollView>
       </View>
+
+      <DatePickerModal
+        visible={showDatePicker}
+        lang={lang}
+        selectedDate={date || null}
+        onApply={d => setDate(d ?? '')}
+        onClose={() => setShowDatePicker(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -883,29 +898,31 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // Filter bar
-  filterBar: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    gap: spacing.sm,
-    borderBottomWidth: 1,
-  },
-  dropdown: {
-    flex: 1,
+  filterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     borderWidth: 1,
     borderRadius: 4,
     paddingHorizontal: spacing.md,
     height: 40,
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
-  dropdownText: {
-    ...typography.body,
+  filterBtnText: {
+    ...typography.bodyBold,
     fontSize: typography.sizes.sm,
-    flex: 1,
+  },
+  filterBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  filterBadgeText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.xs,
+    color: '#fff',
   },
 
   // Sort bar
@@ -978,6 +995,7 @@ const styles = StyleSheet.create({
   // List
   listContainer: {
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
     gap: spacing.md,
   },
   listCard: {
@@ -1008,10 +1026,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   listCardRouteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   listCardRoute: {
     ...typography.bodyBold,
@@ -1037,6 +1052,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
     gap: spacing.md,
   },
   gridCard: {
@@ -1065,10 +1081,16 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
     fontSize: typography.sizes.sm,
   },
+  gridCardPrice: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+  },
   gridCardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
 
   // Shared
@@ -1076,6 +1098,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: 4,
+    alignSelf: 'flex-start',
   },
   classBadgeAbsolute: {
     position: 'absolute',
