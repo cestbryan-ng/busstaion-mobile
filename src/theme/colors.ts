@@ -6,8 +6,8 @@ export const colors = {
   light: {
     background: '#ffffff',
     backgroundAlt: '#f5f6f7',
-    text: '#7f888f',
-    textStrong: '#3d4449',
+    text: '#4f5a63',
+    textStrong: '#1a2026',
     border: 'rgba(210, 215, 217, 0.75)',
   },
 

@@ -15,6 +15,9 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../../../navigation';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
@@ -38,7 +41,9 @@ type Operator = 'MTN' | 'ORANGE';
 
 function formatTime(dateStr: string | null | undefined): string {
   if (!dateStr) return '';
-  return new Date(dateStr).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}`;
 }
 
 function formatPhone(v: string): string {
@@ -58,6 +63,7 @@ export default function PaymentModal({
 }: Props) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // Steps
   const [step, setStep] = useState<Step>('passenger');
@@ -750,44 +756,69 @@ export default function PaymentModal({
     </View>
   );
 
-  // ── STEP 4: Result ─────────────────────────────────────────────────────────
-  const renderResultStep = () => {
-    const isSuccess = payStatus === 'SUCCESS';
-    if (isSuccess) {
-      return (
+  return (
+    <>
+      <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={[styles.container, { backgroundColor: theme.background }]}>
+            {step !== 'processing' && renderHeader()}
+            {step === 'passenger' && renderPassengerStep()}
+            {step === 'payment' && renderPaymentStep()}
+            {step === 'processing' && renderProcessingStep()}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Success modal */}
+      <Modal visible={step === 'result' && payStatus === 'SUCCESS'} animationType="slide">
         <SuccessComponent
           title={t.successTitle}
           message={t.successMsg}
           buttonText={t.done}
-          onPress={handleClose}
+          onPress={() => { handleClose(); navigation.navigate('ClientMain'); }}
+          details={[
+            {
+              label: lang === 'fr' ? 'N° de réservation' : 'Booking ID',
+              value: reservationId,
+            },
+            {
+              label: lang === 'fr' ? 'Itinéraire' : 'Route',
+              value: lang === 'fr'
+                ? `De ${trip.lieuDepart} vers ${trip.lieuArrive}`
+                : `From ${trip.lieuDepart} to ${trip.lieuArrive}`,
+            },
+            {
+              label: lang === 'fr' ? 'Date' : 'Date',
+              value: `${new Date(trip.dateDepartPrev).toLocaleDateString(
+                lang === 'fr' ? 'fr-FR' : 'en-GB',
+                { day: 'numeric', month: 'long', year: 'numeric' },
+              )}${trip.heureDepartEffectif ? ` · ${formatTime(trip.heureDepartEffectif)}` : ''}`,
+            },
+            {
+              label: lang === 'fr' ? 'Sièges' : 'Seats',
+              value: selectedSeats.map(s => formatSeat(s)).join(', '),
+            },
+            {
+              label: lang === 'fr' ? 'Montant payé' : 'Amount paid',
+              value: `${totalPrice.toLocaleString('fr-FR')} FCFA`,
+            },
+          ]}
         />
-      );
-    }
-    return (
-      <ErrorComponent
-        title={payStatus === 'FAILED' ? t.failedTitle : t.errorTitle}
-        message={apiErrorMsg ?? (payStatus === 'FAILED' ? t.failedMsg : t.errorMsg)}
-        buttonText={t.retry}
-        onPress={() => { setStep('payment'); setPayStatus(null); setApiErrorMsg(null); }}
-      />
-    );
-  };
+      </Modal>
 
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <View style={[styles.container, { backgroundColor: theme.background }]}>
-          {step !== 'processing' && step !== 'result' && renderHeader()}
-          {step === 'passenger' && renderPassengerStep()}
-          {step === 'payment' && renderPaymentStep()}
-          {step === 'processing' && renderProcessingStep()}
-          {step === 'result' && renderResultStep()}
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+      {/* Error modal */}
+      <Modal visible={step === 'result' && payStatus !== 'SUCCESS' && payStatus !== null} animationType="slide">
+        <ErrorComponent
+          title={payStatus === 'FAILED' ? t.failedTitle : t.errorTitle}
+          message={apiErrorMsg ?? (payStatus === 'FAILED' ? t.failedMsg : t.errorMsg)}
+          buttonText={t.retry}
+          onPress={() => { setStep('payment'); setPayStatus(null); setApiErrorMsg(null); }}
+        />
+      </Modal>
+    </>
   );
 }
 

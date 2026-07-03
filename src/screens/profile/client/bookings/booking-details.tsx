@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import QRCode from 'react-native-qrcode-svg';
-import { print as printPDF } from 'react-native-print';
+import RNPrint from 'react-native-print';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -37,17 +37,20 @@ type Passager = {
 };
 
 type ReservationDetail = {
-  idReservation: string;
   reservation: {
     idReservation: string;
     statutReservation: string;
     statutPayement: string;
     dateReservation: string;
-    dateConfirmation: string;
+    dateConfirmation: string | null;
+    nbrPassager: number;
+    prixTotal: number;
+    montantPaye: number;
+    transactionCode: string | null;
   };
   voyage: {
     idVoyage: string;
-    titre: string;
+    titre: string | null;
     lieuDepart: string;
     pointDeDepart?: string;
     lieuArrive: string;
@@ -55,23 +58,30 @@ type ReservationDetail = {
     dateDepartPrev: string;
     heureDepartEffectif: string;
     heureArrive: string;
+    dureeVoyage: string | null;
     statusVoyage: string;
-    prix: number;
-    duree?: number;
+    smallImage?: string | null;
   };
   agence: {
     agencyId: string;
     longName: string;
+    shortName: string;
+    location: string;
     contact?: { phone?: string; email?: string };
   };
-  passagers: Passager[];
-  nombrePassagers: number;
+  passagers?: Passager[];
 };
 
 const STATUS_RESERVATION: Record<
   string,
   { label: string; labelEn: string; color: string; bg: string }
 > = {
+  RESERVER: {
+    label: 'RÉSERVÉ',
+    labelEn: 'RESERVED',
+    color: '#d97706',
+    bg: '#fef3c720',
+  },
   CONFIRMEE: {
     label: 'CONFIRMÉE',
     labelEn: 'CONFIRMED',
@@ -106,88 +116,226 @@ function formatPrice(price: number): string {
   return price.toLocaleString('fr-FR') + ' FCFA';
 }
 
-function formatDuration(hours: number): string {
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  return m > 0 ? `${h}h ${m}m` : `${h}h 00m`;
+function formatTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}`;
+}
+
+function parseDuration(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+  if (!match) return '';
+  const h = parseInt(match[1] || '0', 10);
+  const m = parseInt(match[2] || '0', 10);
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h 00m`;
+  if (m) return `${m}m`;
+  return '';
 }
 
 function generateTicketHTML(res: ReservationDetail, lang: 'fr' | 'en'): string {
-  const passengersRows = res.passagers
-    .map(
-      p => `
-    <tr>
-      <td>${p.nom}</td>
-      <td>${p.siege}</td>
-      <td>${p.genre}</td>
-      <td>${p.age} ans</td>
-      <td>${p.prixBillet.toLocaleString('fr-FR')} FCFA</td>
-    </tr>
-  `,
-    )
-    .join('');
+  const t = (fr: string, en: string) => (lang === 'fr' ? fr : en);
 
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8"/>
-      <title>Billet - ${res.idReservation}</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 24px; color: #333; }
-        h1 { color: #2563EB; font-size: 22px; }
-        .section { margin: 16px 0; padding: 16px; border: 1px solid #ddd; border-radius: 8px; }
-        .route { font-size: 20px; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        th, td { padding: 8px; border: 1px solid #ddd; text-align: left; font-size: 13px; }
-        th { background: #f5f5f5; }
-        .total { font-size: 18px; font-weight: bold; color: #2563EB; }
-      </style>
-    </head>
-    <body>
-      <h1>BUS STATION — ${
-        lang === 'fr' ? 'Billet de voyage' : 'Travel ticket'
-      }</h1>
-      <div class="section">
-        <p><b>${lang === 'fr' ? 'N° de réservation' : 'Reservation N°'}:</b> ${
-    res.idReservation
-  }</p>
-        <p class="route">${res.voyage.lieuDepart} → ${res.voyage.lieuArrive}</p>
-        <p>${res.voyage.pointDeDepart || ''} → ${
-    res.voyage.pointArrivee || ''
-  }</p>
-        <p><b>${lang === 'fr' ? 'Date' : 'Date'}:</b> ${formatDate(
-    res.voyage.dateDepartPrev,
-    lang,
-  )}</p>
-        <p><b>${lang === 'fr' ? 'Départ' : 'Departure'}:</b> ${
-    res.voyage.heureDepartEffectif
-  }</p>
-        <p><b>${lang === 'fr' ? 'Agence' : 'Agency'}:</b> ${
-    res.agence.longName
-  }</p>
+  const fmtDate = (iso: string | null) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+  const fmtTime = (iso: string | null) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  };
+
+  const nbrPassager = res.reservation.nbrPassager;
+  const confirmDate = res.reservation.dateConfirmation;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>${t('Billet', 'Ticket')} - ${res.reservation.idReservation}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+      color: #171717;
+    }
+    .ticket-wrapper {
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .ticket-header {
+      padding: 24px;
+      border-bottom: 1px solid #e5e5e5;
+    }
+    .ticket-header h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #2563EB;
+      letter-spacing: -0.5px;
+    }
+    .ticket-header p {
+      font-size: 13px;
+      color: #737373;
+      margin-top: 2px;
+    }
+    .amount-section {
+      background: #fafafa;
+      padding: 28px 24px;
+      text-align: center;
+      border-bottom: 1px solid #e5e5e5;
+    }
+    .amount-label {
+      font-size: 12px;
+      color: #737373;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .amount-value {
+      font-size: 36px;
+      font-weight: 800;
+      color: #2563EB;
+      line-height: 1;
+    }
+    .details-section { padding: 18px; }
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #737373;
+      padding-bottom: 10px;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 5px 0;
+    }
+    .detail-label {
+      font-size: 13px;
+      color: #737373;
+      font-weight: 500;
+    }
+    .detail-value {
+      font-size: 13px;
+      color: #171717;
+      font-weight: 600;
+      text-align: right;
+      max-width: 60%;
+    }
+    .divider {
+      height: 1px;
+      background: #e5e5e5;
+      margin: 16px 0;
+    }
+    .footer {
+      background: #fafafa;
+      padding: 20px 24px;
+      text-align: center;
+      border-top: 1px solid #e5e5e5;
+    }
+    .footer-text {
+      font-size: 12px;
+      color: #737373;
+      line-height: 1.6;
+    }
+    .footer-highlight { font-weight: 600; color: #171717; }
+    @media print {
+      body { background: white; padding: 0; }
+      .ticket-wrapper { box-shadow: none; border: 1px solid #e5e5e5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="ticket-wrapper">
+    <div class="ticket-header">
+      <h1>BusStation</h1>
+      <p>${t('Billet de voyage', 'Travel ticket')}</p>
+    </div>
+
+    <div class="amount-section">
+      <div class="amount-label">${t('Montant total', 'Total amount')}</div>
+      <div class="amount-value">${res.reservation.prixTotal.toLocaleString('fr-FR')} FCFA</div>
+    </div>
+
+    <div class="details-section">
+      <div class="section-title">${t("Agence de voyage", "Travel agency")}</div>
+      <div class="detail-row">
+        <span class="detail-label">${t("Nom", "Name")}</span>
+        <span class="detail-value">${res.agence.longName}</span>
       </div>
-      <div class="section">
-        <h3>${lang === 'fr' ? 'Passagers' : 'Passengers'}</h3>
-        <table>
-          <tr>
-            <th>${lang === 'fr' ? 'Nom' : 'Name'}</th>
-            <th>${lang === 'fr' ? 'Siège' : 'Seat'}</th>
-            <th>${lang === 'fr' ? 'Genre' : 'Gender'}</th>
-            <th>${lang === 'fr' ? 'Âge' : 'Age'}</th>
-            <th>${lang === 'fr' ? 'Prix' : 'Price'}</th>
-          </tr>
-          ${passengersRows}
-        </table>
+      <div class="detail-row">
+        <span class="detail-label">${t("Localisation", "Location")}</span>
+        <span class="detail-value">${res.agence.location}</span>
       </div>
-      <div class="section">
-        <p class="total">${
-          lang === 'fr' ? 'Total payé' : 'Total paid'
-        }: ${formatPrice(res.voyage.prix * res.nombrePassagers)}</p>
+
+      <div class="divider"></div>
+
+      <div class="section-title">${t("Itinéraire", "Itinerary")}</div>
+      <div class="detail-row">
+        <span class="detail-label">${t("Départ", "Departure")}</span>
+        <span class="detail-value">${res.voyage.lieuDepart}${res.voyage.pointDeDepart ? ` — ${res.voyage.pointDeDepart}` : ''}</span>
       </div>
-    </body>
-    </html>
-  `;
+      <div class="detail-row">
+        <span class="detail-label">${t("Arrivée", "Arrival")}</span>
+        <span class="detail-value">${res.voyage.lieuArrive}${res.voyage.pointArrivee ? ` — ${res.voyage.pointArrivee}` : ''}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">${t("Date de départ", "Departure date")}</span>
+        <span class="detail-value">${fmtDate(res.voyage.dateDepartPrev)} — ${fmtTime(res.voyage.heureDepartEffectif)}</span>
+      </div>
+      ${res.voyage.dureeVoyage ? `
+      <div class="detail-row">
+        <span class="detail-label">${t("Durée", "Duration")}</span>
+        <span class="detail-value">${parseDuration(res.voyage.dureeVoyage)}</span>
+      </div>` : ''}
+
+      <div class="divider"></div>
+
+      <div class="section-title">${t("Réservation", "Reservation")}</div>
+      <div class="detail-row">
+        <span class="detail-label">${t("Référence", "Reference")}</span>
+        <span class="detail-value">${res.reservation.idReservation}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">${t("Passagers", "Passengers")}</span>
+        <span class="detail-value">${nbrPassager} ${t(`personne${nbrPassager > 1 ? 's' : ''}`, `passenger${nbrPassager > 1 ? 's' : ''}`)}</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section-title">${t("Paiement", "Payment")}</div>
+      ${confirmDate ? `
+      <div class="detail-row">
+        <span class="detail-label">${t("Date de paiement", "Payment date")}</span>
+        <span class="detail-value">${fmtDate(confirmDate)} — ${fmtTime(confirmDate)}</span>
+      </div>` : ''}
+      <div class="detail-row">
+        <span class="detail-label">${t("Montant", "Amount")}</span>
+        <span class="detail-value">${res.reservation.prixTotal.toLocaleString('fr-FR')} FCFA</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p class="footer-text">
+        <span class="footer-highlight">${t("Merci d'avoir choisi BusStation", "Thank you for choosing BusStation")}</span>
+      </p>
+      <p class="footer-text">${t("Veuillez présenter ce billet lors de l'embarquement", "Please present this ticket at boarding")}</p>
+    </div>
+  </div>
+</body>
+</html>`;
 }
 
 export default function BookingDetails() {
@@ -200,9 +348,7 @@ export default function BookingDetails() {
   const toast = useToast();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
-  const [reservation, setReservation] = useState<ReservationDetail | null>(
-    null,
-  );
+  const [reservation, setReservation] = useState<ReservationDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -218,8 +364,6 @@ export default function BookingDetails() {
       passengers: 'Détails des passagers',
       paymentSummary: 'Récapitulatif paiement',
       passengersCount: 'Nombre de passagers',
-      unitPrice: 'Prix unitaire',
-      serviceFee: 'Frais de service',
       totalPaid: 'Total payé',
       downloadTicket: 'Exporter en PDF',
       exportingPdf: 'Préparation...',
@@ -247,8 +391,6 @@ export default function BookingDetails() {
       passengers: 'Passenger details',
       paymentSummary: 'Payment summary',
       passengersCount: 'Number of passengers',
-      unitPrice: 'Unit price',
-      serviceFee: 'Service fee',
       totalPaid: 'Total paid',
       downloadTicket: 'Export as PDF',
       exportingPdf: 'Preparing...',
@@ -291,9 +433,7 @@ export default function BookingDetails() {
         const data = await res.json();
         const content: ReservationDetail[] = data.content || [];
         const found = content.find(
-          r =>
-            r.idReservation === reservationId ||
-            r.reservation?.idReservation === reservationId,
+          r => r.reservation?.idReservation === reservationId,
         );
         if (found) setReservation(found);
       }
@@ -320,15 +460,13 @@ export default function BookingDetails() {
       const ticketText = `
 🚌 BUS STATION — ${t.shareTitle}
 ━━━━━━━━━━━━━━━━━━━
-📋 ${t.resNumber}: ${reservation.idReservation}
+📋 ${t.resNumber}: ${reservation.reservation.idReservation}
 🗺️ ${reservation.voyage.lieuDepart} → ${reservation.voyage.lieuArrive}
 📅 ${formatDate(reservation.voyage.dateDepartPrev, lang)}
-🕐 ${t.depHour}: ${reservation.voyage.heureDepartEffectif}
+🕐 ${t.depHour}: ${formatTime(reservation.voyage.heureDepartEffectif)}
 🏢 ${reservation.agence.longName}
-👥 ${reservation.nombrePassagers} passager(s)
-💰 Total: ${formatPrice(
-        reservation.voyage.prix * reservation.nombrePassagers,
-      )}
+👥 ${reservation.reservation.nbrPassager} passager(s)
+💰 Total: ${formatPrice(reservation.reservation.prixTotal)}
       `.trim();
 
       await Share.share({
@@ -344,9 +482,10 @@ export default function BookingDetails() {
     if (!reservation || exportingPdf) return;
     setExportingPdf(true);
     try {
-      await printPDF({ html: generateTicketHTML(reservation, lang) });
-    } catch {
-      // L'utilisateur a annulé ou erreur silencieuse
+      await RNPrint.print({ html: generateTicketHTML(reservation, lang) });
+    } catch (e) {
+      console.log('PDF export error:', e);
+      toast.error(lang === 'fr' ? 'Impossible d\'exporter le PDF' : 'Could not export PDF');
     } finally {
       setExportingPdf(false);
     }
@@ -357,13 +496,16 @@ export default function BookingDetails() {
     setCancelling(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`${API_URL}/reservation/annuler/${reservation.idReservation}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(
+        `${API_URL}/reservation/annuler/${reservation.reservation.idReservation}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
       if (res.ok) {
         toast.success(t.bookingCancelled);
         setCancelModalVisible(false);
@@ -384,9 +526,9 @@ export default function BookingDetails() {
 
   const statusRes =
     STATUS_RESERVATION[reservation.reservation.statutReservation] ||
-    STATUS_RESERVATION.EN_ATTENTE;
+    STATUS_RESERVATION.RESERVER;
   const isCancelled = reservation.reservation.statutReservation === 'ANNULEE';
-  const totalPrice = reservation.voyage.prix * reservation.nombrePassagers;
+  const passagers = reservation.passagers || [];
 
   return (
     <>
@@ -394,7 +536,13 @@ export default function BookingDetails() {
         style={{ backgroundColor: theme.backgroundAlt }}
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* Header */}
         <View
@@ -434,7 +582,7 @@ export default function BookingDetails() {
                 {t.resNumber}
               </Text>
               <Text style={[styles.resNumberValue, { color: colors.primary }]}>
-                {reservation.idReservation}
+                {reservation.reservation.idReservation}
               </Text>
               <View
                 style={[
@@ -454,7 +602,7 @@ export default function BookingDetails() {
                       backgroundColor:
                         reservation.reservation.statutPayement === 'PAID'
                           ? colors.success
-                          : '#d97706',
+                          : '#ef4444',
                     },
                   ]}
                 />
@@ -465,7 +613,7 @@ export default function BookingDetails() {
                       color:
                         reservation.reservation.statutPayement === 'PAID'
                           ? colors.success
-                          : '#d97706',
+                          : '#ef4444',
                     },
                   ]}
                 >
@@ -474,14 +622,14 @@ export default function BookingDetails() {
                       ? 'Payé'
                       : 'Paid'
                     : lang === 'fr'
-                    ? 'Paiement requis'
-                    : 'Payment required'}
+                    ? 'Non payé'
+                    : 'Unpaid'}
                 </Text>
               </View>
             </View>
             <View style={[styles.qrContainer, { borderColor: theme.border }]}>
               <QRCode
-                value={reservation.idReservation}
+                value={reservation.reservation.idReservation}
                 size={90}
                 color={theme.textStrong}
                 backgroundColor="transparent"
@@ -552,20 +700,16 @@ export default function BookingDetails() {
               <Ionicons name="calendar-outline" size={14} color={theme.text} />
               <View>
                 <Text style={[styles.metaValue, { color: theme.textStrong }]}>
-                  {new Date(
-                    reservation.voyage.dateDepartPrev,
-                  ).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })}
+                  {new Date(reservation.voyage.dateDepartPrev).toLocaleDateString(
+                    lang === 'fr' ? 'fr-FR' : 'en-GB',
+                    { day: 'numeric', month: 'long', year: 'numeric' },
+                  )}
                 </Text>
                 <Text style={[styles.metaLabel, { color: theme.text }]}>
-                  {new Date(
-                    reservation.voyage.dateDepartPrev,
-                  ).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', {
-                    weekday: 'long',
-                  })}
+                  {new Date(reservation.voyage.dateDepartPrev).toLocaleDateString(
+                    lang === 'fr' ? 'fr-FR' : 'en-GB',
+                    { weekday: 'long' },
+                  )}
                 </Text>
               </View>
             </View>
@@ -574,7 +718,7 @@ export default function BookingDetails() {
               <Ionicons name="time-outline" size={14} color={theme.text} />
               <View>
                 <Text style={[styles.metaValue, { color: theme.textStrong }]}>
-                  {reservation.voyage.heureDepartEffectif}
+                  {formatTime(reservation.voyage.heureDepartEffectif)}
                 </Text>
                 <Text style={[styles.metaLabel, { color: theme.text }]}>
                   {t.depHour}
@@ -582,7 +726,7 @@ export default function BookingDetails() {
               </View>
             </View>
 
-            {reservation.voyage.duree && (
+            {!!parseDuration(reservation.voyage.dureeVoyage) && (
               <View style={styles.metaItem}>
                 <Ionicons
                   name="hourglass-outline"
@@ -591,7 +735,7 @@ export default function BookingDetails() {
                 />
                 <View>
                   <Text style={[styles.metaValue, { color: theme.textStrong }]}>
-                    {formatDuration(reservation.voyage.duree)}
+                    {parseDuration(reservation.voyage.dureeVoyage)}
                   </Text>
                   <Text style={[styles.metaLabel, { color: theme.text }]}>
                     {t.duration}
@@ -636,85 +780,103 @@ export default function BookingDetails() {
         </View>
 
         {/* ── Passengers ── */}
-        <View
-          style={[
-            styles.section,
-            { backgroundColor: theme.background, borderColor: theme.border },
-          ]}
-        >
-          <View style={styles.sectionHeader}>
-            <Ionicons name="people-outline" size={18} color={colors.primary} />
-            <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
-              {t.passengers}
-            </Text>
-          </View>
+        {passagers.length > 0 && (
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: theme.background, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.sectionHeader}>
+              <Ionicons
+                name="people-outline"
+                size={18}
+                color={colors.primary}
+              />
+              <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
+                {t.passengers}
+              </Text>
+            </View>
 
-          {reservation.passagers.map((p, index) => (
-            <View key={p.idPassager}>
-              <View style={styles.passengerRow}>
-                <View
-                  style={[
-                    styles.passengerIndex,
-                    { backgroundColor: `${colors.primary}15` },
-                  ]}
-                >
-                  <Text
+            {passagers.map((p, index) => (
+              <View key={p.idPassager}>
+                <View style={styles.passengerRow}>
+                  <View
                     style={[
-                      styles.passengerIndexText,
-                      { color: colors.primary },
+                      styles.passengerIndex,
+                      { backgroundColor: `${colors.primary}15` },
                     ]}
                   >
-                    {index + 1}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.passengerIndexText,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      {index + 1}
+                    </Text>
+                  </View>
+                  <View style={styles.passengerInfo}>
+                    <Text
+                      style={[
+                        styles.passengerName,
+                        { color: theme.textStrong },
+                      ]}
+                    >
+                      {p.nom}
+                    </Text>
+                    <Text
+                      style={[styles.passengerMeta, { color: theme.text }]}
+                    >
+                      ID: {p.carteID} • {p.genre} • {p.age}{' '}
+                      {lang === 'fr' ? 'ans' : 'y/o'}
+                    </Text>
+                  </View>
+                  <View style={styles.passengerSeat}>
+                    <Text style={[styles.seatLabel, { color: theme.text }]}>
+                      {t.seat}
+                    </Text>
+                    <Text
+                      style={[styles.seatValue, { color: colors.primary }]}
+                    >
+                      {p.siege}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.passengerInfo}>
-                  <Text
-                    style={[styles.passengerName, { color: theme.textStrong }]}
-                  >
-                    {p.nom}
-                  </Text>
-                  <Text style={[styles.passengerMeta, { color: theme.text }]}>
-                    ID: {p.carteID} • {p.genre} • {p.age}{' '}
-                    {lang === 'fr' ? 'ans' : 'y/o'}
-                  </Text>
-                </View>
-                <View style={styles.passengerSeat}>
-                  <Text style={[styles.seatLabel, { color: theme.text }]}>
-                    {t.seat}
-                  </Text>
-                  <Text style={[styles.seatValue, { color: colors.primary }]}>
-                    {p.siege}
-                  </Text>
-                </View>
-              </View>
 
-              <View
-                style={[
-                  styles.ticketPriceRow,
-                  { borderTopColor: theme.border },
-                ]}
-              >
-                <Text style={[styles.ticketPriceLabel, { color: theme.text }]}>
-                  {t.ticketPrice}
-                </Text>
-                <Text
-                  style={[styles.ticketPriceValue, { color: theme.textStrong }]}
-                >
-                  {formatPrice(p.prixBillet)}
-                </Text>
-              </View>
-
-              {index < reservation.passagers.length - 1 && (
                 <View
                   style={[
-                    styles.passengerDivider,
-                    { backgroundColor: theme.border },
+                    styles.ticketPriceRow,
+                    { borderTopColor: theme.border },
                   ]}
-                />
-              )}
-            </View>
-          ))}
-        </View>
+                >
+                  <Text
+                    style={[styles.ticketPriceLabel, { color: theme.text }]}
+                  >
+                    {t.ticketPrice}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.ticketPriceValue,
+                      { color: theme.textStrong },
+                    ]}
+                  >
+                    {formatPrice(p.prixBillet)}
+                  </Text>
+                </View>
+
+                {index < passagers.length - 1 && (
+                  <View
+                    style={[
+                      styles.passengerDivider,
+                      { backgroundColor: theme.border },
+                    ]}
+                  />
+                )}
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* ── Payment Summary ── */}
         <View
@@ -735,23 +897,7 @@ export default function BookingDetails() {
               {t.passengersCount}
             </Text>
             <Text style={[styles.summaryValue, { color: theme.textStrong }]}>
-              {reservation.nombrePassagers}
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: theme.text }]}>
-              {t.unitPrice}
-            </Text>
-            <Text style={[styles.summaryValue, { color: theme.textStrong }]}>
-              {formatPrice(reservation.voyage.prix)}
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: theme.text }]}>
-              {t.serviceFee}
-            </Text>
-            <Text style={[styles.summaryValue, { color: theme.textStrong }]}>
-              0 FCFA
+              {reservation.reservation.nbrPassager}
             </Text>
           </View>
 
@@ -760,7 +906,7 @@ export default function BookingDetails() {
               {t.totalPaid}
             </Text>
             <Text style={[styles.totalValue, { color: colors.primary }]}>
-              {formatPrice(totalPrice)}
+              {formatPrice(reservation.reservation.prixTotal)}
             </Text>
           </View>
         </View>
@@ -778,7 +924,11 @@ export default function BookingDetails() {
             {exportingPdf ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <Ionicons name="document-outline" size={18} color={colors.primary} />
+              <Ionicons
+                name="document-outline"
+                size={18}
+                color={colors.primary}
+              />
             )}
             <Text style={[styles.downloadBtnText, { color: colors.primary }]}>
               {exportingPdf ? t.exportingPdf : t.downloadTicket}

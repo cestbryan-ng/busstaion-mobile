@@ -75,7 +75,9 @@ function formatSeatLabel(seatNum: number, cols: number): string {
 
 function formatTime(dateStr: string | null | undefined): string {
   if (!dateStr) return '';
-  return new Date(dateStr).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}`;
 }
 
 function parseDuration(raw: string | number): number {

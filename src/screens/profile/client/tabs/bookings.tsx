@@ -27,45 +27,36 @@ import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { useDebounce } from '../../../../hooks/useDebounce';
 
-type Passager = {
-  idPassager: string;
-  nom: string;
-  telephone: string;
-  carteID: string;
-  age: number;
-  genre: string;
-  siege: string;
-  prixBillet: number;
-};
-
 type Reservation = {
-  idReservation: string;
   reservation: {
     idReservation: string;
     statutReservation: string;
     statutPayement: string;
     dateReservation: string;
-    dateConfirmation: string;
+    dateConfirmation: string | null;
+    nbrPassager: number;
+    prixTotal: number;
+    montantPaye: number;
+    transactionCode: string | null;
   };
   voyage: {
     idVoyage: string;
-    titre: string;
+    titre: string | null;
     lieuDepart: string;
     lieuArrive: string;
     dateDepartPrev: string;
     heureDepartEffectif: string;
     heureArrive: string;
+    dureeVoyage: string | null;
     statusVoyage: string;
-    prix: number;
-    smallImage?: string;
+    smallImage?: string | null;
   };
   agence: {
     agencyId: string;
     longName: string;
+    shortName: string;
     location: string;
   };
-  passagers: Passager[];
-  nombrePassagers: number;
 };
 
 type TabType = 'avenir' | 'terminees';
@@ -75,6 +66,12 @@ const STATUS_RESERVATION: Record<
   string,
   { label: string; labelEn: string; color: string; bg: string }
 > = {
+  RESERVER: {
+    label: 'Réservé',
+    labelEn: 'Reserved',
+    color: '#d97706',
+    bg: '#fef3c720',
+  },
   CONFIRMEE: {
     label: 'Confirmée',
     labelEn: 'Confirmed',
@@ -100,9 +97,17 @@ const STATUS_PAYMENT: Record<
   { label: string; labelEn: string; color: string }
 > = {
   PAID: { label: 'Payé', labelEn: 'Paid', color: colors.success },
+  NO_PAYMENT: { label: 'Non payé', labelEn: 'Unpaid', color: '#ef4444' },
   PAIEMENT: { label: 'Paiement', labelEn: 'Payment', color: '#d97706' },
   ANNULEE: { label: 'Annulé', labelEn: 'Cancelled', color: '#6b7280' },
 };
+
+function formatTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}`;
+}
 
 function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
   const date = new Date(dateStr);
@@ -209,6 +214,7 @@ export default function Bookings() {
 
       if (res.ok) {
         const data = await res.json();
+        console.log('Reservations data:', data);
         const content = data.content || [];
         setReservations(prev => (reset ? content : [...prev, ...content]));
         setTotalPages(data.totalPages || 1);
@@ -263,7 +269,8 @@ export default function Bookings() {
         r.voyage.lieuDepart.toLowerCase().includes(q) ||
         r.voyage.lieuArrive.toLowerCase().includes(q) ||
         r.agence.longName.toLowerCase().includes(q) ||
-        r.voyage.titre?.toLowerCase().includes(q)
+        r.agence.shortName.toLowerCase().includes(q) ||
+        (r.voyage.titre?.toLowerCase().includes(q) ?? false)
       );
     }
     return true;
@@ -272,11 +279,10 @@ export default function Bookings() {
   const ReservationCard = ({ item }: { item: Reservation }) => {
     const statusRes =
       STATUS_RESERVATION[item.reservation.statutReservation] ||
-      STATUS_RESERVATION.EN_ATTENTE;
+      STATUS_RESERVATION.RESERVER;
     const statusPay =
       STATUS_PAYMENT[item.reservation.statutPayement] ||
-      STATUS_PAYMENT.PAIEMENT;
-    const isPending = item.reservation.statutReservation === 'EN_ATTENTE';
+      STATUS_PAYMENT.NO_PAYMENT;
     const isCancelled = item.reservation.statutReservation === 'ANNULEE';
 
     return (
@@ -325,15 +331,19 @@ export default function Bookings() {
             </View>
 
             <Text style={[styles.cardRoute, { color: theme.textStrong }]}>
-              {item.voyage.lieuDepart} → {item.voyage.lieuArrive}
+              {lang === 'fr'
+                ? `De ${item.voyage.lieuDepart} vers ${item.voyage.lieuArrive}`
+                : `from ${item.voyage.lieuDepart} to ${item.voyage.lieuArrive}`}
             </Text>
 
             <View style={styles.cardMeta}>
               <Ionicons name="calendar-outline" size={12} color={theme.text} />
               <Text style={[styles.cardMetaText, { color: theme.text }]}>
                 {' '}
-                {formatDate(item.voyage.dateDepartPrev, lang)} •{' '}
-                {item.voyage.heureDepartEffectif}
+                {formatDate(item.voyage.dateDepartPrev, lang)}
+                {item.voyage.heureDepartEffectif
+                  ? ` · ${formatTime(item.voyage.heureDepartEffectif)}`
+                  : ''}
               </Text>
             </View>
 
@@ -342,11 +352,11 @@ export default function Bookings() {
                 <Ionicons name="person-outline" size={12} color={theme.text} />
                 <Text style={[styles.cardMetaText, { color: theme.text }]}>
                   {' '}
-                  {t.passengers(item.nombrePassagers)}
+                  {t.passengers(item.reservation.nbrPassager)}
                 </Text>
               </View>
               <Text style={[styles.cardPrice, { color: colors.primary }]}>
-                {formatPrice(item.voyage.prix * item.nombrePassagers)}
+                {formatPrice(item.reservation.prixTotal)}
               </Text>
             </View>
           </View>
@@ -361,7 +371,7 @@ export default function Bookings() {
             style={styles.detailsBtn}
             onPress={() =>
               navigation.navigate('BookingDetails', {
-                reservationId: item.idReservation,
+                reservationId: item.reservation.idReservation,
               })
             }
           >
@@ -370,37 +380,27 @@ export default function Bookings() {
             </Text>
           </TouchableOpacity>
 
-          {!isCancelled &&
-            (isPending ? (
-              <TouchableOpacity
-                style={[styles.actionBtn, { borderColor: '#d97706' }]}
+          {!isCancelled && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { borderColor: theme.border }]}
+              onPress={() =>
+                navigation.navigate('BookingDetails', {
+                  reservationId: item.reservation.idReservation,
+                })
+              }
+            >
+              <Ionicons
+                name="qr-code-outline"
+                size={14}
+                color={theme.textStrong}
+              />
+              <Text
+                style={[styles.actionBtnText, { color: theme.textStrong }]}
               >
-                <Ionicons name="card-outline" size={14} color="#d97706" />
-                <Text style={[styles.actionBtnText, { color: '#d97706' }]}>
-                  {t.pay}
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.actionBtn, { borderColor: theme.border }]}
-                onPress={() =>
-                  navigation.navigate('BookingDetails', {
-                    reservationId: item.idReservation,
-                  })
-                }
-              >
-                <Ionicons
-                  name="qr-code-outline"
-                  size={14}
-                  color={theme.textStrong}
-                />
-                <Text
-                  style={[styles.actionBtnText, { color: theme.textStrong }]}
-                >
-                  {t.ticket}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                {t.ticket}
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {isCancelled && (
             <TouchableOpacity style={styles.detailsBtn}>
@@ -587,7 +587,7 @@ export default function Bookings() {
               />
             ) : (
               filtered.map(item => (
-                <ReservationCard key={item.idReservation} item={item} />
+                <ReservationCard key={item.reservation.idReservation} item={item} />
               ))
             )}
           </View>

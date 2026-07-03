@@ -33,6 +33,7 @@ import {
 import TripPlaceholder from '../../../../assets/placeholders/product.svg';
 import AgencyPlaceholder from '../../../../assets/placeholders/shape.svg';
 import StationPlaceholder from '../../../../assets/placeholders/building.svg';
+import AvatarPlaceholder from '../../../../assets/placeholders/avatar-2.svg';
 
 type Trip = {
   idVoyage: string;
@@ -165,21 +166,76 @@ export default function Home({
   >([]);
 
   const hour = new Date().getHours();
-  const getGreeting = (
-    morning: string,
-    afternoon: string,
-    evening: string,
-    night: string,
-  ) => {
-    if (hour >= 5 && hour < 12) return morning;
-    if (hour >= 12 && hour < 18) return afternoon;
-    if (hour >= 18 && hour < 22) return evening;
-    return night;
+
+  const GREETINGS = {
+    fr: {
+      morning: [
+        'Bonjour ! Prêt pour votre prochain voyage ? ☀️',
+        'Bonjour ! Une belle journée pour voyager ☀️',
+        'Bonjour ! Où partez-vous aujourd\'hui ? ☀️',
+        'Bon matin ! Votre prochaine destination vous attend ☀️',
+      ],
+      afternoon: [
+        'Bonne après-midi ! Où vous emmène-t-on aujourd\'hui ? 🌤️',
+        'Bonne après-midi ! Prêt à prendre la route ? 🌤️',
+        'Bonne après-midi ! Un voyage vous attend 🌤️',
+        'Bonne après-midi ! Trouvez votre prochain trajet 🌤️',
+      ],
+      evening: [
+        'Bonsoir ! Un trajet de prévu ce soir ? 🌙',
+        'Bonsoir ! Planifiez votre voyage en toute tranquillité 🌙',
+        'Bonsoir ! Prêt pour une aventure nocturne ? 🌙',
+        'Bonsoir ! Réservez votre place avant qu\'il ne soit trop tard 🌙',
+      ],
+      night: [
+        'Bonne nuit ! Planifiez votre voyage pour demain 🌙',
+        'Bonne nuit ! Préparez votre prochaine escapade 🌙',
+        'Bonne nuit ! Votre prochain voyage commence ici 🌙',
+        'Bonne nuit ! Réservez maintenant, voyagez demain 🌙',
+      ],
+    },
+    en: {
+      morning: [
+        'Good morning! Ready for your next trip? ☀️',
+        'Good morning! A great day to travel 🌅',
+        'Good morning! Where are you headed today? ☀️',
+        'Good morning! Your next destination awaits 🚌',
+      ],
+      afternoon: [
+        'Good afternoon! Where are we taking you today? 🌤️',
+        'Good afternoon! Ready to hit the road? 🌤️',
+        'Good afternoon! A trip is waiting for you 🚍',
+        'Good afternoon! Find your next journey 🎒',
+      ],
+      evening: [
+        'Good evening! Got a ride planned tonight? 🌆',
+        'Good evening! Plan your trip in peace 🌆',
+        'Good evening! Ready for a night adventure? 🌙',
+        'Good evening! Book your seat before it\'s too late 🎫',
+      ],
+      night: [
+        'Good night! Plan your journey for tomorrow 🌙',
+        'Good night! Prepare your next getaway 🌟',
+        'Good night! Your next trip starts here 🌙',
+        'Good night! Book now, travel tomorrow 🌠',
+      ],
+    },
+  };
+
+  const [greetingIndex] = useState(() => Math.floor(Math.random() * 4));
+
+  const pickGreeting = (lang: 'fr' | 'en') => {
+    const set = GREETINGS[lang];
+    const idx = greetingIndex;
+    if (hour >= 5 && hour < 12) return set.morning[idx];
+    if (hour >= 12 && hour < 18) return set.afternoon[idx];
+    if (hour >= 18 && hour < 22) return set.evening[idx];
+    return set.night[idx];
   };
 
   const t = {
     fr: {
-      greeting: getGreeting('Bonjour ☀️', 'Bonne après-midi 🌤️', 'Bonsoir 🌆', 'Bonne nuit 🌙'),
+      greeting: pickGreeting('fr'),
       routeLabel: (from: string, to: string) => `De ${from} vers ${to}`,
       historyRoute: (from: string, to: string) => `De ${from} vers ${to}`,
       tagline: 'Voyagez en toute confiance',
@@ -207,7 +263,7 @@ export default function Home({
       promoValidity: "Valable jusqu'au 30 août 2026",
     },
     en: {
-      greeting: getGreeting('Good morning ☀️', 'Good afternoon 🌤️', 'Good evening 🌆', 'Good night 🌙'),
+      greeting: pickGreeting('en'),
       routeLabel: (from: string, to: string) => `From ${from} to ${to}`,
       historyRoute: (from: string, to: string) => `From ${from} to ${to}`,
       tagline: 'Travel with confidence',
@@ -469,7 +525,7 @@ export default function Home({
         >
           {item.longName}
         </Text>
-        {item.rating !== undefined && (
+        {!!item.rating && (
           <View style={styles.ratingRow}>
             <Ionicons name="star" size={11} color="#f59e0b" />
             <Text style={[styles.ratingText, { color: theme.text }]}>
@@ -492,6 +548,7 @@ export default function Home({
           { backgroundColor: theme.background, borderColor: theme.border },
         ]}
         activeOpacity={0.85}
+        onPress={() => navigation.navigate('StationDetail', { stationId: item.idGareRoutiere })}
       >
         <View
           style={[
@@ -531,16 +588,18 @@ export default function Home({
               />
             ))}
           </View>
-          <View
-            style={[
-              styles.gareBadge,
-              { backgroundColor: `${colors.primary}15` },
-            ]}
-          >
-            <Text style={[styles.gareBadgeText, { color: colors.primary }]}>
-              {t.agenciesCount(item.nbreAgence ?? 0)}
-            </Text>
-          </View>
+          {item.nbreAgence != null && item.nbreAgence > 0 && (
+            <View
+              style={[
+                styles.gareBadge,
+                { backgroundColor: `${colors.primary}15` },
+              ]}
+            >
+              <Text style={[styles.gareBadgeText, { color: colors.primary }]}>
+                {t.agenciesCount(item.nbreAgence)}
+              </Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -580,11 +639,11 @@ export default function Home({
             },
           ]}
         >
-          {/* Greeting */}
+          {/* Avatar + Name */}
           <View style={styles.headerLeft}>
-            <Text style={[styles.greetingText, { color: theme.text }]}>
-              {t.greeting}
-            </Text>
+            <View style={[styles.headerAvatar, { backgroundColor: theme.backgroundAlt }]}>
+              <AvatarPlaceholder width="100%" height="100%" />
+            </View>
             <Text
               style={[styles.userName, { color: theme.textStrong }]}
               numberOfLines={1}
@@ -615,6 +674,13 @@ export default function Home({
               />
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* ── Greeting ── */}
+        <View style={styles.greetingBanner}>
+          <Text style={[styles.greetingBannerText, { color: theme.textStrong }]}>
+            {t.greeting}
+          </Text>
         </View>
 
         {/* ── Search Card ── */}
@@ -974,14 +1040,48 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    marginBottom: spacing.md,
   },
   headerLeft: {
     flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  headerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
   },
   greetingText: {
     ...typography.body,
     fontSize: typography.sizes.xs,
+  },
+  greetingBanner: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    alignItems: 'center',
+  },
+  greetingBannerText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  greetingTagline: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+  },
+  greetingLabel: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    marginBottom: 2,
+  },
+  greetingName: {
+    ...typography.heading,
+    fontSize: 28,
+    letterSpacing: 0.3,
   },
   userName: {
     ...typography.bodyBold,

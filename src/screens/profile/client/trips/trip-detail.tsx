@@ -133,11 +133,11 @@ function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
   );
 }
 
-function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString('fr-FR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+function formatTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}`;
 }
 
 function parseDuration(raw: string | number): number {
@@ -1082,152 +1082,10 @@ export default function TripDetailScreen() {
           onClose={() => setShowPaymentModal(false)}
           onSuccess={resId => {
             setReservationId(resId);
-            setShowPaymentModal(false);
-            setReservationSuccess(true);
           }}
         />
       )}
 
-      {/* Success Screen */}
-      {reservationSuccess && (
-        <View
-          style={[styles.successOverlay, { backgroundColor: theme.background }]}
-        >
-          <View style={styles.successContent}>
-            <View
-              style={[
-                styles.successIcon,
-                { backgroundColor: `${colors.success}15` },
-              ]}
-            >
-              <Ionicons
-                name="checkmark-circle"
-                size={72}
-                color={colors.success}
-              />
-            </View>
-            <Text style={[styles.successTitle, { color: colors.success }]}>
-              {lang === 'fr' ? 'Réservation réussie !' : 'Booking successful!'}
-            </Text>
-            <Text style={[styles.successSubtitle, { color: theme.text }]}>
-              {lang === 'fr'
-                ? 'Votre voyage a été réservé avec succès. Un email de confirmation vous a été envoyé.'
-                : 'Your trip has been booked successfully. A confirmation email has been sent.'}
-            </Text>
-
-            {/* Recap */}
-            <View
-              style={[
-                styles.successRecap,
-                {
-                  backgroundColor: theme.backgroundAlt,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
-              <View style={styles.successRecapRow}>
-                <Text style={[styles.successRecapLabel, { color: theme.text }]}>
-                  {lang === 'fr' ? 'N° de réservation' : 'Booking N°'}
-                </Text>
-                <Text
-                  style={[
-                    styles.successRecapValue,
-                    { color: theme.textStrong },
-                  ]}
-                >
-                  {reservationId}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.successRecapRow,
-                  { borderTopColor: theme.border },
-                ]}
-              >
-                <Text style={[styles.successRecapLabel, { color: theme.text }]}>
-                  {lang === 'fr' ? 'Date' : 'Date'}
-                </Text>
-                <Text
-                  style={[
-                    styles.successRecapValue,
-                    { color: theme.textStrong },
-                  ]}
-                >
-                  {new Date(trip?.dateDepartPrev || '').toLocaleDateString(
-                    lang === 'fr' ? 'fr-FR' : 'en-GB',
-                    { day: 'numeric', month: 'long', year: 'numeric' },
-                  )}{' '}
-                  · {trip?.heureDepartEffectif}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.successRecapRow,
-                  { borderTopColor: theme.border },
-                ]}
-              >
-                <Text style={[styles.successRecapLabel, { color: theme.text }]}>
-                  {lang === 'fr' ? 'Itinéraire' : 'Itinerary'}
-                </Text>
-                <Text
-                  style={[
-                    styles.successRecapValue,
-                    { color: theme.textStrong },
-                  ]}
-                >
-                  {lang === 'fr'
-                    ? `De ${trip?.lieuDepart} vers ${trip?.lieuArrive}`
-                    : `From ${trip?.lieuDepart} to ${trip?.lieuArrive}`}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.successRecapRow,
-                  { borderTopColor: theme.border },
-                ]}
-              >
-                <Text style={[styles.successRecapLabel, { color: theme.text }]}>
-                  {lang === 'fr' ? 'Sièges' : 'Seats'}
-                </Text>
-                <Text
-                  style={[
-                    styles.successRecapValue,
-                    { color: theme.textStrong },
-                  ]}
-                >
-                  {selectedSeats.join(', ')}
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.successBtn, { backgroundColor: colors.primary }]}
-              onPress={() => navigation.navigate('Réservations' as any)}
-            >
-              <Text style={styles.successBtnText}>
-                {lang === 'fr' ? 'Voir mes réservations' : 'View my bookings'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.successBtnOutline,
-                { borderColor: colors.primary },
-              ]}
-              onPress={() => navigation.navigate('ClientMain')}
-            >
-              <Text
-                style={[
-                  styles.successBtnOutlineText,
-                  { color: colors.primary },
-                ]}
-              >
-                {lang === 'fr' ? "Retour à l'accueil" : 'Back to home'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
     </>
   );
 }

@@ -5,6 +5,7 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
   useColorScheme,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -13,12 +14,15 @@ import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 
+type Detail = { label: string; value: string };
+
 type Props = {
   title?: string;
   message: string;
   buttonText: string;
   navigateTo?: string;
   onPress?: () => void;
+  details?: Detail[];
 };
 
 export default function Success({
@@ -27,6 +31,7 @@ export default function Success({
   buttonText,
   navigateTo,
   onPress,
+  details,
 }: Props) {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const isDark = useColorScheme() === 'dark';
@@ -34,32 +39,54 @@ export default function Success({
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Image */}
-      <View style={styles.imageContainer}>
-        <Image
-          source={require('../assets/images/success.png')}
-          style={styles.image}
-          resizeMode="contain"
-        />
-      </View>
-
-      {/* Content */}
-      <View style={styles.content}>
-        {title && (
-          <Text style={[styles.title, { color: theme.textStrong }]}>
-            {title}
-          </Text>
-        )}
-        <Text style={[styles.message, { color: theme.text }]}>{message}</Text>
-      </View>
-
-      {/* Button */}
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: colors.primary }]}
-        onPress={onPress ?? (() => navigation.navigate(navigateTo!))}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        <Text style={styles.buttonText}>{buttonText}</Text>
-      </TouchableOpacity>
+        {/* Image */}
+        <View style={styles.imageContainer}>
+          <Image
+            source={require('../assets/images/success.png')}
+            style={styles.image}
+            resizeMode="contain"
+          />
+        </View>
+
+        {/* Content */}
+        <View style={styles.content}>
+          {title && (
+            <Text style={[styles.title, { color: theme.textStrong }]}>
+              {title}
+            </Text>
+          )}
+          <Text style={[styles.message, { color: theme.text }]}>{message}</Text>
+        </View>
+
+        {/* Details */}
+        {details && details.length > 0 && (
+          <View style={[styles.detailsCard, { borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}>
+            {details.map((d, i) => (
+              <View
+                key={i}
+                style={[styles.detailRow, i > 0 && { borderTopWidth: 1, borderTopColor: theme.border }]}
+              >
+                <Text style={[styles.detailLabel, { color: theme.text }]}>{d.label}</Text>
+                <Text style={[styles.detailValue, { color: theme.textStrong }]} numberOfLines={2}>{d.value}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Button — fixed at bottom */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: colors.primary }]}
+          onPress={onPress ?? (() => navigation.navigate(navigateTo!))}
+        >
+          <Text style={styles.buttonText}>{buttonText}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -67,9 +94,16 @@ export default function Success({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+  },
+  footer: {
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
+    paddingTop: spacing.sm,
   },
   imageContainer: {
     alignItems: 'center',
@@ -94,6 +128,31 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.md,
     lineHeight: 24,
     textAlign: 'center',
+  },
+  detailsCard: {
+    borderWidth: 1,
+    borderRadius: 4,
+    marginBottom: spacing.lg,
+    overflow: 'hidden',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.md,
+  },
+  detailLabel: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    flexShrink: 0,
+  },
+  detailValue: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+    textAlign: 'right',
+    flex: 1,
   },
   button: {
     borderRadius: 4,

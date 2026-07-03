@@ -1,21 +1,15 @@
-import { Platform } from 'react-native';
-
 export const typography = {
   heading: {
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-    fontWeight: '700' as const,
+    fontFamily: 'Poppins-Bold',
   },
   body: {
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-    fontWeight: '400' as const,
+    fontFamily: 'Poppins-Regular',
   },
   bodyBold: {
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-    fontWeight: '600' as const,
+    fontFamily: 'Poppins-SemiBold',
   },
   caption: {
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-    fontWeight: '400' as const,
+    fontFamily: 'Poppins-Light',
   },
   sizes: {
     xs: 11,
