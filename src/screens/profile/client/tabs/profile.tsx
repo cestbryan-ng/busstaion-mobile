@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   useColorScheme,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,7 +18,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
-import { API_URL } from '../../../../utils/config';
+import { API_URL, SUPPORT_URL, CGU_URL } from '../../../../utils/config';
 import { logout } from '../../../../utils/logout';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonProfileScreen } from '../../../../components/skeleton';
@@ -328,13 +329,13 @@ export default function Profile({ setDrawerOpen }: { setDrawerOpen: (open: boole
             icon="help-circle-outline"
             label={t.helpCenter}
             desc={t.helpCenterDesc}
-            onPress={() => {}}
+            onPress={() => Linking.openURL(SUPPORT_URL)}
           />
           <MenuItem
             icon="document-text-outline"
             label={t.terms}
             desc={t.termsDesc}
-            onPress={() => {}}
+            onPress={() => Linking.openURL(CGU_URL)}
           />
         </View>
 

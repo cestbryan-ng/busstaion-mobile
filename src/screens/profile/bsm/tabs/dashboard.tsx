@@ -20,15 +20,28 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonDashboard } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
+import AvatarPlaceholder from '../../../../assets/placeholders/avatar-2.svg';
+import StationPlaceholder from '../../../../assets/placeholders/building.svg';
+import AgencyPlaceholder from '../../../../assets/placeholders/shape.svg';
+
+type User = {
+  first_name: string;
+  last_name: string;
+  userId?: string;
+  id?: string;
+};
 
 type Station = {
   idGareRoutiere: string;
   nomGareRoutiere: string;
   ville: string;
   quartier?: string;
+  adresse?: string;
   photoUrl?: string;
   horaires?: string;
-  nbreAgence: number;
+  services?: string[];
+  nbreAgence: number | null;
 };
 
 type Agency = {
@@ -55,6 +68,76 @@ type BsmDashboardProps = {
   setDrawerOpen: (open: boolean) => void;
   lang: 'fr' | 'en';
   setLang: (lang: 'fr' | 'en') => void;
+};
+
+const SERVICE_ICONS: Record<string, string> = {
+  WIFI: 'wifi-outline',
+  PARKING: 'car-outline',
+  RESTAURATION: 'restaurant-outline',
+  SALLE_ATTENTE: 'people-outline',
+  TOILETTES: 'water-outline',
+  SECURITE: 'shield-checkmark-outline',
+  CLIMATISATION: 'snow-outline',
+  CONSIGNE: 'lock-closed-outline',
+  MOBILE_MONEY: 'phone-portrait-outline',
+  BILLETTERIE_ELECTRONIQUE: 'card-outline',
+  INFIRMERIE: 'medkit-outline',
+  BOUTIQUES: 'bag-outline',
+};
+
+const GREETINGS = {
+  fr: {
+    morning: [
+      'Bonjour ! Bonne journée de gestion ☀️',
+      'Bonjour ! La gare vous attend ☀️',
+      'Bonjour ! Prêt à gérer votre gare ? ☀️',
+      'Bon matin ! Tout est sous contrôle ☀️',
+    ],
+    afternoon: [
+      "Bonne après-midi ! Comment avance la gare ? 🌤️",
+      "Bonne après-midi ! Gardez l'œil sur les voyages 🌤️",
+      "Bonne après-midi ! Les agences comptent sur vous 🌤️",
+      "Bonne après-midi ! Excellent travail jusqu'ici 🌤️",
+    ],
+    evening: [
+      'Bonsoir ! Une bonne journée de gestion ? 🌙',
+      'Bonsoir ! La gare tourne bien ce soir 🌙',
+      'Bonsoir ! Encore quelques voyages à surveiller 🌙',
+      'Bonsoir ! Merci pour votre travail 🌙',
+    ],
+    night: [
+      'Bonne nuit ! Reposez-vous bien 🌙',
+      'Bonne nuit ! La gare sera là demain 🌙',
+      'Bonne nuit ! Préparez-vous pour demain 🌙',
+      'Bonne nuit ! Excellent travail aujourd\'hui 🌙',
+    ],
+  },
+  en: {
+    morning: [
+      'Good morning! Have a great day managing your station ☀️',
+      'Good morning! The station is waiting for you ☀️',
+      'Good morning! Ready to manage your station? ☀️',
+      'Good morning! Everything is under control ☀️',
+    ],
+    afternoon: [
+      'Good afternoon! How is the station doing? 🌤️',
+      'Good afternoon! Keep an eye on the trips 🌤️',
+      'Good afternoon! Agencies are counting on you 🌤️',
+      'Good afternoon! Excellent work so far 🌤️',
+    ],
+    evening: [
+      'Good evening! A good day of management? 🌙',
+      'Good evening! The station is running well tonight 🌙',
+      'Good evening! A few more trips to monitor 🌙',
+      'Good evening! Thank you for your work 🌙',
+    ],
+    night: [
+      'Good night! Rest well 🌙',
+      'Good night! The station will be there tomorrow 🌙',
+      'Good night! Get ready for tomorrow 🌙',
+      'Good night! Excellent work today 🌙',
+    ],
+  },
 };
 
 const TAX_STATUS_CONFIG: Record<
@@ -92,6 +175,7 @@ export default function BsmDashboard({
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
+  const [user, setUser] = useState<User | null>(null);
   const [station, setStation] = useState<Station | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
@@ -99,6 +183,17 @@ export default function BsmDashboard({
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const hour = new Date().getHours();
+  const [greetingIndex] = useState(() => Math.floor(Math.random() * 4));
+  const greeting = (() => {
+    const set = GREETINGS[lang];
+    const idx = greetingIndex;
+    if (hour >= 5 && hour < 12) return set.morning[idx];
+    if (hour >= 12 && hour < 18) return set.afternoon[idx];
+    if (hour >= 18 && hour < 22) return set.evening[idx];
+    return set.night[idx];
+  })();
 
   const t = {
     fr: {
@@ -118,6 +213,8 @@ export default function BsmDashboard({
       seeAll: 'Voir tout',
       recentTrips: 'Voyages récents',
       seats: 'places restantes',
+      noAgencies: 'Aucune agence affiliée',
+      noTrips: 'Aucun voyage récent',
     },
     en: {
       title: 'Home',
@@ -136,6 +233,8 @@ export default function BsmDashboard({
       seeAll: 'See all',
       recentTrips: 'Recent trips',
       seats: 'seats left',
+      noAgencies: 'No affiliated agencies',
+      noTrips: 'No recent trips',
     },
   }[lang];
 
@@ -148,8 +247,9 @@ export default function BsmDashboard({
       ]);
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-      const user = userRaw ? JSON.parse(userRaw) : null;
-      const managerId = user?.userId || user?.id;
+      const parsed = userRaw ? JSON.parse(userRaw) : null;
+      if (parsed) setUser(parsed);
+      const managerId = parsed?.userId || parsed?.id;
       if (!managerId) return;
 
       const headers = { Authorization: `Bearer ${token}` };
@@ -174,7 +274,6 @@ export default function BsmDashboard({
         setAgencies(agenciesList);
       }
 
-      // Load trips from first few agencies
       const tripPromises = agenciesList
         .slice(0, 5)
         .map(a =>
@@ -285,8 +384,11 @@ export default function BsmDashboard({
         ]}
       >
         <View style={styles.headerLeft}>
-          <Text style={[styles.title, { color: theme.textStrong }]}>
-            {t.title}
+          <View style={[styles.headerAvatar, { backgroundColor: theme.backgroundAlt }]}>
+            <AvatarPlaceholder width="100%" height="100%" />
+          </View>
+          <Text style={[styles.userName, { color: theme.textStrong }]} numberOfLines={1}>
+            {user ? user.first_name : '---'}
           </Text>
         </View>
 
@@ -299,23 +401,8 @@ export default function BsmDashboard({
         </View>
 
         <View style={styles.headerRight}>
-          <TouchableOpacity onPress={() => setDrawerOpen(true)}>
-            <View
-              style={[
-                styles.avatarBtn,
-                { backgroundColor: theme.backgroundAlt },
-              ]}
-            >
-              {station?.photoUrl ? (
-                <Image
-                  source={{ uri: station.photoUrl }}
-                  style={styles.avatarImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Ionicons name="person-outline" size={18} color={theme.text} />
-              )}
-            </View>
+          <TouchableOpacity onPress={() => setDrawerOpen(true)} style={styles.hamburgerBtn}>
+            <Ionicons name="menu-outline" size={26} color={theme.textStrong} />
           </TouchableOpacity>
         </View>
       </View>
@@ -331,6 +418,13 @@ export default function BsmDashboard({
           />
         }
       >
+        {/* Greeting */}
+        <View style={styles.greetingBanner}>
+          <Text style={[styles.greetingBannerText, { color: theme.textStrong }]}>
+            {greeting}
+          </Text>
+        </View>
+
         {/* Station card */}
         <TouchableOpacity
           style={[
@@ -353,7 +447,7 @@ export default function BsmDashboard({
                 resizeMode="cover"
               />
             ) : (
-              <Ionicons name="business-outline" size={36} color={theme.text} />
+              <StationPlaceholder width="100%" height="100%" />
             )}
           </View>
           <View style={styles.stationInfo}>
@@ -389,6 +483,19 @@ export default function BsmDashboard({
                 </View>
               )}
             </View>
+            {station?.services && station.services.length > 0 && (
+              <View style={styles.stationServicesRow}>
+                {station.services.slice(0, 5).map(s => (
+                  <Ionicons
+                    key={s}
+                    name={SERVICE_ICONS[s] || 'ellipse-outline'}
+                    size={13}
+                    color={theme.text}
+                    style={{ marginRight: 4 }}
+                  />
+                ))}
+              </View>
+            )}
           </View>
           <Ionicons name="chevron-forward" size={18} color={theme.text} />
         </TouchableOpacity>
@@ -413,7 +520,6 @@ export default function BsmDashboard({
               iconColor="#d97706"
               value={String(tripsThisMonth)}
               label={t.tripsThisMonth}
-              growth="+12%"
             />
             <KPICard
               icon="document-text-outline"
@@ -421,15 +527,14 @@ export default function BsmDashboard({
               iconColor={colors.error}
               value={String(overdueTaxes)}
               label={t.overdueTaxes}
-              sublabel={t.toRegularize}
+              sublabel={overdueTaxes > 0 ? t.toRegularize : undefined}
             />
             <KPICard
               icon="pie-chart-outline"
               iconBg={`${colors.success}15`}
               iconColor={colors.success}
-              value={`${occupationRate || 87}%`}
+              value={occupationRate > 0 ? `${occupationRate}%` : '—'}
               label={t.occupationRate}
-              growth="+8%"
             />
           </View>
         </View>
@@ -445,13 +550,16 @@ export default function BsmDashboard({
             <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
               {t.affiliatedAgenciesSection}
             </Text>
-            <TouchableOpacity>
-              <Text style={[styles.seeAll, { color: colors.error }]}>
+            <TouchableOpacity onPress={() => navigation.navigate('agencies' as any)}>
+              <Text style={[styles.seeAll, { color: colors.primary }]}>
                 {t.seeAll}
               </Text>
             </TouchableOpacity>
           </View>
 
+          {agencies.length === 0 && (
+            <EmptyState type="result" message={t.noAgencies} textColor={theme.text} />
+          )}
           {agencies.slice(0, 3).map((agency, i) => {
             const statusCfg =
               TAX_STATUS_CONFIG[agency.taxStatus || 'payé'] ||
@@ -467,18 +575,14 @@ export default function BsmDashboard({
                     { backgroundColor: theme.backgroundAlt },
                   ]}
                 >
-                  {agency.logoUrl ? (
+                  {agency.logoUrl && !agency.logoUrl.toLowerCase().includes('placeholder') ? (
                     <Image
                       source={{ uri: agency.logoUrl }}
                       style={styles.agencyLogoImage}
                       resizeMode="contain"
                     />
                   ) : (
-                    <Text
-                      style={[styles.agencyLogoText, { color: colors.primary }]}
-                    >
-                      {agency.longName.slice(0, 2).toUpperCase()}
-                    </Text>
+                    <AgencyPlaceholder width={40} height={40} />
                   )}
                 </View>
                 <View style={styles.agencyInfo}>
@@ -527,13 +631,16 @@ export default function BsmDashboard({
             <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
               {t.recentTrips}
             </Text>
-            <TouchableOpacity>
-              <Text style={[styles.seeAll, { color: colors.error }]}>
+            <TouchableOpacity onPress={() => navigation.navigate('agencies' as any)}>
+              <Text style={[styles.seeAll, { color: colors.primary }]}>
                 {t.seeAll}
               </Text>
             </TouchableOpacity>
           </View>
 
+          {trips.length === 0 && (
+            <EmptyState type="result" message={t.noTrips} textColor={theme.text} />
+          )}
           {trips.slice(0, 3).map(trip => (
             <View
               key={trip.idVoyage}
@@ -586,26 +693,43 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
-  headerLeft: { flex: 1 },
-  title: { ...typography.heading, fontSize: typography.sizes.lg },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  headerLogo: { width: 110, height: 40 },
-  headerRight: { flex: 1, alignItems: 'flex-end' },
-  avatarBtn: {
+  headerLeft: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  headerAvatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
     overflow: 'hidden',
   },
-  avatarImage: { width: '100%', height: '100%' },
+  userName: { ...typography.bodyBold, fontSize: typography.sizes.sm },
+  headerCenter: { flex: 2, alignItems: 'center', justifyContent: 'center' },
+  headerLogo: { width: 120, height: 48 },
+  headerRight: { flex: 1, alignItems: 'flex-end' },
+  hamburgerBtn: { padding: spacing.xs },
+  greetingBanner: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    alignItems: 'center',
+  },
+  greetingBannerText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
 
   stationCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    margin: spacing.lg,
+    marginLeft: spacing.lg,
+    marginRight: spacing.lg,
+    marginBottom: spacing.lg,
+    marginTop: spacing.sm,
     borderWidth: 1,
     borderRadius: 4,
     padding: spacing.md,
@@ -640,6 +764,11 @@ const styles = StyleSheet.create({
   },
   openBadgeText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
   hoursRow: { flexDirection: 'row', alignItems: 'center' },
+  stationServicesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
   hoursText: { ...typography.body, fontSize: typography.sizes.xs },
 
   section: { paddingHorizontal: spacing.lg, marginBottom: spacing.md },
@@ -704,7 +833,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   agencyLogoImage: { width: '100%', height: '100%' },
-  agencyLogoText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   agencyInfo: { flex: 1 },
   agencyName: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   ratingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },

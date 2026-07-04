@@ -20,6 +20,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonClientDashboard } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
 import TripPlaceholder from '../../../../assets/placeholders/product.svg';
 
 type User = {
@@ -95,6 +96,7 @@ export default function Dashboard() {
       recentReservations: 'Réservations récentes',
       recentCancellations: 'Annulations récentes',
       seeAll: 'Voir tout',
+      noReservations: 'Aucune réservation récente',
       completed: 'TERMINÉ',
       cancelled: 'ANNULÉ',
       pending: 'EN ATTENTE',
@@ -111,6 +113,7 @@ export default function Dashboard() {
       recentReservations: 'Recent reservations',
       recentCancellations: 'Recent cancellations',
       seeAll: 'See all',
+      noReservations: 'No recent reservations',
       completed: 'COMPLETED',
       cancelled: 'CANCELLED',
       pending: 'PENDING',
@@ -445,9 +448,12 @@ export default function Dashboard() {
               </Text>
             </TouchableOpacity>
           </View>
-          {recentCompleted.map(item => (
-            <HistoriqueCard key={item.idHistorique} item={item} />
-          ))}
+          {recentCompleted.length === 0
+            ? <EmptyState type="result" message={t.noReservations} textColor={theme.text} />
+            : recentCompleted.map(item => (
+                <HistoriqueCard key={item.idHistorique} item={item} />
+              ))
+          }
         </View>
 
         {/* Recent Cancellations */}

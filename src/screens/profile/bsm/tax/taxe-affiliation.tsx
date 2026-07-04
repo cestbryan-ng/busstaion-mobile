@@ -26,6 +26,7 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
+import { DatePickerModal, formatDateDisplay } from '../../../../components/date-picker-modal';
 
 type TaxeAffiliation = {
   idTaxe: string;
@@ -46,6 +47,13 @@ type ModalForm = {
   tauxTaxe: string;
   dateEffet: string;
 };
+
+function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
+  return new Date(dateStr).toLocaleDateString(
+    lang === 'fr' ? 'fr-FR' : 'en-GB',
+    { day: 'numeric', month: 'short', year: 'numeric' },
+  );
+}
 
 function formatAmount(item: TaxeAffiliation): string {
   if (item.montantFixe) return item.montantFixe.toLocaleString('fr-FR') + ' FCFA';
@@ -74,6 +82,7 @@ export default function TaxeAffiliationBsm() {
   const [deleteTarget, setDeleteTarget] = useState<TaxeAffiliation | null>(
     null,
   );
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [form, setForm] = useState<ModalForm>({
     nomTaxe: '',
     description: '',
@@ -103,8 +112,8 @@ export default function TaxeAffiliationBsm() {
       taux: 'Taux (%)',
       montantFixePh: 'Ex : 5000',
       tauxPh: 'Ex : 5.0',
-      dateEffet: "Date d'effet (AAAA-MM-JJ)",
-      datePh: 'Ex : 2025-01-01',
+      dateEffet: "Date d'effet",
+      datePh: 'Sélectionner une date',
       save: 'Enregistrer',
       required: 'Le nom est requis',
       error: 'Une erreur est survenue',
@@ -130,8 +139,8 @@ export default function TaxeAffiliationBsm() {
       taux: 'Rate (%)',
       montantFixePh: 'E.g. 5000',
       tauxPh: 'E.g. 5.0',
-      dateEffet: 'Effective date (YYYY-MM-DD)',
-      datePh: 'E.g. 2025-01-01',
+      dateEffet: 'Effective date',
+      datePh: 'Select a date',
       save: 'Save',
       required: 'Name is required',
       error: 'An error occurred',
@@ -299,14 +308,9 @@ export default function TaxeAffiliationBsm() {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
         </TouchableOpacity>
-        <View style={styles.headerText}>
-          <Text style={[styles.headerTitle, { color: theme.textStrong }]}>
-            {t.title}
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: theme.text }]}>
-            {t.subtitle}
-          </Text>
-        </View>
+        <Text style={[styles.headerTitle, { color: theme.textStrong }]}>
+          {t.title}
+        </Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -337,7 +341,7 @@ export default function TaxeAffiliationBsm() {
                   ]}
                 >
                   <Ionicons
-                    name="people-outline"
+                    name="document-text-outline"
                     size={22}
                     color={colors.primary}
                   />
@@ -357,7 +361,7 @@ export default function TaxeAffiliationBsm() {
                     </Text>
                     {item.dateEffet && (
                       <Text style={[styles.typeBadgeText, { color: theme.text }]}>
-                        {item.dateEffet}
+                        {lang === 'fr' ? 'Dès le' : 'From'} {formatDate(item.dateEffet, lang)}
                       </Text>
                     )}
                   </View>
@@ -552,20 +556,20 @@ export default function TaxeAffiliationBsm() {
             <Text style={[styles.label, { color: theme.text, marginTop: spacing.md }]}>
               {t.dateEffet}
             </Text>
-            <TextInput
+            <TouchableOpacity
               style={[
                 styles.input,
-                {
-                  borderColor: theme.border,
-                  color: theme.textStrong,
-                  backgroundColor: theme.backgroundAlt,
-                },
+                styles.dateRow,
+                { borderColor: theme.border, backgroundColor: theme.backgroundAlt },
               ]}
-              placeholder={t.datePh}
-              placeholderTextColor={theme.text}
-              value={form.dateEffet}
-              onChangeText={v => setForm(f => ({ ...f, dateEffet: v }))}
-            />
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.dateText, { color: form.dateEffet ? theme.textStrong : theme.text }]}>
+                {form.dateEffet ? formatDateDisplay(form.dateEffet, lang) : t.datePh}
+              </Text>
+              <Ionicons name="calendar-outline" size={18} color={theme.text} />
+            </TouchableOpacity>
 
             {/* Actions */}
             <View style={styles.modalActions}>
@@ -596,6 +600,14 @@ export default function TaxeAffiliationBsm() {
         </KeyboardAvoidingView>
       </Modal>
 
+      <DatePickerModal
+        visible={showDatePicker}
+        lang={lang}
+        selectedDate={form.dateEffet || null}
+        onApply={d => { setForm(f => ({ ...f, dateEffet: d ?? '' })); setShowDatePicker(false); }}
+        onClose={() => setShowDatePicker(false)}
+      />
+
       <ConfirmModal
         visible={!!deleteTarget}
         title={t.confirmDelete}
@@ -615,19 +627,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
-  headerText: { flex: 1 },
   headerTitle: { ...typography.heading, fontSize: typography.sizes.lg },
-  headerSubtitle: {
-    ...typography.body,
-    fontSize: typography.sizes.xs,
-    marginTop: 1,
-  },
 
   list: { padding: spacing.lg },
   empty: {
@@ -743,6 +749,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   toggleText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
+  dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dateText: { ...typography.body, fontSize: typography.sizes.sm },
   modalActions: {
     flexDirection: 'row',
     gap: spacing.sm,

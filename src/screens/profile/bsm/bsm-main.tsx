@@ -78,6 +78,12 @@ export default function BsmMain() {
             );
           },
         })}
+        screenListeners={{
+          focus: async () => {
+            const storedLang = await AsyncStorage.getItem('app_lang');
+            if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang as 'fr' | 'en');
+          },
+        }}
       >
         <Tab.Screen
           name="home"
@@ -104,9 +110,10 @@ export default function BsmMain() {
         />
         <Tab.Screen
           name="profile"
-          component={BsmProfil}
           options={{ tabBarLabel: TAB_LABELS[lang].profile }}
-        />
+        >
+          {() => <BsmProfil setDrawerOpen={setDrawerOpen} setLang={handleLangChange} />}
+        </Tab.Screen>
       </Tab.Navigator>
 
       <DrawerMenu

@@ -76,6 +76,12 @@ export default function OrgHome() {
             );
           },
         })}
+        screenListeners={{
+          focus: async () => {
+            const storedLang = await AsyncStorage.getItem('app_lang');
+            if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang as 'fr' | 'en');
+          },
+        }}
       >
         <Tab.Screen
           name="home"
@@ -97,9 +103,10 @@ export default function OrgHome() {
         />
         <Tab.Screen
           name="profile"
-          component={OrgProfil}
           options={{ tabBarLabel: TAB_LABELS[lang].profile }}
-        />
+        >
+          {() => <OrgProfil setLang={handleLangChange} />}
+        </Tab.Screen>
       </Tab.Navigator>
 
       <DrawerMenu

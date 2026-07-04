@@ -294,7 +294,6 @@ export default function Historique() {
       if (!res.ok) return;
 
       const data = await res.json();
-      console.log('Fetched historique data:', data);
       const rawList: HistoriqueRaw[] = data;
 
       const resListRes = await fetch(

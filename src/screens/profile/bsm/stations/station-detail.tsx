@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   useColorScheme,
   Share,
   Linking,
@@ -22,6 +21,8 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonStationDetail } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
+import BannerPlaceholder from '../../../../assets/placeholders/building.svg';
 
 type Station = {
   idGareRoutiere: string;
@@ -30,10 +31,12 @@ type Station = {
   quartier?: string;
   adresse?: string;
   description?: string;
-  photoUrl?: string;
+  photoUrl?: string | null;
   services: string[];
-  horaires?: Record<string, string>;
-  nbreAgence: number;
+  horaires?: string | null;
+  nbreAgence: number | null;
+  nomPresident?: string | null;
+  localisation?: string | null;
 };
 
 const SERVICE_ICONS: Record<string, string> = {
@@ -64,35 +67,37 @@ export default function StationDetailBsm() {
   const [station, setStation] = useState<Station | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
 
   const t = {
     fr: {
       title: 'Détails de la gare',
       about: 'À propos',
       services: 'Services disponibles',
+      noServices: 'Aucun service renseigné',
       affiliatedAgencies: 'Agences affiliées',
-      operationalDocks: 'Quais opérationnels',
-      activeCounters: 'Guichets actifs',
-      parkingSpots: 'Places de parking',
-      occupationRate: "Taux d'occupation",
+      president: 'Président',
       open: 'Ouverte',
-      closed: 'Fermée',
+      errorTitle: 'Impossible de charger la gare',
+      errorSub: 'Vérifiez votre connexion et réessayez.',
+      retry: 'Réessayer',
     },
     en: {
       title: 'Station details',
       about: 'About',
       services: 'Available services',
+      noServices: 'No services listed',
       affiliatedAgencies: 'Affiliated agencies',
-      operationalDocks: 'Operational docks',
-      activeCounters: 'Active counters',
-      parkingSpots: 'Parking spots',
-      occupationRate: 'Occupancy rate',
+      president: 'President',
       open: 'Open',
-      closed: 'Closed',
+      errorTitle: 'Unable to load station',
+      errorSub: 'Check your connection and try again.',
+      retry: 'Retry',
     },
   }[lang];
 
   const loadData = useCallback(async () => {
+    setError(false);
     try {
       const [token, userRaw, storedLang] = await Promise.all([
         AsyncStorage.getItem('token'),
@@ -103,22 +108,22 @@ export default function StationDetailBsm() {
 
       const user = userRaw ? JSON.parse(userRaw) : null;
       const managerId = user?.userId || user?.id;
-      if (!managerId) return;
+      if (!managerId) { setError(true); return; }
 
       const headers = { Authorization: `Bearer ${token}` };
-      const managerRes = await fetch(`${API_URL}/gare/manager/${managerId}`, {
-        headers,
-      });
-      if (!managerRes.ok) return;
-      const stationBasic = await managerRes.json();
+      const managerRes = await fetch(`${API_URL}/gare/manager/${managerId}`, { headers });
+      if (!managerRes.ok) { setError(true); return; }
+      const stationBasic: Station = await managerRes.json();
 
-      const res = await fetch(`${API_URL}/gare/${stationBasic.idGareRoutiere}`, {
-        headers,
-      });
-      if (res.ok) setStation(await res.json());
-      else setStation(stationBasic);
+      const detailRes = await fetch(`${API_URL}/gare/${stationBasic.idGareRoutiere}`, { headers });
+      if (detailRes.ok) {
+        const detail: Station = await detailRes.json();
+        setStation(detail);
+      } else {
+        setStation(stationBasic);
+      }
     } catch {
-      // silent
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -138,7 +143,7 @@ export default function StationDetailBsm() {
       await Share.share({
         message: `🚌 ${station.nomGareRoutiere}\n📍 ${station.ville}${
           station.quartier ? `, ${station.quartier}` : ''
-        }\n🕐 ${station.horaires || ''}`,
+        }${station.horaires ? `\n🕐 ${station.horaires}` : ''}`,
         title: station.nomGareRoutiere,
       });
     } catch {
@@ -148,7 +153,36 @@ export default function StationDetailBsm() {
 
   if (loading) return <SkeletonStationDetail />;
 
-  if (!station) return null;
+  /* ── Error / empty state ── */
+  if (error || !station) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+        <View
+          style={[
+            styles.header,
+            { backgroundColor: theme.background, borderBottomColor: theme.border },
+          ]}
+        >
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.textStrong }]}>
+            {t.title}
+          </Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={styles.emptyState}>
+          <EmptyState type="result" message={t.errorTitle} textColor={theme.text} />
+          <TouchableOpacity
+            style={[styles.retryBtn, { backgroundColor: colors.primary }]}
+            onPress={() => { setLoading(true); loadData(); }}
+          >
+            <Text style={styles.retryText}>{t.retry}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -156,10 +190,7 @@ export default function StationDetailBsm() {
       <View
         style={[
           styles.header,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
+          { backgroundColor: theme.background, borderBottomColor: theme.border },
         ]}
       >
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -173,7 +204,16 @@ export default function StationDetailBsm() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
         {/* Banner */}
         <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
           {station.photoUrl ? (
@@ -186,14 +226,10 @@ export default function StationDetailBsm() {
             <View
               style={[
                 styles.bannerPlaceholder,
-                { backgroundColor: `${colors.primary}10` },
+                { backgroundColor: theme.backgroundAlt },
               ]}
             >
-              <Ionicons
-                name="business-outline"
-                size={56}
-                color={colors.primary}
-              />
+              <BannerPlaceholder width="100%" height="100%" />
             </View>
           )}
         </View>
@@ -208,41 +244,43 @@ export default function StationDetailBsm() {
           <Text style={[styles.stationName, { color: theme.textStrong }]}>
             {station.nomGareRoutiere}
           </Text>
+
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={14} color={theme.text} />
             <Text style={[styles.locationText, { color: theme.text }]}>
-              {' '}
-              {station.ville}
+              {' '}{station.ville}
               {station.quartier ? `, ${station.quartier}` : ''}
             </Text>
           </View>
+
+          {station.nomPresident && (
+            <View style={styles.locationRow}>
+              <Ionicons name="person-outline" size={14} color={theme.text} />
+              <Text style={[styles.locationText, { color: theme.text }]}>
+                {' '}{t.president} : {station.nomPresident}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.metaRow}>
-            <View
-              style={[
-                styles.openBadge,
-                { backgroundColor: `${colors.success}15` },
-              ]}
-            >
-              <Text
-                style={[styles.openBadgeText, { color: colors.success }]}
-              >
+            <View style={[styles.openBadge, { backgroundColor: `${colors.success}15` }]}>
+              <Text style={[styles.openBadgeText, { color: colors.success }]}>
                 {t.open}
               </Text>
             </View>
-            {station.horaires && Object.keys(station.horaires).length > 0 && (
+            {station.horaires ? (
               <View style={styles.hoursRow}>
                 <Ionicons name="time-outline" size={13} color={theme.text} />
                 <Text style={[styles.hoursText, { color: theme.text }]}>
-                  {' '}
-                  {Object.entries(station.horaires)[0]?.join(': ')}
+                  {' '}{station.horaires}
                 </Text>
               </View>
-            )}
+            ) : null}
           </View>
         </View>
 
         {/* About */}
-        {station.description && (
+        {station.description ? (
           <View
             style={[
               styles.section,
@@ -256,7 +294,7 @@ export default function StationDetailBsm() {
               {station.description}
             </Text>
           </View>
-        )}
+        ) : null}
 
         {/* Services */}
         <View
@@ -268,36 +306,38 @@ export default function StationDetailBsm() {
           <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
             {t.services}
           </Text>
-          <View style={styles.servicesGrid}>
-            {station.services.map(s => (
-              <View
-                key={s}
-                style={[
-                  styles.serviceItem,
-                  {
-                    backgroundColor: theme.backgroundAlt,
-                    borderColor: theme.border,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={SERVICE_ICONS[s] || 'ellipse-outline'}
-                  size={22}
-                  color={theme.textStrong}
-                />
-                <Text
-                  style={[styles.serviceLabel, { color: theme.textStrong }]}
+          {station.services.length === 0 ? (
+            <View style={styles.emptyServices}>
+              <Ionicons name="apps-outline" size={32} color={theme.border} />
+              <Text style={[styles.emptyServicesText, { color: theme.text }]}>
+                {t.noServices}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.servicesGrid}>
+              {station.services.map(s => (
+                <View
+                  key={s}
+                  style={[
+                    styles.serviceItem,
+                    { backgroundColor: theme.backgroundAlt, borderColor: theme.border },
+                  ]}
                 >
-                  {lang === 'fr'
-                    ? SERVICE_LABELS[s]?.fr
-                    : SERVICE_LABELS[s]?.en}
-                </Text>
-              </View>
-            ))}
-          </View>
+                  <Ionicons
+                    name={SERVICE_ICONS[s] || 'ellipse-outline'}
+                    size={22}
+                    color={theme.textStrong}
+                  />
+                  <Text style={[styles.serviceLabel, { color: theme.textStrong }]}>
+                    {lang === 'fr' ? SERVICE_LABELS[s]?.fr : SERVICE_LABELS[s]?.en}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
-        {/* Infrastructure stats */}
+        {/* Stats */}
         <View
           style={[
             styles.section,
@@ -308,35 +348,18 @@ export default function StationDetailBsm() {
             },
           ]}
         >
-          {[
-            { label: t.affiliatedAgencies, value: station.nbreAgence },
-            { label: t.operationalDocks, value: 12 },
-            { label: t.activeCounters, value: 8 },
-            { label: t.parkingSpots, value: 120 },
-            { label: t.occupationRate, value: '87%' },
-          ].map((row, i) => (
-            <View
-              key={row.label}
-              style={[
-                styles.statRow,
-                {
-                  borderTopColor: theme.border,
-                  borderTopWidth: i === 0 ? 0 : 1,
-                },
-              ]}
-            >
-              <Text style={[styles.statLabel, { color: theme.text }]}>
-                {row.label}
-              </Text>
-              <Text style={[styles.statValue, { color: theme.textStrong }]}>
-                {row.value}
-              </Text>
-            </View>
-          ))}
+          <View style={styles.statRow}>
+            <Text style={[styles.statLabel, { color: theme.text }]}>
+              {t.affiliatedAgencies}
+            </Text>
+            <Text style={[styles.statValue, { color: theme.textStrong }]}>
+              {station.nbreAgence ?? '—'}
+            </Text>
+          </View>
         </View>
 
         {/* Address */}
-        {station.adresse && (
+        {station.adresse ? (
           <TouchableOpacity
             style={[
               styles.addressRow,
@@ -350,11 +373,7 @@ export default function StationDetailBsm() {
               )
             }
           >
-            <Ionicons
-              name="location-outline"
-              size={18}
-              color={colors.primary}
-            />
+            <Ionicons name="location-outline" size={18} color={colors.primary} />
             <View style={styles.addressInfo}>
               <Text style={[styles.addressText, { color: theme.textStrong }]}>
                 {station.adresse}
@@ -365,7 +384,7 @@ export default function StationDetailBsm() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={theme.text} />
           </TouchableOpacity>
-        )}
+        ) : null}
 
         <View style={{ height: spacing.xl }} />
       </ScrollView>
@@ -375,7 +394,6 @@ export default function StationDetailBsm() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -395,7 +413,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
   infoSection: {
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
@@ -412,15 +429,11 @@ const styles = StyleSheet.create({
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   locationText: { ...typography.body, fontSize: typography.sizes.sm },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  openBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xs },
+  openBadge: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: 4 },
   openBadgeText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
   hoursRow: { flexDirection: 'row', alignItems: 'center' },
   hoursText: { ...typography.body, fontSize: typography.sizes.sm },
@@ -437,11 +450,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.md,
     marginBottom: spacing.sm,
   },
-  description: {
-    ...typography.body,
-    fontSize: typography.sizes.sm,
-    lineHeight: 22,
-  },
+  description: { ...typography.body, fontSize: typography.sizes.sm, lineHeight: 22 },
 
   servicesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   serviceItem: {
@@ -452,11 +461,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     gap: spacing.xs,
   },
-  serviceLabel: {
-    ...typography.body,
-    fontSize: typography.sizes.xs,
-    textAlign: 'center',
-  },
+  serviceLabel: { ...typography.body, fontSize: typography.sizes.xs, textAlign: 'center' },
+
+  emptyServices: { alignItems: 'center', paddingVertical: spacing.lg, gap: spacing.sm },
+  emptyServicesText: { ...typography.body, fontSize: typography.sizes.sm },
 
   statRow: {
     flexDirection: 'row',
@@ -479,4 +487,19 @@ const styles = StyleSheet.create({
   addressInfo: { flex: 1 },
   addressText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   addressCity: { ...typography.body, fontSize: typography.sizes.xs },
+
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    gap: spacing.md,
+  },
+  retryBtn: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    marginTop: spacing.sm,
+  },
+  retryText: { ...typography.bodyBold, fontSize: typography.sizes.md, color: '#fff' },
 });

@@ -49,7 +49,7 @@ const ROLE_COLORS: Record<string, { color: string; bg: string }> = {
   ADMIN: { color: '#dc2626', bg: '#fee2e2' },
 };
 
-export default function OrgProfil() {
+export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (lang: 'fr' | 'en') => void } = {}) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
   const navigation =
@@ -144,6 +144,7 @@ export default function OrgProfil() {
     const newLang = lang === 'fr' ? 'en' : 'fr';
     await AsyncStorage.setItem('app_lang', newLang);
     setLang(newLang);
+    notifyParentLang?.(newLang);
   };
 
   const fullName =

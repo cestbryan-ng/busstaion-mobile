@@ -31,6 +31,7 @@ import { SkeletonListScreen } from '../../../../components/skeleton';
 import { useToast } from '../../../../components/toast';
 import ConfirmModal from '../../../../components/confirm-modal';
 import { useDebounce } from '../../../../hooks/useDebounce';
+import AgencyPlaceholder from '../../../../assets/placeholders/shape.svg';
 
 type Agency = {
   id: string;
@@ -88,6 +89,8 @@ export default function BsmAgencies() {
   const debouncedSearch = useDebounce(search);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Affiliation | null>(null);
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIF' | 'SUSPENDU'>('ALL');
+  const [showFilter, setShowFilter] = useState(false);
 
   const t = {
     fr: {
@@ -151,7 +154,8 @@ export default function BsmAgencies() {
         headers,
       });
       if (!stationRes.ok) return;
-      const station = await stationRes.json();
+      const stationData = await stationRes.json();
+      const station = stationData;
 
       const [agenciesRes, affiliationsRes] = await Promise.all([
         fetch(`${API_URL}/gare/${station.idGareRoutiere}/agences`, { headers }),
@@ -264,6 +268,8 @@ export default function BsmAgencies() {
   const filtered = useMemo(
     () =>
       agencies.filter(a => {
+        if (filterStatus === 'ACTIF' && !a.isActive) return false;
+        if (filterStatus === 'SUSPENDU' && a.isActive) return false;
         if (!debouncedSearch.trim()) return true;
         const q = debouncedSearch.toLowerCase();
         return (
@@ -271,7 +277,7 @@ export default function BsmAgencies() {
           a.location?.toLowerCase().includes(q)
         );
       }),
-    [agencies, debouncedSearch],
+    [agencies, debouncedSearch, filterStatus],
   );
 
   const AffiliationCard = ({ aff }: { aff: Affiliation }) => {
@@ -300,9 +306,7 @@ export default function BsmAgencies() {
                 resizeMode="contain"
               />
             ) : (
-              <Text style={[styles.agencyLogoText, { color: '#d97706' }]}>
-                {agencyName.slice(0, 2).toUpperCase()}
-              </Text>
+              <AgencyPlaceholder width={40} height={40} />
             )}
           </View>
           <View style={styles.affiliationInfo}>
@@ -388,9 +392,7 @@ export default function BsmAgencies() {
               resizeMode="contain"
             />
           ) : (
-            <Text style={[styles.agencyLogoText, { color: colors.primary }]}>
-              {item.longName.slice(0, 2).toUpperCase()}
-            </Text>
+            <AgencyPlaceholder width={40} height={40} />
           )}
         </View>
 
@@ -454,19 +456,9 @@ export default function BsmAgencies() {
             },
           ]}
         >
-          <View>
-            <Text style={[styles.title, { color: theme.textStrong }]}>
-              {t.title}
-            </Text>
-            <Text style={[styles.subtitle, { color: theme.text }]}>
-              {t.subtitle}
-            </Text>
-          </View>
-          <View
-            style={[styles.avatarBtn, { backgroundColor: theme.backgroundAlt }]}
-          >
-            <Ionicons name="person-outline" size={18} color={theme.text} />
-          </View>
+          <Text style={[styles.title, { color: theme.textStrong }]}>
+            {t.title}
+          </Text>
         </View>
 
         <ScrollView
@@ -502,15 +494,59 @@ export default function BsmAgencies() {
               />
             </View>
             <TouchableOpacity
-              style={[styles.filterBtn, { borderColor: theme.border }]}
+              style={[
+                styles.filterBtn,
+                {
+                  borderColor: filterStatus !== 'ALL' ? colors.primary : theme.border,
+                  backgroundColor: filterStatus !== 'ALL' ? `${colors.primary}10` : 'transparent',
+                },
+              ]}
+              onPress={() => setShowFilter(v => !v)}
             >
               <Ionicons
                 name="options-outline"
                 size={20}
-                color={theme.textStrong}
+                color={filterStatus !== 'ALL' ? colors.primary : theme.textStrong}
               />
             </TouchableOpacity>
           </View>
+
+          {/* Filter chips */}
+          {showFilter && (
+            <View style={styles.filterChips}>
+              {(['ALL', 'ACTIF', 'SUSPENDU'] as const).map(status => {
+                const label =
+                  status === 'ALL'
+                    ? lang === 'fr' ? 'Tous' : 'All'
+                    : status === 'ACTIF'
+                    ? t.active
+                    : t.suspended;
+                const active = filterStatus === status;
+                return (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: active ? colors.primary : theme.background,
+                        borderColor: active ? colors.primary : theme.border,
+                      },
+                    ]}
+                    onPress={() => setFilterStatus(status)}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        { color: active ? '#fff' : theme.text },
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
 
           {/* Stats */}
           <View style={styles.statsRow}>
@@ -638,25 +674,15 @@ export default function BsmAgencies() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
   title: { ...typography.heading, fontSize: typography.sizes.xl },
-  subtitle: { ...typography.body, fontSize: typography.sizes.sm, marginTop: 2 },
-  avatarBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -794,7 +820,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   agencyLogoImage: { width: '100%', height: '100%' },
-  agencyLogoText: { ...typography.heading, fontSize: typography.sizes.md },
   agencyInfo: { flex: 1 },
   agencyTopRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   agencyName: {
@@ -816,10 +841,19 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  empty: {
+  filterChips: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.xxl,
-    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+    flexWrap: 'wrap',
   },
-  emptyText: { ...typography.body, fontSize: typography.sizes.md },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  chipText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
 });

@@ -462,8 +462,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   tab: {
-    borderWidth: 1.5,
-    borderRadius: 20,
+    borderWidth: 1,
+    borderRadius: 4,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },

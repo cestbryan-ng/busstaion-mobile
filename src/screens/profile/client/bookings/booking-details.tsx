@@ -547,8 +547,7 @@ export default function BookingDetails() {
       } else {
         toast.error(t.cancelError);
       }
-    } catch(error) {
-      console.log('Cancel error:', error);
+    } catch {
       toast.error(t.cancelError);
     } finally {
       setCancelling(false);

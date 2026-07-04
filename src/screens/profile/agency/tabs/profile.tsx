@@ -28,7 +28,7 @@ type Agency = {
   location?: string;
 };
 
-export default function AgencyProfil() {
+export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: (lang: 'fr' | 'en') => void } = {}) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
   const navigation =
@@ -122,6 +122,7 @@ export default function AgencyProfil() {
     const newLang = lang === 'fr' ? 'en' : 'fr';
     await AsyncStorage.setItem('app_lang', newLang);
     setLang(newLang);
+    notifyParentLang?.(newLang);
   };
 
   const MenuItem = ({

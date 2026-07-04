@@ -99,6 +99,12 @@ export default function ClientMain() {
             );
           },
         })}
+        screenListeners={{
+          focus: async () => {
+            const storedLang = await AsyncStorage.getItem('app_lang');
+            if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang as 'fr' | 'en');
+          },
+        }}
       >
         <Tab.Screen
           name="home"

@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   useColorScheme,
   RefreshControl,
   KeyboardAvoidingView,
@@ -69,22 +68,12 @@ export default function BsmTaxes() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search);
   const [tab, setTab] = useState<TabFilter>('ALL');
-
-  // Stats (hardcoded — no dedicated endpoint available)
-  const collected = 1250000;
-  const pending = 250000;
-  const overdue = 150000;
-  const recoveryRate = 89;
+  const [showFilter, setShowFilter] = useState(false);
 
   const t = {
     fr: {
       title: 'Taxes & Politiques',
-      subtitle: 'Règles et taxes de la gare',
       search: 'Rechercher une taxe ou politique...',
-      collected: 'Collectés ce mois',
-      pending: 'En attente',
-      overdue: 'En retard',
-      recoveryRate: 'Taux de recouvrement',
       all: 'Toutes',
       taxes: 'Taxes',
       policies: 'Politiques',
@@ -98,12 +87,7 @@ export default function BsmTaxes() {
     },
     en: {
       title: 'Taxes & Policies',
-      subtitle: 'Station rules and taxes',
       search: 'Search a tax or policy...',
-      collected: 'Collected this month',
-      pending: 'Pending',
-      overdue: 'Overdue',
-      recoveryRate: 'Recovery rate',
       all: 'All',
       taxes: 'Taxes',
       policies: 'Policies',
@@ -142,8 +126,8 @@ export default function BsmTaxes() {
         { headers },
       );
       if (res.ok) {
-        const data = await res.json();
-        setItems(Array.isArray(data) ? data : []);
+        const taxData = await res.json();
+        setItems(Array.isArray(taxData) ? taxData : []);
       }
     } catch {
       // silent
@@ -200,7 +184,7 @@ export default function BsmTaxes() {
             styles.itemIcon,
             {
               backgroundColor: isTax
-                ? `${colors.error}15`
+                ? `${colors.primary}15`
                 : `${colors.primary}15`,
             },
           ]}
@@ -208,7 +192,7 @@ export default function BsmTaxes() {
           <Ionicons
             name={isTax ? 'document-text-outline' : 'shield-checkmark-outline'}
             size={22}
-            color={isTax ? colors.error : colors.primary}
+            color={isTax ? colors.primary : colors.primary}
           />
         </View>
 
@@ -225,7 +209,7 @@ export default function BsmTaxes() {
                 styles.typeBadge,
                 {
                   backgroundColor: isTax
-                    ? `${colors.error}15`
+                    ? `${colors.primary}15`
                     : `${colors.primary}15`,
                 },
               ]}
@@ -233,7 +217,7 @@ export default function BsmTaxes() {
               <Text
                 style={[
                   styles.typeBadgeText,
-                  { color: isTax ? colors.error : colors.primary },
+                  { color: isTax ? colors.primary : colors.primary },
                 ]}
               >
                 {isTax ? t.taxes.replace('s', '') : t.policies.replace('s', '')}
@@ -252,7 +236,7 @@ export default function BsmTaxes() {
             <Text
               style={[
                 styles.itemAmount,
-                { color: isTax ? colors.error : theme.textStrong },
+                { color: isTax ? colors.primary : theme.textStrong },
               ]}
             >
               {typeof amount === 'number' ? formatPrice(amount) : amount}
@@ -280,7 +264,7 @@ export default function BsmTaxes() {
   };
 
   if (loading) {
-    return <SkeletonListScreen hasStats subtitle />;
+    return <SkeletonListScreen />;
   }
 
   return (
@@ -301,19 +285,9 @@ export default function BsmTaxes() {
             },
           ]}
         >
-          <View>
-            <Text style={[styles.title, { color: theme.textStrong }]}>
-              {t.title}
-            </Text>
-            <Text style={[styles.subtitle, { color: theme.text }]}>
-              {t.subtitle}
-            </Text>
-          </View>
-          <View
-            style={[styles.avatarBtn, { backgroundColor: theme.backgroundAlt }]}
-          >
-            <Ionicons name="person-outline" size={18} color={theme.text} />
-          </View>
+          <Text style={[styles.title, { color: theme.textStrong }]}>
+            {t.title}
+          </Text>
         </View>
 
         <ScrollView
@@ -328,117 +302,6 @@ export default function BsmTaxes() {
             />
           }
         >
-          {/* Search */}
-          <View style={styles.searchRow}>
-            <View
-              style={[
-                styles.searchInput,
-                {
-                  borderColor: theme.border,
-                  backgroundColor: theme.background,
-                },
-              ]}
-            >
-              <Ionicons name="search-outline" size={16} color={theme.text} />
-              <TextInput
-                style={[styles.searchText, { color: theme.textStrong }]}
-                placeholder={t.search}
-                placeholderTextColor={theme.text}
-                value={search}
-                onChangeText={setSearch}
-              />
-            </View>
-            <TouchableOpacity
-              style={[styles.filterBtn, { borderColor: theme.border }]}
-            >
-              <Ionicons
-                name="options-outline"
-                size={20}
-                color={theme.textStrong}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Stats grid */}
-          <View style={styles.statsGrid}>
-            <View
-              style={[
-                styles.statCard,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
-              <Ionicons
-                name="document-text-outline"
-                size={18}
-                color={colors.error}
-              />
-              <Text style={[styles.statValue, { color: theme.textStrong }]}>
-                {formatPrice(collected)}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.text }]}>
-                {t.collected}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.statCard,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
-              <Ionicons name="sync-outline" size={18} color="#d97706" />
-              <Text style={[styles.statValue, { color: theme.textStrong }]}>
-                {formatPrice(pending)}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.text }]}>
-                {t.pending}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.statCard,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
-              <Ionicons name="time-outline" size={18} color={colors.error} />
-              <Text style={[styles.statValue, { color: theme.textStrong }]}>
-                {formatPrice(overdue)}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.text }]}>
-                {t.overdue}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.statCard,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
-              <Ionicons
-                name="trending-up-outline"
-                size={18}
-                color={colors.success}
-              />
-              <Text style={[styles.statValue, { color: theme.textStrong }]}>
-                {recoveryRate}%
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.text }]}>
-                {t.recoveryRate}
-              </Text>
-            </View>
-          </View>
-
           {/* Taxes d'affiliation */}
           <TouchableOpacity
             style={[
@@ -473,23 +336,50 @@ export default function BsmTaxes() {
             <Ionicons name="chevron-forward" size={18} color={theme.text} />
           </TouchableOpacity>
 
+          {/* Search */}
+          <View style={styles.searchRow}>
+            <View
+              style={[
+                styles.searchInput,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.background,
+                },
+              ]}
+            >
+              <Ionicons name="search-outline" size={16} color={theme.text} />
+              <TextInput
+                style={[styles.searchText, { color: theme.textStrong }]}
+                placeholder={t.search}
+                placeholderTextColor={theme.text}
+                value={search}
+                onChangeText={setSearch}
+              />
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.filterBtn,
+                showFilter
+                  ? { borderColor: colors.primary, backgroundColor: `${colors.primary}15` }
+                  : { borderColor: theme.border },
+              ]}
+              onPress={() => setShowFilter(v => !v)}
+            >
+              <Ionicons
+                name="options-outline"
+                size={20}
+                color={showFilter ? colors.primary : theme.textStrong}
+              />
+            </TouchableOpacity>
+          </View>
+
           {/* Tabs */}
-          <View style={styles.tabsRow}>
+          {showFilter && <View style={styles.tabsRow}>
             {(
               [
-                { key: 'ALL', label: `${t.all} (${items.length})` },
-                {
-                  key: 'TAXE',
-                  label: `${t.taxes} (${
-                    items.filter(i => i.type === 'TAXE').length
-                  })`,
-                },
-                {
-                  key: 'POLITIQUE',
-                  label: `${t.policies} (${
-                    items.filter(i => i.type === 'POLITIQUE').length
-                  })`,
-                },
+                { key: 'ALL', label: t.all },
+                { key: 'TAXE', label: t.taxes },
+                { key: 'POLITIQUE', label: t.policies },
               ] as { key: TabFilter; label: string }[]
             ).map(tabItem => (
               <TouchableOpacity
@@ -497,8 +387,8 @@ export default function BsmTaxes() {
                 style={[
                   styles.tabChip,
                   tab === tabItem.key && {
-                    backgroundColor: colors.error,
-                    borderColor: colors.error,
+                    backgroundColor: colors.primary,
+                    borderColor: colors.primary,
                   },
                   tab !== tabItem.key && { borderColor: theme.border },
                 ]}
@@ -514,7 +404,7 @@ export default function BsmTaxes() {
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </View>}
 
           {/* List */}
           <View style={styles.list}>
@@ -569,7 +459,7 @@ export default function BsmTaxes() {
 
         {/* FAB */}
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: colors.error }]}
+          style={[styles.fab, { backgroundColor: colors.primary }]}
           onPress={() => navigation.navigate('TaxFormBsm', {})}
           activeOpacity={0.9}
         >
@@ -584,23 +474,14 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
   title: { ...typography.heading, fontSize: typography.sizes.xl },
-  subtitle: { ...typography.body, fontSize: typography.sizes.sm, marginTop: 2 },
-  avatarBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -627,30 +508,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  statCard: {
-    width: '47%',
-    borderWidth: 1,
-    borderRadius: 4,
-    padding: spacing.sm,
-    gap: spacing.xs,
-    alignItems: 'flex-start',
-  },
-  statValue: { ...typography.heading, fontSize: typography.sizes.md },
-  statLabel: { ...typography.body, fontSize: typography.sizes.xs },
-
   affiliationCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    marginTop: spacing.md,
     borderWidth: 1,
     borderRadius: 4,
     padding: spacing.md,
@@ -677,8 +540,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   tabChip: {
-    borderWidth: 1.5,
-    borderRadius: 20,
+    borderWidth: 1,
+    borderRadius: 4,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },

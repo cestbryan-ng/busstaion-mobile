@@ -197,27 +197,27 @@ export default function Home({
     en: {
       morning: [
         'Good morning! Ready for your next trip? ☀️',
-        'Good morning! A great day to travel 🌅',
+        'Good morning! A great day to travel ☀️',
         'Good morning! Where are you headed today? ☀️',
-        'Good morning! Your next destination awaits 🚌',
+        'Good morning! Your next destination awaits ☀️',
       ],
       afternoon: [
         'Good afternoon! Where are we taking you today? 🌤️',
         'Good afternoon! Ready to hit the road? 🌤️',
-        'Good afternoon! A trip is waiting for you 🚍',
-        'Good afternoon! Find your next journey 🎒',
+        'Good afternoon! A trip is waiting for you 🌤️',
+        'Good afternoon! Find your next journey 🌤️',
       ],
       evening: [
-        'Good evening! Got a ride planned tonight? 🌆',
-        'Good evening! Plan your trip in peace 🌆',
+        'Good evening! Got a ride planned tonight? 🌙',
+        'Good evening! Plan your trip in peace 🌙',
         'Good evening! Ready for a night adventure? 🌙',
-        'Good evening! Book your seat before it\'s too late 🎫',
+        'Good evening! Book your seat before it\'s too late 🌙',
       ],
       night: [
         'Good night! Plan your journey for tomorrow 🌙',
-        'Good night! Prepare your next getaway 🌟',
+        'Good night! Prepare your next getaway 🌙',
         'Good night! Your next trip starts here 🌙',
-        'Good night! Book now, travel tomorrow 🌠',
+        'Good night! Book now, travel tomorrow 🌙',
       ],
     },
   };

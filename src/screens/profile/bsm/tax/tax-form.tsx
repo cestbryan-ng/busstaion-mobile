@@ -22,6 +22,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import type { PolicyOrTax } from '../tabs/taxes';
+import { DatePickerModal, formatDateDisplay } from '../../../../components/date-picker-modal';
 
 type FormState = {
   nomPolitique: string;
@@ -48,6 +49,7 @@ export default function TaxFormBsm() {
   const [stationId, setStationId] = useState('');
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [form, setForm] = useState<FormState>({
     nomPolitique: '',
     description: '',
@@ -74,8 +76,8 @@ export default function TaxFormBsm() {
       taux: 'Taux (%)',
       fixePh: 'Ex : 5000',
       tauxPh: 'Ex : 5.0',
-      dateEffet: "Date d'effet (AAAA-MM-JJ) *",
-      datePh: 'Ex : 2025-01-01',
+      dateEffet: "Date d'effet *",
+      datePh: 'Sélectionner une date',
       save: 'Enregistrer',
       required: "Nom et date d'effet requis",
       error: 'Une erreur est survenue',
@@ -97,8 +99,8 @@ export default function TaxFormBsm() {
       taux: 'Rate (%)',
       fixePh: 'E.g. 5000',
       tauxPh: 'E.g. 5.0',
-      dateEffet: 'Effective date (YYYY-MM-DD) *',
-      datePh: 'E.g. 2025-01-01',
+      dateEffet: 'Effective date *',
+      datePh: 'Select a date',
       save: 'Save',
       required: 'Name and effective date are required',
       error: 'An error occurred',
@@ -315,9 +317,9 @@ export default function TaxFormBsm() {
                     styles.toggleBtn,
                     {
                       borderColor:
-                        form.type === opt ? colors.error : theme.border,
+                        form.type === opt ? colors.primary : theme.border,
                     },
-                    form.type === opt && { backgroundColor: colors.error },
+                    form.type === opt && { backgroundColor: colors.primary },
                   ]}
                   onPress={() => setField('type', opt)}
                 >
@@ -415,27 +417,34 @@ export default function TaxFormBsm() {
             >
               {t.dateEffet}
             </Text>
-            <TextInput
+            <TouchableOpacity
               style={[
                 styles.input,
-                {
-                  borderColor: theme.border,
-                  color: theme.textStrong,
-                  backgroundColor: theme.backgroundAlt,
-                },
+                styles.dateRow,
+                { borderColor: theme.border, backgroundColor: theme.backgroundAlt },
               ]}
-              placeholder={t.datePh}
-              placeholderTextColor={theme.text}
-              value={form.dateEffet}
-              onChangeText={v => setField('dateEffet', v)}
-            />
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.dateText,
+                  { color: form.dateEffet ? theme.textStrong : theme.text },
+                ]}
+              >
+                {form.dateEffet
+                  ? formatDateDisplay(form.dateEffet, lang)
+                  : t.datePh}
+              </Text>
+              <Ionicons name="calendar-outline" size={18} color={theme.text} />
+            </TouchableOpacity>
           </View>
 
           {/* Bouton save */}
           <TouchableOpacity
             style={[
               styles.saveBtn,
-              { backgroundColor: saving ? theme.border : colors.error },
+              { backgroundColor: saving ? theme.border : colors.primary },
             ]}
             onPress={handleSave}
             disabled={saving}
@@ -451,6 +460,14 @@ export default function TaxFormBsm() {
           <View style={{ height: spacing.xxl }} />
         </ScrollView>
       </View>
+
+      <DatePickerModal
+        visible={showDatePicker}
+        lang={lang}
+        selectedDate={form.dateEffet || null}
+        onApply={d => { setField('dateEffet', d ?? ''); setShowDatePicker(false); }}
+        onClose={() => setShowDatePicker(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -500,6 +517,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   toggleText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dateText: { ...typography.body, fontSize: typography.sizes.sm },
   saveBtn: {
     marginHorizontal: spacing.lg,
     height: 52,

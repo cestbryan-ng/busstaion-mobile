@@ -98,7 +98,9 @@ export default function TaxDetailBsm() {
       const res = await fetch(`${API_URL}/politique-et-taxes/${itemId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setItem(await res.json());
+      if (res.ok) {
+        setItem(await res.json());
+      }
     } catch {
       // silent
     } finally {
@@ -144,8 +146,8 @@ export default function TaxDetailBsm() {
       if (res.status === 204 || res.ok) {
         navigation.goBack();
       }
-    } catch {
-      // silent
+    } catch(error) {
+      console.error('Error deleting tax:', error);
     } finally {
       setDeleting(false);
     }
@@ -193,13 +195,13 @@ export default function TaxDetailBsm() {
           style={[
             styles.hero,
             {
-              backgroundColor: `${colors.error}10`,
-              borderColor: `${colors.error}20`,
+              backgroundColor: `${colors.primary}10`,
+              borderColor: `${colors.primary}20`,
             },
           ]}
         >
           <View style={styles.heroTop}>
-            <View style={[styles.heroIcon, { backgroundColor: colors.error }]}>
+            <View style={[styles.heroIcon, { backgroundColor: colors.primary }]}>
               <Ionicons name="document-text-outline" size={22} color="#fff" />
             </View>
             <View style={styles.heroInfo}>
@@ -207,16 +209,18 @@ export default function TaxDetailBsm() {
                 {item.nomPolitique}
               </Text>
             </View>
-            <View style={[styles.typePill, { backgroundColor: colors.error }]}>
+            <View style={[styles.typePill, { backgroundColor: colors.primary }]}>
               <Text style={styles.typePillText}>
                 {isTax ? t.tax : t.policy}
               </Text>
             </View>
           </View>
 
-          {item.montantFixe !== undefined && (
-            <Text style={[styles.heroAmount, { color: colors.error }]}>
-              {formatPrice(item.montantFixe)}
+          {((item.montantFixe ?? 0) > 0 || (item.tauxTaxe ?? 0) > 0) && (
+            <Text style={[styles.heroAmount, { color: colors.primary }]}>
+              {(item.montantFixe ?? 0) > 0
+                ? formatPrice(item.montantFixe!)
+                : `${item.tauxTaxe}%`}
             </Text>
           )}
 
@@ -309,18 +313,18 @@ export default function TaxDetailBsm() {
         <TouchableOpacity
           style={[
             styles.deleteBtn,
-            { borderColor: colors.error, marginHorizontal: spacing.lg },
+            { borderColor: colors.primary, marginHorizontal: spacing.lg },
           ]}
           onPress={handleDelete}
           disabled={deleting}
           activeOpacity={0.8}
         >
           {deleting ? (
-            <ActivityIndicator size="small" color={colors.error} />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : (
             <>
-              <Ionicons name="trash-outline" size={18} color={colors.error} />
-              <Text style={[styles.deleteBtnText, { color: colors.error }]}>
+              <Ionicons name="trash-outline" size={18} color={colors.primary} />
+              <Text style={[styles.deleteBtnText, { color: colors.primary }]}>
                 {t.delete}
               </Text>
             </>

@@ -8,15 +8,17 @@ import {
   ActivityIndicator,
   useColorScheme,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import AvatarPlaceholder from '../../../../assets/placeholders/avatar-2.svg';
 import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
-import { API_URL } from '../../../../utils/config';
+import { API_URL, SUPPORT_URL, CGU_URL } from '../../../../utils/config';
 import { logout } from '../../../../utils/logout';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonProfileScreen } from '../../../../components/skeleton';
@@ -29,19 +31,22 @@ type User = {
   username: string;
   phone_number: string;
   role: string[];
-  gender?: string;
-  createdAt: string;
 };
 
 type Station = {
   idGareRoutiere: string;
   nomGareRoutiere: string;
   ville: string;
+  quartier?: string;
   adresse?: string;
-  nbreAgence: number;
+  description?: string;
+  horaires?: string;
+  nomPresident?: string;
+  services?: string[];
+  nbreAgence: number | null;
 };
 
-export default function BsmProfil() {
+export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: { setDrawerOpen: (open: boolean) => void; setLang?: (lang: 'fr' | 'en') => void }) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
   const navigation =
@@ -57,10 +62,7 @@ export default function BsmProfil() {
   const [pinEnabled, setPinEnabled] = useState(false);
   const [lastLogin, setLastLogin] = useState('');
 
-  // Quick stats (best-effort, computed from what's available)
-  const [tripsActive, setTripsActive] = useState(0);
   const [taxesCollected, setTaxesCollected] = useState(0);
-  const [occupationRate, setOccupationRate] = useState(0);
 
   const t = {
     fr: {
@@ -78,7 +80,9 @@ export default function BsmProfil() {
       professionalInfo: 'Informations professionnelles',
       managedStation: 'Gare gérée',
       city: 'Ville',
-      creationDate: 'Date de création du compte',
+      district: 'Quartier',
+      address: 'Adresse',
+      schedule: 'Horaires',
       accountStatus: 'Statut du compte',
       active: 'Actif',
       permissions: 'Permissions',
@@ -90,6 +94,8 @@ export default function BsmProfil() {
       help: 'Aide & support',
       helpDesc: "Centre d'aide et contact",
       about: 'À propos',
+      aboutDesc: "Version et informations légales",
+      support: 'Support',
       logout: 'Déconnexion',
     },
     en: {
@@ -107,7 +113,9 @@ export default function BsmProfil() {
       professionalInfo: 'Professional information',
       managedStation: 'Managed station',
       city: 'City',
-      creationDate: 'Account creation date',
+      district: 'District',
+      address: 'Address',
+      schedule: 'Hours',
       accountStatus: 'Account status',
       active: 'Active',
       permissions: 'Permissions',
@@ -119,6 +127,8 @@ export default function BsmProfil() {
       help: 'Help & support',
       helpDesc: 'Help center and contact',
       about: 'About',
+      aboutDesc: 'Version and legal information',
+      support: 'Support',
       logout: 'Logout',
     },
   }[lang];
@@ -257,20 +267,19 @@ export default function BsmProfil() {
           },
         ]}
       >
-        <View>
-          <Text style={[styles.title, { color: theme.textStrong }]}>
-            {t.title}
-          </Text>
-          <Text style={[styles.subtitle, { color: theme.text }]}>
-            {t.subtitle}
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.headerAvatar,
-            { backgroundColor: theme.backgroundAlt },
-          ]}
-        />
+        <Text style={[styles.title, { color: theme.textStrong }]}>
+          {t.title}
+        </Text>
+        <TouchableOpacity onPress={() => setDrawerOpen(true)}>
+          <View
+            style={[
+              styles.avatarSmall,
+              { backgroundColor: theme.backgroundAlt },
+            ]}
+          >
+            <Ionicons name="menu-outline" size={22} color={theme.text} />
+          </View>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -295,10 +304,10 @@ export default function BsmProfil() {
             <View
               style={[
                 styles.avatar,
-                { backgroundColor: `${colors.primary}15` },
+                { backgroundColor: theme.backgroundAlt },
               ]}
             >
-              <Ionicons name="person" size={32} color={colors.primary} />
+              <AvatarPlaceholder width="100%" height="100%" />
             </View>
             <View style={styles.profileInfo}>
               <Text style={[styles.profileName, { color: theme.textStrong }]}>
@@ -444,7 +453,7 @@ export default function BsmProfil() {
                 <Ionicons name="bus-outline" size={18} color={colors.primary} />
               </View>
               <Text style={[styles.statValue, { color: theme.textStrong }]}>
-                {tripsActive}
+                —
               </Text>
               <Text style={[styles.statLabel, { color: theme.text }]}>
                 {t.activeTrips}
@@ -498,7 +507,7 @@ export default function BsmProfil() {
                 />
               </View>
               <Text style={[styles.statValue, { color: theme.textStrong }]}>
-                {occupationRate || 78}%
+                —
               </Text>
               <Text style={[styles.statLabel, { color: theme.text }]}>
                 {t.avgOccupation}
@@ -529,10 +538,9 @@ export default function BsmProfil() {
           {[
             { label: t.managedStation, value: stationName },
             { label: t.city, value: station?.ville || '—' },
-            {
-              label: t.creationDate,
-              value: user?.createdAt ? formatDate(user.createdAt, lang) : '—',
-            },
+            { label: t.district, value: station?.quartier || '—' },
+            { label: t.address, value: station?.adresse || '—' },
+            { label: t.schedule, value: station?.horaires || '—' },
             { label: t.accountStatus, value: t.active, isStatus: true },
             { label: t.permissions, value: t.fullAccess },
           ].map((row, i) => (
@@ -593,7 +601,7 @@ export default function BsmProfil() {
           <MenuItem
             icon="language-outline"
             iconColor={colors.primary}
-            iconBg={`${colors.primary}15`}
+            iconBg={`${colors.primary}10`}
             label={t.changeLanguage}
             desc={lang === 'fr' ? 'Français (FR)' : 'English (EN)'}
             onPress={handleLangChange}
@@ -660,20 +668,42 @@ export default function BsmProfil() {
               </View>
             }
           />
+        </View>
+
+        {/* Support */}
+        <View
+          style={[
+            styles.menuSection,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+        >
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                color: theme.textStrong,
+                paddingHorizontal: spacing.md,
+                paddingTop: spacing.md,
+              },
+            ]}
+          >
+            {t.support}
+          </Text>
           <MenuItem
             icon="help-circle-outline"
-            iconColor="#7c3aed"
-            iconBg="#f5f3ff15"
+            iconColor={colors.primary}
+            iconBg={`${colors.primary}10`}
             label={t.help}
             desc={t.helpDesc}
-            onPress={() => {}}
+            onPress={() => Linking.openURL(SUPPORT_URL)}
           />
           <MenuItem
             icon="information-circle-outline"
-            iconColor={theme.text}
-            iconBg={theme.backgroundAlt}
+            iconColor={colors.primary}
+            iconBg={`${colors.primary}10`}
             label={t.about}
-            onPress={() => {}}
+            desc={t.aboutDesc}
+            onPress={() => Linking.openURL(CGU_URL)}
           />
         </View>
 
@@ -706,7 +736,7 @@ const styles = StyleSheet.create({
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
@@ -714,11 +744,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { ...typography.heading, fontSize: typography.sizes.xl },
-  subtitle: { ...typography.body, fontSize: typography.sizes.sm, marginTop: 2 },
-  headerAvatar: { width: 36, height: 36, borderRadius: 18 },
+  avatarSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
 
   profileCard: {
-    margin: spacing.lg,
+    marginLeft: spacing.lg,
+    marginRight: spacing.lg,
+    marginBottom: spacing.lg,
+    marginTop: spacing.md,
     borderWidth: 1,
     borderRadius: 4,
     padding: spacing.md,
@@ -729,9 +768,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',

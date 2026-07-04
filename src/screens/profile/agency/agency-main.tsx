@@ -92,6 +92,12 @@ export default function AgencyMain() {
             );
           },
         })}
+        screenListeners={{
+          focus: async () => {
+            const storedLang = await AsyncStorage.getItem('app_lang');
+            if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang as 'fr' | 'en');
+          },
+        }}
       >
         <Tab.Screen
           name="dashboard"
@@ -123,9 +129,10 @@ export default function AgencyMain() {
         />
         <Tab.Screen
           name="profile"
-          component={AgencyProfil}
           options={{ tabBarLabel: TAB_LABELS[lang].profile }}
-        />
+        >
+          {() => <AgencyProfil setLang={handleLangChange} />}
+        </Tab.Screen>
       </Tab.Navigator>
 
       <DrawerMenu

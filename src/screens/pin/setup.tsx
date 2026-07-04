@@ -227,8 +227,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   back: {
-    alignSelf: 'flex-start',
-    marginBottom: spacing.md,
+    position: 'absolute',
+    top: spacing.xxl,
+    left: spacing.lg,
+    zIndex: 10,
   },
   backIcon: {
     width: 24,
