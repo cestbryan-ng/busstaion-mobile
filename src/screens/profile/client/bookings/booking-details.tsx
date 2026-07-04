@@ -9,6 +9,9 @@ import {
   useColorScheme,
   Share,
   RefreshControl,
+  Modal,
+  TextInput,
+  Image,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import QRCode from 'react-native-qrcode-svg';
@@ -354,6 +357,12 @@ export default function BookingDetails() {
   const [cancelling, setCancelling] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [payModalVisible, setPayModalVisible] = useState(false);
+  const [payOperator, setPayOperator] = useState<'MTN' | 'ORANGE'>('MTN');
+  const [payPhone, setPayPhone] = useState('');
+  const [payPhoneError, setPayPhoneError] = useState('');
+  const [payApiError, setPayApiError] = useState('');
+  const [paying, setPaying] = useState(false);
 
   const t = {
     fr: {
@@ -365,6 +374,7 @@ export default function BookingDetails() {
       paymentSummary: 'Récapitulatif paiement',
       passengersCount: 'Nombre de passagers',
       totalPaid: 'Total payé',
+      totalToPay: 'Total à payer',
       downloadTicket: 'Exporter en PDF',
       exportingPdf: 'Préparation...',
       cancelReservation: 'Annuler la réservation',
@@ -382,6 +392,14 @@ export default function BookingDetails() {
       depHour: 'Heure départ',
       bookingCancelled: 'Réservation annulée',
       cancelError: "Erreur lors de l'annulation",
+      payNow: 'Payer maintenant',
+      payTitle: 'Paiement',
+      operatorLabel: 'Opérateur',
+      phoneLabel: 'Numéro de téléphone',
+      phonePlaceholder: '6XX XXX XXX',
+      errorPhoneInvalid: 'Format invalide (ex: 677 123 456).',
+      payError: 'Erreur lors du paiement',
+      paySuccess: 'Paiement confirmé',
     },
     en: {
       title: 'Reservation details',
@@ -392,6 +410,7 @@ export default function BookingDetails() {
       paymentSummary: 'Payment summary',
       passengersCount: 'Number of passengers',
       totalPaid: 'Total paid',
+      totalToPay: 'Total to pay',
       downloadTicket: 'Export as PDF',
       exportingPdf: 'Preparing...',
       cancelReservation: 'Cancel reservation',
@@ -409,6 +428,14 @@ export default function BookingDetails() {
       depHour: 'Dep. time',
       bookingCancelled: 'Booking cancelled',
       cancelError: 'Cancellation error',
+      payNow: 'Pay now',
+      payTitle: 'Payment',
+      operatorLabel: 'Operator',
+      phoneLabel: 'Phone number',
+      phonePlaceholder: '6XX XXX XXX',
+      errorPhoneInvalid: 'Invalid format (e.g. 677 123 456).',
+      payError: 'Payment error',
+      paySuccess: 'Payment confirmed',
     },
   }[lang];
 
@@ -504,6 +531,13 @@ export default function BookingDetails() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify({
+            idReservation: reservation.reservation.idReservation,
+            idPassagers: (reservation.passagers || []).map(p => p.idPassager),
+            causeAnnulation: 'Annulation à la demande du client',
+            origineAnnulation: 'CLIENT',
+            canceled: true,
+          }),
         },
       );
       if (res.ok) {
@@ -513,10 +547,59 @@ export default function BookingDetails() {
       } else {
         toast.error(t.cancelError);
       }
-    } catch {
+    } catch(error) {
+      console.log('Cancel error:', error);
       toast.error(t.cancelError);
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handlePay = async () => {
+    const digits = payPhone.replace(/\D/g, '');
+    if (!/^[679]\d{8}$/.test(digits)) {
+      setPayPhoneError(t.errorPhoneInvalid);
+      return;
+    }
+    setPayPhoneError('');
+    setPaying(true);
+    try {
+      const [token, userRaw] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('user'),
+      ]);
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      const userId = user?.userId || user?.id;
+
+      // TODO: appeler l'API de paiement mobile money (MTN/Orange) ici avant de confirmer.
+      // Données disponibles : amount = reservation.prixTotal, mobilePhone = digits, operator = payOperator.
+      // Si le paiement retourne false → toast.error + return.
+
+      const res = await fetch(`${API_URL}/reservation/confirmer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          reservationId: reservation!.reservation.idReservation,
+          userId,
+          amount: reservation!.reservation.prixTotal,
+          mobilePhone: digits,
+          mobilePhoneName: payOperator,
+        }),
+      });
+
+      if (res.ok) {
+        setPayModalVisible(false);
+        setPayPhone('');
+        await loadData();
+        toast.success(t.paySuccess);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setPayApiError(data?.message || t.payError);
+      }
+    } catch {
+      setPayApiError(t.payError);
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -528,6 +611,7 @@ export default function BookingDetails() {
     STATUS_RESERVATION[reservation.reservation.statutReservation] ||
     STATUS_RESERVATION.RESERVER;
   const isCancelled = reservation.reservation.statutReservation === 'ANNULEE';
+  const isPaid = reservation.reservation.statutPayement === 'PAID';
   const passagers = reservation.passagers || [];
 
   return (
@@ -903,7 +987,7 @@ export default function BookingDetails() {
 
           <View style={[styles.totalRow, { borderTopColor: theme.border }]}>
             <Text style={[styles.totalLabel, { color: theme.textStrong }]}>
-              {t.totalPaid}
+              {isPaid ? t.totalPaid : t.totalToPay}
             </Text>
             <Text style={[styles.totalValue, { color: colors.primary }]}>
               {formatPrice(reservation.reservation.prixTotal)}
@@ -913,39 +997,126 @@ export default function BookingDetails() {
 
         {/* ── Actions ── */}
         <View style={styles.actions}>
-          <TouchableOpacity
-            style={[
-              styles.downloadBtn,
-              { borderColor: colors.primary, opacity: exportingPdf ? 0.7 : 1 },
-            ]}
-            onPress={handleExportPDF}
-            disabled={exportingPdf}
-          >
-            {exportingPdf ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <Ionicons
-                name="document-outline"
-                size={18}
-                color={colors.primary}
-              />
-            )}
-            <Text style={[styles.downloadBtnText, { color: colors.primary }]}>
-              {exportingPdf ? t.exportingPdf : t.downloadTicket}
-            </Text>
-          </TouchableOpacity>
+          {isPaid && (
+            <TouchableOpacity
+              style={[
+                styles.downloadBtn,
+                { borderColor: colors.primary, opacity: exportingPdf ? 0.7 : 1 },
+              ]}
+              onPress={handleExportPDF}
+              disabled={exportingPdf}
+            >
+              {exportingPdf ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons
+                  name="document-outline"
+                  size={18}
+                  color={colors.primary}
+                />
+              )}
+              <Text style={[styles.downloadBtnText, { color: colors.primary }]}>
+                {exportingPdf ? t.exportingPdf : t.downloadTicket}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {!isPaid && !isCancelled && (
+            <TouchableOpacity
+              style={[styles.cancelBtn, { backgroundColor: colors.primary }]}
+              onPress={() => setPayModalVisible(true)}
+            >
+              <Text style={styles.cancelBtnText}>{t.payNow}</Text>
+            </TouchableOpacity>
+          )}
 
           {!isCancelled && (
             <TouchableOpacity
               style={[styles.cancelBtn, { backgroundColor: colors.error }]}
               onPress={() => setCancelModalVisible(true)}
             >
-              <Ionicons name="trash-outline" size={18} color="#fff" />
               <Text style={styles.cancelBtnText}>{t.cancelReservation}</Text>
             </TouchableOpacity>
           )}
         </View>
       </ScrollView>
+
+      {/* Pay modal */}
+      <Modal visible={payModalVisible} animationType="slide" transparent onRequestClose={() => { setPayModalVisible(false); setPayPhone(''); setPayPhoneError(''); setPayApiError(''); }}>
+        <View style={styles.payOverlay}>
+          <View style={[styles.paySheet, { backgroundColor: theme.background }]}>
+            <View style={[styles.paySheetHeader, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.paySheetTitle, { color: theme.textStrong }]}>{t.payTitle}</Text>
+              <TouchableOpacity onPress={() => { setPayModalVisible(false); setPayPhone(''); setPayPhoneError(''); setPayApiError(''); }}>
+                <Ionicons name="close" size={24} color={theme.textStrong} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.paySheetBody}>
+              {/* Operator */}
+              <Text style={[styles.payFieldLabel, { color: theme.text }]}>{t.operatorLabel}</Text>
+              <View style={styles.operatorRow}>
+                {(['MTN', 'ORANGE'] as const).map(op => (
+                  <TouchableOpacity
+                    key={op}
+                    style={[styles.operatorBtn, {
+                      borderColor: payOperator === op ? (op === 'MTN' ? '#f59e0b' : '#ea580c') : theme.border,
+                      backgroundColor: payOperator === op ? (op === 'MTN' ? '#fef3c7' : '#fff7ed') : theme.backgroundAlt,
+                    }]}
+                    onPress={() => setPayOperator(op)}
+                  >
+                    <View style={[styles.operatorRadio, { borderColor: payOperator === op ? (op === 'MTN' ? '#f59e0b' : '#ea580c') : theme.border }]}>
+                      {payOperator === op && <View style={[styles.operatorRadioInner, { backgroundColor: op === 'MTN' ? '#f59e0b' : '#ea580c' }]} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.operatorName, { color: payOperator === op ? (op === 'MTN' ? '#92400e' : '#9a3412') : theme.textStrong }]}>
+                        {op === 'MTN' ? 'MTN Mobile Money' : 'Orange Money'}
+                      </Text>
+                    </View>
+                    <Image
+                      source={op === 'MTN' ? require('../../../../assets/images/momo.jpg') : require('../../../../assets/images/om.png')}
+                      style={styles.operatorLogo}
+                      resizeMode="contain"
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Phone */}
+              <Text style={[styles.payFieldLabel, { color: theme.text, marginTop: spacing.md }]}>{t.phoneLabel}</Text>
+              <View style={[styles.payPhoneInput, { borderColor: payPhoneError ? colors.error : theme.border, backgroundColor: theme.backgroundAlt }]}>
+                <Ionicons name="phone-portrait-outline" size={18} color={payPhoneError ? colors.error : theme.text} />
+                <TextInput
+                  style={[{ flex: 1, color: theme.textStrong, ...typography.body, fontSize: typography.sizes.md }]}
+                  value={payPhone}
+                  onChangeText={v => { setPayPhone(v.replace(/\D/g, '').slice(0, 9)); setPayPhoneError(''); setPayApiError(''); }}
+                  placeholder={t.phonePlaceholder}
+                  placeholderTextColor={theme.text}
+                  keyboardType="phone-pad"
+                  maxLength={9}
+                />
+              </View>
+              {!!payPhoneError && <Text style={[styles.payFieldError, { color: colors.error }]}>{payPhoneError}</Text>}
+
+              {!!payApiError && (
+                <View style={[styles.payErrorBox, { backgroundColor: '#fef2f2', borderColor: '#fecaca' }]}>
+                  <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+                  <Text style={[styles.payFieldError, { color: colors.error, flex: 1 }]}>{payApiError}</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.payConfirmBtn, { backgroundColor: colors.primary, opacity: paying ? 0.7 : 1, marginTop: spacing.lg }]}
+                onPress={handlePay}
+                disabled={paying}
+              >
+                {paying ? <ActivityIndicator size="small" color="#fff" /> : null }
+                <Text style={styles.cancelBtnText}>{paying ? '...' : t.payNow}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Cancel modal */}
       <ConfirmModal
@@ -1248,5 +1419,87 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
     fontSize: typography.sizes.md,
     color: '#ffffff',
+  },
+
+  payOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  paySheet: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
+  },
+  paySheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+  },
+  paySheetTitle: {
+    ...typography.heading,
+    fontSize: typography.sizes.lg,
+  },
+  paySheetBody: {
+    padding: spacing.lg,
+  },
+  payFieldLabel: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    marginBottom: 6,
+  },
+  payFieldError: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+    marginTop: 4,
+  },
+  operatorRow: { gap: spacing.sm },
+  operatorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderRadius: 4,
+  },
+  operatorRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  operatorRadioInner: { width: 10, height: 10, borderRadius: 5 },
+  operatorName: { ...typography.bodyBold, fontSize: typography.sizes.sm },
+  operatorLogo: { width: 40, height: 40, borderRadius: 4 },
+  payPhoneInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+  },
+  payConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 52,
+    borderRadius: 4,
+    gap: spacing.sm,
+  },
+  payErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 4,
+    marginTop: spacing.md,
   },
 });

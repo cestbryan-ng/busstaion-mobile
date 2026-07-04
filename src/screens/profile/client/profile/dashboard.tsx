@@ -20,6 +20,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonClientDashboard } from '../../../../components/skeleton';
+import TripPlaceholder from '../../../../assets/placeholders/product.svg';
 
 type User = {
   first_name: string;
@@ -36,15 +37,38 @@ type Historique = {
   dateAnnulation?: string;
 };
 
+type ReservationApiItem = {
+  reservation: { idReservation: string };
+  voyage: {
+    lieuDepart: string;
+    lieuArrive: string;
+    dateDepartPrev: string;
+    smallImage?: string | null;
+  };
+  agence: { longName: string };
+};
+
 type ReservationDetail = {
   idReservation: string;
   lieuDepart: string;
   lieuArrive: string;
   dateDepartPrev?: string;
   nomAgence?: string;
+  smallImage?: string | null;
 };
 
 type EnrichedHistorique = Historique & { detail: ReservationDetail | null };
+
+function mapToDetail(item: ReservationApiItem): ReservationDetail {
+  return {
+    idReservation: item.reservation.idReservation,
+    lieuDepart: item.voyage.lieuDepart,
+    lieuArrive: item.voyage.lieuArrive,
+    dateDepartPrev: item.voyage.dateDepartPrev,
+    nomAgence: item.agence.longName,
+    smallImage: item.voyage.smallImage,
+  };
+}
 
 export default function Dashboard() {
   const isDark = useColorScheme() === 'dark';
@@ -118,23 +142,27 @@ export default function Dashboard() {
       const data = await histRes.json();
       const histList: Historique[] = data;
 
-      // Enrich first 6
-      const enriched = await Promise.all(
-        histList.slice(0, 6).map(async (h): Promise<EnrichedHistorique> => {
-          try {
-            const r = await fetch(
-              `${API_URL}/reservation/${h.idReservation}`,
-              {
-                headers: { Authorization: `Bearer ${token}` },
-              },
-            );
-            const detail = r.ok ? await r.json() : null;
-            return { ...h, detail };
-          } catch {
-            return { ...h, detail: null };
-          }
-        }),
+      // Récupère la liste complète des réservations en un seul appel
+      const resListRes = await fetch(
+        `${API_URL}/reservation/user/${userId}?page=0&size=100`,
+        { headers: { Authorization: `Bearer ${token}` } },
       );
+      const resListData = resListRes.ok
+        ? await resListRes.json()
+        : { content: [] };
+      const reservationItems: ReservationApiItem[] = resListData.content || [];
+
+      const reservationMap = new Map<string, ReservationDetail>();
+      reservationItems.forEach(item => {
+        reservationMap.set(item.reservation.idReservation, mapToDetail(item));
+      });
+
+      const enriched: EnrichedHistorique[] = histList.map(h => ({
+        ...h,
+        detail: reservationMap.get(h.idReservation) || null,
+      }));
+
+      setHistoriques(enriched);
 
       setHistoriques(enriched);
     } catch {
@@ -165,6 +193,11 @@ export default function Dashboard() {
 
   const StatusBadge = ({ status }: { status: string }) => {
     const config = {
+      VALIDER: {
+        label: t.completed,
+        color: colors.primary,
+        bg: `${colors.primary}15`,
+      },
       TERMINE: {
         label: t.completed,
         color: colors.primary,
@@ -203,7 +236,15 @@ export default function Dashboard() {
       <View
         style={[styles.histImage, { backgroundColor: theme.backgroundAlt }]}
       >
-        <Ionicons name="bus-outline" size={22} color={theme.text} />
+        {item.detail?.smallImage ? (
+          <Image
+            source={{ uri: item.detail.smallImage }}
+            style={styles.histImageInner}
+            resizeMode="cover"
+          />
+        ) : (
+          <TripPlaceholder width="100%" height="100%" />
+        )}
       </View>
       <View style={styles.histInfo}>
         <Text
@@ -251,7 +292,16 @@ export default function Dashboard() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
         {/* Welcome Banner */}
         <View
           style={[

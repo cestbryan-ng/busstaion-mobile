@@ -256,7 +256,6 @@ export default function TripDetailScreen() {
       });
       if (res.ok) {
         const data = await res.json();
-        console.log('Trip data:', data);
         setTrip(data);
       }
     } catch {

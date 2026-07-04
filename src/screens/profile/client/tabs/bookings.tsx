@@ -26,6 +26,7 @@ import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { useDebounce } from '../../../../hooks/useDebounce';
+import TripPlaceholder from '../../../../assets/placeholders/product.svg';
 
 type Reservation = {
   reservation: {
@@ -214,7 +215,6 @@ export default function Bookings() {
 
       if (res.ok) {
         const data = await res.json();
-        console.log('Reservations data:', data);
         const content = data.content || [];
         setReservations(prev => (reset ? content : [...prev, ...content]));
         setTotalPages(data.totalPages || 1);
@@ -244,6 +244,8 @@ export default function Bookings() {
   }, [loadingMore, currentPage, totalPages, loadReservations]);
 
   const filtered = reservations.filter(r => {
+    if (r.reservation.statutPayement !== 'PAID') return false;
+
     const upcoming = isUpcoming(r.voyage.dateDepartPrev);
     if (tab === 'avenir' && !upcoming) return false;
     if (tab === 'terminees' && upcoming) return false;
@@ -305,7 +307,7 @@ export default function Bookings() {
                 resizeMode="cover"
               />
             ) : (
-              <Ionicons name="bus-outline" size={28} color={theme.text} />
+              <TripPlaceholder width="100%" height="100%" />
             )}
           </View>
 
@@ -673,7 +675,7 @@ const styles = StyleSheet.create({
   },
   filtersRow: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingTop: spacing.md,
     gap: spacing.sm,
   },
   chip: {
@@ -690,6 +692,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
     paddingBottom: spacing.md,
+    paddingTop: spacing.md,
   },
   card: {
     borderWidth: 1,

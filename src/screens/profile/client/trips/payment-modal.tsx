@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import { API_URL } from '../../../../utils/config';
 import type { TripDetail } from './trip-detail';
 import SuccessComponent from '../../../../components/success';
 import ErrorComponent from '../../../../components/error';
+import { useToast } from '../../../../components/toast';
 
 type Props = {
   visible: boolean;
@@ -64,6 +65,7 @@ export default function PaymentModal({
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const toast = useToast();
 
   // Steps
   const [step, setStep] = useState<Step>('passenger');
@@ -221,40 +223,6 @@ export default function PaymentModal({
     return Object.keys(errors).length === 0;
   };
 
-  // Poll payment status recursively
-  const pollPaymentStatus = useCallback(
-    async (txCode: string, token: string, resId: string, attempt = 0) => {
-      if (attempt >= 20) {
-        setPayStatus('FAILED');
-        setStep('result');
-        return;
-      }
-      setProcessingMsg(t.processingPolling);
-      try {
-        const res = await fetch(
-          `${API_URL}/reservation/paiement/status/${txCode}`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-        if (res.ok) {
-          const status = (await res.json()) as PayStatus;
-          if (status === 'SUCCESS' || status === 'ERROR' || status === 'FAILED') {
-            setPayStatus(status);
-            setStep('result');
-            if (status === 'SUCCESS') onSuccess(resId);
-            return;
-          }
-        }
-      } catch {
-        // network hiccup — keep polling
-      }
-      pollTimerRef.current = setTimeout(
-        () => pollPaymentStatus(txCode, token, resId, attempt + 1),
-        3000,
-      );
-    },
-    [t.processingPolling, onSuccess],
-  );
-
   const handleSubmit = async () => {
     if (!validatePayment()) return;
 
@@ -269,7 +237,13 @@ export default function PaymentModal({
       const user = userRaw ? JSON.parse(userRaw) : null;
       const userId = user?.userId || user?.id;
 
-      // Step 1 – create reservation
+      // TODO: Step 1 – appeler l'API de paiement mobile money (MTN/Orange) avant toute création.
+      // Données disponibles : amount = totalPrice, mobilePhone, operator, userId.
+      // Si le paiement retourne false → setPayStatus('FAILED') + setStep('result') et return.
+      // Si le paiement retourne true → continuer vers la création de réservation.
+      setProcessingMsg(t.processingPayment);
+
+      // Step 2 – create reservation (uniquement si le paiement est validé)
       setProcessingMsg(t.processingReservation);
       const reserveRes = await fetch(`${API_URL}/reservation/reserver`, {
         method: 'POST',
@@ -303,12 +277,36 @@ export default function PaymentModal({
 
       const resId: string = reserveData.idReservation || reserveData.id || '';
       setReservationId(resId);
+      toast.success(lang === 'fr' ? 'Réservation créée avec succès' : 'Reservation created successfully');
 
-      // TODO: restore payment flow once API is functional
+      // Step 3 – confirm reservation
+      const confirmRes = await fetch(`${API_URL}/reservation/confirmer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          reservationId: resId,
+          userId,
+          amount: totalPrice,
+          mobilePhone: phone.replace(/\D/g, ''),
+          mobilePhoneName: operator,
+        }),
+      });
+
+      if (!confirmRes.ok) {
+        const confirmData = await confirmRes.json().catch(() => ({}));
+        setApiErrorMsg(confirmData?.message || null);
+        setPayStatus('ERROR');
+        setStep('result');
+        return;
+      }
+
       setPayStatus('SUCCESS');
       setStep('result');
       onSuccess(resId);
-    } catch(error) {
+    } catch {
       setPayStatus('ERROR');
       setStep('result');
     }

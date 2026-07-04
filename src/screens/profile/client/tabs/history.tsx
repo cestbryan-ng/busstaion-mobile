@@ -27,6 +27,7 @@ import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { MonthPickerModal } from '../../../../components/month-picker-modal';
 import { useDebounce } from '../../../../hooks/useDebounce';
+import TripPlaceholder from '../../../../assets/placeholders/product.svg';
 
 type Passager = {
   nom: string;
@@ -36,6 +37,26 @@ type Passager = {
   genre: string;
   siege: string;
   prixBillet: number;
+};
+
+type ReservationApiItem = {
+  reservation: {
+    idReservation: string;
+    nbrPassager: number;
+    prixTotal: number;
+  };
+  voyage: {
+    lieuDepart: string;
+    lieuArrive: string;
+    pointDeDepart?: string;
+    pointArrivee?: string;
+    heureDepartEffectif?: string;
+    heureArrive: string;
+    dateDepartPrev: string;
+    statusVoyage: string;
+    smallImage?: string | null;
+  };
+  agence: { longName: string };
 };
 
 type ReservationDetail = {
@@ -49,7 +70,9 @@ type ReservationDetail = {
   dateDepartPrev: string;
   nomAgence: string;
   statusVoyage: string;
-  passagers: Passager[];
+  nbrPassager: number;
+  prixTotal: number;
+  smallImage?: string | null;
 };
 
 type HistoriqueRaw = {
@@ -100,6 +123,12 @@ const STATUS_COLORS: Record<
     color: colors.success,
     bg: `${colors.success}15`,
   },
+  VALIDER: {
+    label: 'Validé',
+    labelEn: 'Validated',
+    color: colors.success,
+    bg: `${colors.success}15`,
+  },
 };
 
 const ORIGINE_LABELS: Record<
@@ -110,12 +139,40 @@ const ORIGINE_LABELS: Record<
   agence: { fr: 'Agence', en: 'Agency', color: '#d97706' },
 };
 
+function mapToFlatDetail(item: ReservationApiItem): ReservationDetail {
+  return {
+    idReservation: item.reservation.idReservation,
+    lieuDepart: item.voyage.lieuDepart,
+    lieuArrive: item.voyage.lieuArrive,
+    pointDeDepart: item.voyage.pointDeDepart,
+    pointArrivee: item.voyage.pointArrivee,
+    heureDepartEffectif: item.voyage.heureDepartEffectif,
+    heureArrive: item.voyage.heureArrive,
+    dateDepartPrev: item.voyage.dateDepartPrev,
+    nomAgence: item.agence.longName,
+    statusVoyage: item.voyage.statusVoyage,
+    nbrPassager: item.reservation.nbrPassager,
+    prixTotal: item.reservation.prixTotal,
+    smallImage: item.voyage.smallImage,
+  };
+}
+
 function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString(
     lang === 'fr' ? 'fr-FR' : 'en-GB',
     { day: 'numeric', month: 'long', year: 'numeric' },
   );
+}
+
+function formatTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getHours().toString().padStart(2, '0')}h${d
+    .getMinutes()
+    .toString()
+    .padStart(2, '0')}`;
 }
 
 function formatPrice(price: number): string {
@@ -175,7 +232,7 @@ export default function Historique() {
       threeMonths: '3 derniers mois',
       year: 'Cette année',
       passengers: (n: number) => `${n} passager${n > 1 ? 's' : ''}`,
-      downloadTicket: 'Télécharger billet',
+      downloadTicket: 'Partager le billet',
       details: 'Détails',
       noData: 'Aucun historique',
       cancelledBy: 'Annulé par',
@@ -196,7 +253,7 @@ export default function Historique() {
       threeMonths: 'Last 3 months',
       year: 'This year',
       passengers: (n: number) => `${n} passenger${n > 1 ? 's' : ''}`,
-      downloadTicket: 'Download ticket',
+      downloadTicket: 'Share ticket',
       details: 'Details',
       noData: 'No history',
       cancelledBy: 'Cancelled by',
@@ -236,25 +293,31 @@ export default function Historique() {
 
       if (!res.ok) return;
 
-      const rawList: HistoriqueRaw[] = await res.json();
+      const data = await res.json();
+      console.log('Fetched historique data:', data);
+      const rawList: HistoriqueRaw[] = data;
 
-      // Enrichissement parallèle
-      const enriched = await Promise.all(
-        rawList.map(async (h): Promise<HistoriqueEnrichi> => {
-          try {
-            const detailRes = await fetch(
-              `${API_URL}/reservation/${h.idReservation}`,
-              {
-                headers: { Authorization: `Bearer ${token}` },
-              },
-            );
-            const detail = detailRes.ok ? await detailRes.json() : null;
-            return { ...h, reservation: detail };
-          } catch {
-            return { ...h, reservation: null };
-          }
-        }),
+      const resListRes = await fetch(
+        `${API_URL}/reservation/user/${userId}?page=0&size=100`,
+        { headers: { Authorization: `Bearer ${token}` } },
       );
+      const resListData = resListRes.ok
+        ? await resListRes.json()
+        : { content: [] };
+      const reservationItems: ReservationApiItem[] = resListData.content || [];
+
+      const reservationMap = new Map<string, ReservationDetail>();
+      reservationItems.forEach(item => {
+        reservationMap.set(
+          item.reservation.idReservation,
+          mapToFlatDetail(item),
+        );
+      });
+
+      const enriched: HistoriqueEnrichi[] = rawList.map(h => ({
+        ...h,
+        reservation: reservationMap.get(h.idReservation) || null,
+      }));
 
       setHistoriques(enriched);
     } catch {
@@ -280,7 +343,8 @@ export default function Historique() {
     if (!isInDateRange(h.dateReservation, dateFilter)) return false;
     if (calMonth !== null) {
       const d = new Date(h.dateReservation);
-      if (d.getMonth() !== calMonth || d.getFullYear() !== calYear) return false;
+      if (d.getMonth() !== calMonth || d.getFullYear() !== calYear)
+        return false;
     }
 
     if (debouncedSearch.trim()) {
@@ -290,8 +354,7 @@ export default function Historique() {
         r?.lieuDepart?.toLowerCase().includes(q) ||
         r?.lieuArrive?.toLowerCase().includes(q) ||
         r?.nomAgence?.toLowerCase().includes(q) ||
-        h.idHistorique.toLowerCase().includes(q) ||
-        r?.passagers?.[0]?.nom?.toLowerCase().includes(q)
+        h.idHistorique.toLowerCase().includes(q)
       );
     }
     return true;
@@ -300,7 +363,7 @@ export default function Historique() {
   const handleShare = async (h: HistoriqueEnrichi) => {
     const r = h.reservation;
     if (!r) return;
-    const totalPrice = r.passagers.reduce((sum, p) => sum + p.prixBillet, 0);
+    const totalPrice = r?.prixTotal || 0;
     try {
       await Share.share({
         message: `
@@ -311,7 +374,8 @@ export default function Historique() {
 📅 ${formatDate(r.dateDepartPrev, lang)}
 🕐 ${r.heureDepartEffectif} - ${r.heureArrive}
 🏢 ${r.nomAgence}
-👥 ${r.passagers.length} passager(s)
+👥 ${r.nbrPassager} passager(s)
+💰 ${formatPrice(r.prixTotal)}
 💰 ${formatPrice(totalPrice)}
         `.trim(),
         title: lang === 'fr' ? 'Billet de voyage' : 'Travel ticket',
@@ -325,8 +389,7 @@ export default function Historique() {
     const r = item.reservation;
     const status =
       STATUS_COLORS[item.statusHistorique] || STATUS_COLORS.EN_ATTENTE;
-    const totalPrice =
-      r?.passagers?.reduce((sum, p) => sum + p.prixBillet, 0) || 0;
+    const totalPrice = r?.prixTotal || 0;
 
     return (
       <View
@@ -341,7 +404,15 @@ export default function Historique() {
           <View
             style={[styles.cardImage, { backgroundColor: theme.backgroundAlt }]}
           >
-            <Ionicons name="bus-outline" size={28} color={theme.text} />
+            {r?.smallImage ? (
+              <Image
+                source={{ uri: r.smallImage }}
+                style={styles.cardImageInner}
+                resizeMode="cover"
+              />
+            ) : (
+              <TripPlaceholder width="100%" height="100%" />
+            )}
           </View>
 
           {/* Info */}
@@ -369,7 +440,9 @@ export default function Historique() {
               style={[styles.route, { color: theme.textStrong }]}
               numberOfLines={1}
             >
-              {r?.lieuDepart || '—'} → {r?.lieuArrive || '—'}
+              {lang === 'fr'
+                ? `De ${r?.lieuDepart || '—'} vers ${r?.lieuArrive || '—'}`
+                : `From ${r?.lieuDepart || '—'} to ${r?.lieuArrive || '—'}`}
             </Text>
 
             {/* Time */}
@@ -378,7 +451,8 @@ export default function Historique() {
                 <Ionicons name="time-outline" size={12} color={theme.text} />
                 <Text style={[styles.timeText, { color: theme.text }]}>
                   {' '}
-                  {r.heureDepartEffectif} - {r.heureArrive}
+                  {formatTime(r.heureDepartEffectif)} -{' '}
+                  {formatTime(r.heureArrive)}
                 </Text>
               </View>
             )}
@@ -389,7 +463,7 @@ export default function Historique() {
                 <Ionicons name="people-outline" size={12} color={theme.text} />
                 <Text style={[styles.timeText, { color: theme.text }]}>
                   {' '}
-                  {t.passengers(r?.passagers?.length || 0)}
+                  {t.passengers(r?.nbrPassager || 0)}
                 </Text>
               </View>
               <Text style={[styles.price, { color: colors.primary }]}>
@@ -436,8 +510,7 @@ export default function Historique() {
   const CancellationCard = ({ item }: { item: HistoriqueEnrichi }) => {
     const r = item.reservation;
     const status = STATUS_COLORS.ANNULE;
-    const totalPrice =
-      r?.passagers?.reduce((sum, p) => sum + p.prixBillet, 0) || 0;
+    const totalPrice = r?.prixTotal || 0;
     const origine = item.origineAnnulation
       ? ORIGINE_LABELS[item.origineAnnulation] || null
       : null;
@@ -454,7 +527,15 @@ export default function Historique() {
           <View
             style={[styles.cardImage, { backgroundColor: theme.backgroundAlt }]}
           >
-            <Ionicons name="bus-outline" size={28} color={theme.text} />
+            {r?.smallImage ? (
+              <Image
+                source={{ uri: r.smallImage }}
+                style={styles.cardImageInner}
+                resizeMode="cover"
+              />
+            ) : (
+              <TripPlaceholder width="100%" height="100%" />
+            )}
           </View>
 
           <View style={styles.cardInfo}>
@@ -476,7 +557,9 @@ export default function Historique() {
               style={[styles.route, { color: theme.textStrong }]}
               numberOfLines={1}
             >
-              {r?.lieuDepart || '—'} → {r?.lieuArrive || '—'}
+              {lang === 'fr'
+                ? `De ${r?.lieuDepart || '—'} vers ${r?.lieuArrive || '—'}`
+                : `From ${r?.lieuDepart || '—'} to ${r?.lieuArrive || '—'}`}
             </Text>
 
             {r && (
@@ -484,7 +567,8 @@ export default function Historique() {
                 <Ionicons name="time-outline" size={12} color={theme.text} />
                 <Text style={[styles.timeText, { color: theme.text }]}>
                   {' '}
-                  {r.heureDepartEffectif} - {r.heureArrive}
+                  {formatTime(r.heureDepartEffectif)} -{' '}
+                  {formatTime(r.heureArrive)}
                 </Text>
               </View>
             )}
@@ -494,7 +578,7 @@ export default function Historique() {
                 <Ionicons name="people-outline" size={12} color={theme.text} />
                 <Text style={[styles.timeText, { color: theme.text }]}>
                   {' '}
-                  {t.passengers(r?.passagers?.length || 0)}
+                  {t.passengers(r?.nbrPassager || 0)}
                 </Text>
               </View>
               <Text style={[styles.price, { color: colors.primary }]}>
@@ -635,96 +719,6 @@ export default function Historique() {
             />
           }
         >
-          {/* Search */}
-          <View
-            style={[styles.searchRow, { backgroundColor: theme.background }]}
-          >
-            <View
-              style={[
-                styles.searchInput,
-                {
-                  borderColor: theme.border,
-                  backgroundColor: theme.backgroundAlt,
-                },
-              ]}
-            >
-              <Ionicons name="search-outline" size={16} color={theme.text} />
-              <TextInput
-                style={[styles.searchText, { color: theme.textStrong }]}
-                placeholder={t.searchPlaceholder}
-                placeholderTextColor={theme.text}
-                value={search}
-                onChangeText={setSearch}
-              />
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.filterIconBtn,
-                {
-                  borderColor: dateFilter !== 'all' ? colors.primary : theme.border,
-                  backgroundColor: dateFilter !== 'all' ? `${colors.primary}10` : undefined,
-                },
-              ]}
-              onPress={() => setShowFilters(v => !v)}
-            >
-              <Ionicons
-                name="options-outline"
-                size={20}
-                color={dateFilter !== 'all' ? colors.primary : theme.textStrong}
-              />
-              {dateFilter !== 'all' && <View style={styles.filterBadge} />}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.filterIconBtn,
-                {
-                  borderColor: calMonth !== null ? colors.primary : theme.border,
-                  backgroundColor: calMonth !== null ? `${colors.primary}10` : undefined,
-                },
-              ]}
-              onPress={() => setShowCalendar(true)}
-            >
-              <Ionicons
-                name="calendar-outline"
-                size={20}
-                color={calMonth !== null ? colors.primary : theme.textStrong}
-              />
-              {calMonth !== null && <View style={styles.filterBadge} />}
-            </TouchableOpacity>
-          </View>
-
-          {/* Date filter chips — toggle */}
-          {showFilters && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.dateFiltersRow}
-            >
-              {DATE_FILTERS.map(f => (
-                <TouchableOpacity
-                  key={f.key}
-                  style={[
-                    styles.dateChip,
-                    {
-                      borderColor: dateFilter === f.key ? colors.primary : theme.border,
-                      backgroundColor: dateFilter === f.key ? colors.primary : 'transparent',
-                    },
-                  ]}
-                  onPress={() => setDateFilter(f.key)}
-                >
-                  <Text
-                    style={[
-                      styles.dateChipText,
-                      { color: dateFilter === f.key ? '#fff' : theme.text },
-                    ]}
-                  >
-                    {f.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-
           {/* Tabs */}
           <View
             style={[
@@ -761,12 +755,111 @@ export default function Historique() {
             ))}
           </View>
 
+          {/* Search */}
+          <View
+            style={[styles.searchRow, { backgroundColor: theme.background }]}
+          >
+            <View
+              style={[
+                styles.searchInput,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                },
+              ]}
+            >
+              <Ionicons name="search-outline" size={16} color={theme.text} />
+              <TextInput
+                style={[styles.searchText, { color: theme.textStrong }]}
+                placeholder={t.searchPlaceholder}
+                placeholderTextColor={theme.text}
+                value={search}
+                onChangeText={setSearch}
+              />
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.filterIconBtn,
+                {
+                  borderColor:
+                    dateFilter !== 'all' ? colors.primary : theme.border,
+                  backgroundColor:
+                    dateFilter !== 'all' ? `${colors.primary}10` : undefined,
+                },
+              ]}
+              onPress={() => setShowFilters(v => !v)}
+            >
+              <Ionicons
+                name="options-outline"
+                size={20}
+                color={dateFilter !== 'all' ? colors.primary : theme.textStrong}
+              />
+              {dateFilter !== 'all' && <View style={styles.filterBadge} />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.filterIconBtn,
+                {
+                  borderColor:
+                    calMonth !== null ? colors.primary : theme.border,
+                  backgroundColor:
+                    calMonth !== null ? `${colors.primary}10` : undefined,
+                },
+              ]}
+              onPress={() => setShowCalendar(true)}
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={20}
+                color={calMonth !== null ? colors.primary : theme.textStrong}
+              />
+              {calMonth !== null && <View style={styles.filterBadge} />}
+            </TouchableOpacity>
+          </View>
+
+          {/* Date filter chips — toggle */}
+          {showFilters && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dateFiltersRow}
+            >
+              {DATE_FILTERS.map(f => (
+                <TouchableOpacity
+                  key={f.key}
+                  style={[
+                    styles.dateChip,
+                    {
+                      borderColor:
+                        dateFilter === f.key ? colors.primary : theme.border,
+                      backgroundColor:
+                        dateFilter === f.key ? colors.primary : 'transparent',
+                    },
+                  ]}
+                  onPress={() => setDateFilter(f.key)}
+                >
+                  <Text
+                    style={[
+                      styles.dateChipText,
+                      { color: dateFilter === f.key ? '#fff' : theme.text },
+                    ]}
+                  >
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
           <MonthPickerModal
             visible={showCalendar}
             lang={lang}
             selectedYear={calYear}
             selectedMonth={calMonth}
-            onApply={(year, month) => { setCalYear(year); setCalMonth(month); }}
+            onApply={(year, month) => {
+              setCalYear(year);
+              setCalMonth(month);
+            }}
             onClose={() => setShowCalendar(false)}
           />
 
@@ -847,7 +940,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.md,
     gap: spacing.sm,
     flexWrap: 'wrap',
   },
@@ -872,6 +965,7 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xl,
   },
   card: {
