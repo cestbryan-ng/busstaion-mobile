@@ -105,7 +105,7 @@ export default function OrgHome() {
           name="profile"
           options={{ tabBarLabel: TAB_LABELS[lang].profile }}
         >
-          {() => <OrgProfil setLang={handleLangChange} />}
+          {() => <OrgProfil setLang={handleLangChange} setDrawerOpen={setDrawerOpen} />}
         </Tab.Screen>
       </Tab.Navigator>
 

@@ -21,6 +21,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonOrgProfile } from '../../../../components/skeleton';
+import BuildingPlaceholder from '../../../../assets/placeholders/building.svg';
 
 type Organization = {
   organization_id: string;
@@ -201,9 +202,6 @@ export default function OrgMyOrganization() {
   );
 
   const isActive = org?.is_active;
-  const initials = (org?.short_name || org?.long_name || 'ORG')
-    .slice(0, 3)
-    .toUpperCase();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -219,14 +217,9 @@ export default function OrgMyOrganization() {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
         </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={[styles.title, { color: theme.textStrong }]}>
-            {t.title}
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: theme.text }]}>
-            {t.subtitle}
-          </Text>
-        </View>
+        <Text style={[styles.title, { color: theme.textStrong }]}>
+          {t.title}
+        </Text>
         <TouchableOpacity
           onPress={() => navigation.navigate('OrgEditOrganization')}
         >
@@ -261,9 +254,7 @@ export default function OrgMyOrganization() {
                 resizeMode="contain"
               />
             ) : (
-              <Text style={[styles.orgLogoText, { color: colors.primary }]}>
-                {initials}
-              </Text>
+              <BuildingPlaceholder width="60%" height="60%" />
             )}
           </View>
           <View style={styles.orgTopInfo}>
@@ -330,7 +321,7 @@ export default function OrgMyOrganization() {
           <InfoRow
             icon="finger-print-outline"
             iconColor="#7c3aed"
-            iconBg="#f5f3ff"
+            iconBg={`${colors.primary}10`}
             label={t.orgId}
             value={truncateId(org?.organization_id)}
           />
@@ -372,7 +363,7 @@ export default function OrgMyOrganization() {
           <InfoRow
             icon="person-outline"
             iconColor="#7c3aed"
-            iconBg="#f5f3ff"
+            iconBg={`${colors.primary}10`}
             label={t.ceo}
             value={org?.ceo_name}
           />
@@ -492,13 +483,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  title: { ...typography.heading, fontSize: typography.sizes.lg },
-  headerSubtitle: {
-    ...typography.body,
-    fontSize: typography.sizes.xs,
-    marginTop: 1,
-  },
+  title: { ...typography.heading, fontSize: typography.sizes.lg, flex: 1, textAlign: 'center' },
 
   orgTopCard: {
     flexDirection: 'row',
@@ -518,7 +503,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   orgLogoImage: { width: '100%', height: '100%' },
-  orgLogoText: { ...typography.heading, fontSize: typography.sizes.md },
   orgTopInfo: { flex: 1 },
   orgNameRow: {
     flexDirection: 'row',

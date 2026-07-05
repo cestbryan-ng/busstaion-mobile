@@ -292,12 +292,12 @@ export default function BsmAgencies() {
       <View
         style={[
           styles.affiliationCard,
-          { backgroundColor: theme.background, borderColor: '#d97706' },
+          { backgroundColor: theme.background, borderColor: colors.primary },
         ]}
       >
         <View style={styles.affiliationTop}>
           <View
-            style={[styles.agencyLogo, { backgroundColor: `${'#d97706'}15` }]}
+            style={[styles.agencyLogo, { backgroundColor: `${colors.primary}15` }]}
           >
             {logo ? (
               <Image
@@ -325,8 +325,8 @@ export default function BsmAgencies() {
               </Text>
             )}
           </View>
-          <View style={[styles.pendingBadge, { backgroundColor: '#fef3c715' }]}>
-            <Text style={[styles.pendingBadgeText, { color: '#d97706' }]}>
+          <View style={[styles.pendingBadge, { backgroundColor: `${colors.primary}15` }]}>
+            <Text style={[styles.pendingBadgeText, { color: colors.primary }]}>
               {lang === 'fr' ? 'En attente' : 'Pending'}
             </Text>
           </View>
@@ -554,15 +554,15 @@ export default function BsmAgencies() {
               style={[
                 styles.statCard,
                 {
-                  backgroundColor: `${colors.error}10`,
-                  borderColor: `${colors.error}20`,
+                  backgroundColor: `${colors.primary}10`,
+                  borderColor: `${colors.primary}20`,
                 },
               ]}
             >
               <Ionicons
                 name="business-outline"
                 size={18}
-                color={colors.error}
+                color={colors.primary}
               />
               <Text style={[styles.statValue, { color: theme.textStrong }]}>
                 {agencies.length}
@@ -623,10 +623,10 @@ export default function BsmAgencies() {
                 <View
                   style={[
                     styles.pendingCount,
-                    { backgroundColor: '#fef3c715', borderColor: '#d97706' },
+                    { backgroundColor: `${colors.primary}15`, borderColor: colors.primary },
                   ]}
                 >
-                  <Text style={[styles.pendingCountText, { color: '#d97706' }]}>
+                  <Text style={[styles.pendingCountText, { color: colors.primary }]}>
                     {pendingAffiliations.length}
                   </Text>
                 </View>

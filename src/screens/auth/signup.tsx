@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
+import { DatePickerModal } from '../../components/date-picker-modal';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -129,9 +130,12 @@ export default function SignUp() {
     tax_number: '',
   });
 
+  const [showYearPicker, setShowYearPicker] = useState(false);
+
   const [errors1, setErrors1] = useState<Errors1>({});
   const [errors3, setErrors3] = useState<Errors3>({});
   const [serverError, setServerError] = useState('');
+
 
   useEffect(() => {
     AsyncStorage.getItem('app_lang').then(l => {
@@ -354,7 +358,18 @@ export default function SignUp() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(form3),
+        body: JSON.stringify({
+          long_name: form3.long_name,
+          short_name: form3.long_name,
+          email: form3.email,
+          ceo_name: form3.ceo_name,
+          business_registration_number: form3.business_registration_number,
+          tax_number: form3.tax_number,
+          business_domains: [],
+          year_founded: form3.year_founded
+            ? `${form3.year_founded}-01-01T00:00:00`
+            : undefined,
+        }),
       });
 
       const data = await response.json();
@@ -1075,29 +1090,39 @@ export default function SignUp() {
             <Text style={[styles.label, { color: theme.textStrong }]}>
               {t.yearFounded}
             </Text>
-            <View
+            <TouchableOpacity
               style={[
                 styles.inputWrapper,
                 {
-                  borderColor: errors3.year_founded
-                    ? colors.error
-                    : theme.border,
+                  borderColor: errors3.year_founded ? colors.error : theme.border,
                   backgroundColor: theme.background,
                 },
               ]}
+              onPress={() => setShowYearPicker(true)}
             >
-              <TextInput
-                style={[styles.input, { color: theme.textStrong }]}
-                placeholder="2025"
-                placeholderTextColor={theme.text}
-                value={form3.year_founded}
-                onChangeText={v => update3('year_founded', v)}
-                keyboardType="numeric"
-              />
-            </View>
+              <Text
+                style={[
+                  styles.input,
+                  { color: form3.year_founded ? theme.textStrong : theme.text },
+                ]}
+              >
+                {form3.year_founded || '2025'}
+              </Text>
+              <Ionicons name="chevron-down-outline" size={18} color={theme.text} />
+            </TouchableOpacity>
             {errors3.year_founded && (
               <Text style={styles.fieldError}>{errors3.year_founded}</Text>
             )}
+
+            <DatePickerModal
+              visible={showYearPicker}
+              lang={lang}
+              selectedDate={form3.year_founded ? `${form3.year_founded}-01-01` : null}
+              onApply={date => {
+                if (date) update3('year_founded', date.split('-')[0]);
+              }}
+              onClose={() => setShowYearPicker(false)}
+            />
 
             {/* Numéro immatriculation */}
             <Text style={[styles.label, { color: theme.textStrong }]}>

@@ -335,21 +335,26 @@ export default function OrgEditOrganization() {
               <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
                 {t.phone}
               </Text>
-              <TextInput
+              <View
                 style={[
-                  styles.fieldInput,
+                  styles.phoneInput,
                   {
                     borderColor: theme.border,
                     backgroundColor: theme.backgroundAlt,
-                    color: theme.textStrong,
                   },
                 ]}
-                value={form.phone}
-                onChangeText={v => update('phone', v)}
-                placeholder="+237 691 000 000"
-                placeholderTextColor={theme.text}
-                keyboardType="phone-pad"
-              />
+              >
+                <Text style={styles.phoneFlag}>🇨🇲</Text>
+                <Text style={[styles.phonePrefix, { color: theme.textStrong }]}>+237</Text>
+                <TextInput
+                  style={[styles.phoneTextInput, { color: theme.textStrong }]}
+                  value={form.phone}
+                  onChangeText={v => update('phone', v)}
+                  placeholder="691 000 000"
+                  placeholderTextColor={theme.text}
+                  keyboardType="phone-pad"
+                />
+              </View>
             </View>
             <View style={styles.halfField}>
               <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
@@ -548,7 +553,7 @@ export default function OrgEditOrganization() {
           ]}
         >
           <TouchableOpacity
-            style={[styles.cancelBtn, { borderColor: theme.border }]}
+            style={[styles.cancelBtn, { borderColor: theme.border, backgroundColor: theme.background }]}
             onPress={() => navigation.goBack()}
           >
             <Text style={[styles.cancelBtnText, { color: theme.textStrong }]}>
@@ -610,6 +615,18 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.xs,
     marginTop: 3,
   },
+  phoneInput: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    height: 48,
+  },
+  phoneFlag: { fontSize: 20 },
+  phonePrefix: { ...typography.body, fontSize: typography.sizes.sm },
+  phoneTextInput: { flex: 1, ...typography.body, fontSize: typography.sizes.sm, height: 48 },
   rowFields: { flexDirection: 'row', marginBottom: spacing.md },
   halfField: { flex: 1 },
   websiteInput: {

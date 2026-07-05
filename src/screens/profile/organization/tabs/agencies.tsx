@@ -61,9 +61,6 @@ export default function OrgAgencies() {
       stationsDesc: 'Voir les gares et affiliations',
       vehiclesDesc: 'Gérer vos véhicules',
       linesDesc: 'Gérer vos lignes et créneaux',
-      tripsDesc: 'Gérer vos voyages et brouillons',
-      reservationsDesc: 'Voir les réservations',
-      policyDesc: "Gérer votre politique d'annulation",
       employees: 'Employés',
       employeesDesc: 'Gérer les employés de vos agences',
     },
@@ -85,9 +82,6 @@ export default function OrgAgencies() {
       stationsDesc: 'View stations and affiliations',
       vehiclesDesc: 'Manage your vehicles',
       linesDesc: 'Manage your lines and slots',
-      tripsDesc: 'Manage your trips and drafts',
-      reservationsDesc: 'View reservations',
-      policyDesc: 'Manage your cancellation policy',
       employees: 'Employees',
       employeesDesc: 'Manage your agency employees',
     },
@@ -95,18 +89,34 @@ export default function OrgAgencies() {
 
   const loadData = useCallback(async () => {
     try {
-      const [token, orgRaw, storedLang] = await Promise.all([
+      const [token, userRaw, orgRaw, storedLang] = await Promise.all([
         AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('user'),
         AsyncStorage.getItem('organization'),
         AsyncStorage.getItem('app_lang'),
       ]);
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-      const org = orgRaw ? JSON.parse(orgRaw) : null;
-      const orgId = org?.organization_id;
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // Use cached org, or fetch from API if missing
+      let orgId = orgRaw ? JSON.parse(orgRaw)?.organization_id : null;
+      if (!orgId) {
+        const userId =
+          userRaw
+            ? (JSON.parse(userRaw)?.userId || JSON.parse(userRaw)?.id || JSON.parse(userRaw)?.user_id)
+            : null;
+        if (!userId) return;
+        const orgsRes = await fetch(`${API_URL}/organizations/user/${userId}`, { headers });
+        if (!orgsRes.ok) return;
+        const orgsData = await orgsRes.json();
+        const first = Array.isArray(orgsData) ? orgsData[0] : null;
+        if (!first) return;
+        orgId = first.organization_id;
+        await AsyncStorage.setItem('organization', JSON.stringify(first));
+      }
       if (!orgId) return;
 
-      const headers = { Authorization: `Bearer ${token}` };
       const agenciesRes = await fetch(
         `${API_URL}/organizations/agencies/${orgId}`,
         { headers },
@@ -213,24 +223,6 @@ export default function OrgAgencies() {
             navigation.navigate('OrgEmployees', { agencyId: firstAgencyId })
         : () => {},
     },
-    {
-      icon: 'bus-outline',
-      label: 'Voyages & Brouillons',
-      desc: t.tripsDesc,
-      onPress: () => {},
-    },
-    {
-      icon: 'calendar-outline',
-      label: 'Réservations',
-      desc: t.reservationsDesc,
-      onPress: () => {},
-    },
-    {
-      icon: 'shield-outline',
-      label: "Politique d'annulation",
-      desc: t.policyDesc,
-      onPress: () => {},
-    },
   ];
 
   if (loading) return <SkeletonListScreen />;
@@ -246,13 +238,9 @@ export default function OrgAgencies() {
           },
         ]}
       >
-        <TouchableOpacity>
-          <Ionicons name="menu-outline" size={26} color={theme.textStrong} />
-        </TouchableOpacity>
         <Text style={[styles.title, { color: theme.textStrong }]}>
           {t.title}
         </Text>
-        <View style={{ width: 26 }} />
       </View>
 
       <ScrollView
@@ -451,7 +439,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,

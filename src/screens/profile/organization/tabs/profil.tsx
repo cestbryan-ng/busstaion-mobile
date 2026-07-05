@@ -1,18 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
-  ActivityIndicator,
   useColorScheme,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
@@ -21,6 +20,7 @@ import { SUPPORT_URL, CGU_URL } from '../../../../utils/config';
 import { logout } from '../../../../utils/logout';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonProfileScreen } from '../../../../components/skeleton';
+import AvatarPlaceholder from '../../../../assets/placeholders/avatar-2.svg';
 
 type User = {
   userId: string;
@@ -32,32 +32,22 @@ type User = {
   role: string[];
 };
 
-type Organization = {
-  organization_id: string;
-  long_name: string;
-  short_name: string;
-  logo_url?: string;
-  email?: string;
-  is_active: boolean;
-};
-
-const ROLE_COLORS: Record<string, { color: string; bg: string }> = {
-  AGENCE_VOYAGE: { color: '#1e3a8a', bg: '#dbeafe' },
-  ORGANISATION: { color: '#065f46', bg: '#d1fae5' },
-  BUS_STATION_MANAGER: { color: '#7c3aed', bg: '#f5f3ff' },
-  USAGER: { color: '#d97706', bg: '#fef3c7' },
-  ADMIN: { color: '#dc2626', bg: '#fee2e2' },
-};
-
-export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (lang: 'fr' | 'en') => void } = {}) {
+export default function OrgProfil({
+  setLang: notifyParentLang,
+  setDrawerOpen,
+}: {
+  setLang?: (lang: 'fr' | 'en') => void;
+  setDrawerOpen?: (open: boolean) => void;
+} = {}) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   const [user, setUser] = useState<User | null>(null);
-  const [org, setOrg] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [pinEnabled, setPinEnabled] = useState(false);
@@ -65,12 +55,11 @@ export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (la
   const t = {
     fr: {
       title: 'Profil',
-      subtitle: 'Gérez votre compte et votre organisation',
-      roles: 'Rôles',
-      myProfile: 'Mon profil',
-      myProfileDesc: 'Voir et modifier mes informations personnelles',
+      myAccount: 'Mon compte',
       myOrg: 'Mon organisation',
       myOrgDesc: "Voir et modifier les informations de l'organisation",
+      personalInfo: 'Informations personnelles',
+      personalInfoDesc: 'Gérez vos informations de profil',
       preferences: 'Préférences',
       lang: 'Changer de langue',
       pinCode: 'Code PIN',
@@ -78,22 +67,20 @@ export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (la
       pinInactive: 'Code PIN non configuré',
       pinStatusActive: 'Actif',
       pinStatusInactive: 'Inactif',
-      help: 'Aide & support',
-      helpDesc: "Centre d'aide",
-      about: 'À propos',
-      aboutDesc: "Version de l'application",
+      support: 'Support',
+      helpCenter: "Centre d'aide",
+      helpCenterDesc: 'FAQ et assistance',
+      terms: "Conditions d'utilisation",
+      termsDesc: 'Lire nos conditions',
       logout: 'Déconnexion',
-      logoutDesc: "Se déconnecter de l'application",
-      chef: "Chef d'agence",
     },
     en: {
       title: 'Profile',
-      subtitle: 'Manage your account and organization',
-      roles: 'Roles',
-      myProfile: 'My profile',
-      myProfileDesc: 'View and edit my personal information',
+      myAccount: 'My account',
       myOrg: 'My organization',
       myOrgDesc: 'View and edit organization information',
+      personalInfo: 'Personal information',
+      personalInfoDesc: 'Manage your profile information',
       preferences: 'Preferences',
       lang: 'Change language',
       pinCode: 'PIN code',
@@ -101,28 +88,25 @@ export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (la
       pinInactive: 'PIN not configured',
       pinStatusActive: 'Active',
       pinStatusInactive: 'Inactive',
-      help: 'Help & support',
-      helpDesc: 'Help center',
-      about: 'About',
-      aboutDesc: 'App version',
+      support: 'Support',
+      helpCenter: 'Help center',
+      helpCenterDesc: 'FAQ and assistance',
+      terms: 'Terms of use',
+      termsDesc: 'Read our terms',
       logout: 'Logout',
-      logoutDesc: 'Sign out of the application',
-      chef: 'Agency manager',
     },
   }[lang];
 
   const loadData = useCallback(async () => {
     try {
-      const [userRaw, orgRaw, storedLang, pinVal] = await Promise.all([
+      const [userRaw, storedLang, pinVal] = await Promise.all([
         AsyncStorage.getItem('user'),
-        AsyncStorage.getItem('organization'),
         AsyncStorage.getItem('app_lang'),
         AsyncStorage.getItem('pin_enabled'),
       ]);
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
       setPinEnabled(pinVal === 'true');
       if (userRaw) setUser(JSON.parse(userRaw));
-      if (orgRaw) setOrg(JSON.parse(orgRaw));
     } catch {
       // silent
     } finally {
@@ -147,20 +131,8 @@ export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (la
     notifyParentLang?.(newLang);
   };
 
-  const fullName =
-    [user?.first_name, user?.last_name].filter(Boolean).join(' ') ||
-    user?.username ||
-    '—';
-  const initials =
-    [user?.first_name?.[0], user?.last_name?.[0]]
-      .filter(Boolean)
-      .join('')
-      .toUpperCase() || 'U';
-
   const MenuItem = ({
     icon,
-    iconColor,
-    iconBg,
     label,
     desc,
     onPress,
@@ -168,8 +140,6 @@ export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (la
     danger = false,
   }: {
     icon: string;
-    iconColor: string;
-    iconBg: string;
     label: string;
     desc?: string;
     onPress: () => void;
@@ -181,8 +151,21 @@ export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (la
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={[styles.menuIcon, { backgroundColor: iconBg }]}>
-        <Ionicons name={icon} size={20} color={iconColor} />
+      <View
+        style={[
+          styles.menuIcon,
+          {
+            backgroundColor: danger
+              ? `${colors.error}10`
+              : `${colors.primary}10`,
+          },
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={20}
+          color={danger ? colors.error : colors.primary}
+        />
       </View>
       <View style={styles.menuText}>
         <Text
@@ -217,23 +200,23 @@ export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (la
           },
         ]}
       >
-        <View>
-          <Text style={[styles.title, { color: theme.textStrong }]}>
-            {t.title}
-          </Text>
-          <Text style={[styles.subtitle, { color: theme.text }]}>
-            {t.subtitle}
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.headerAvatarPlaceholder,
-            { backgroundColor: theme.backgroundAlt },
-          ]}
-        />
+        <Text style={[styles.title, { color: theme.textStrong }]}>
+          {t.title}
+        </Text>
+        <TouchableOpacity onPress={() => setDrawerOpen?.(true)}>
+          <View
+            style={[
+              styles.avatarSmall,
+              { backgroundColor: theme.backgroundAlt },
+            ]}
+          >
+            <Ionicons name="menu-outline" size={22} color={theme.text} />
+          </View>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -243,87 +226,42 @@ export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (la
           />
         }
       >
-        {/* User card */}
+        {/* Profile Card */}
         <View
           style={[
-            styles.userCard,
+            styles.profileCard,
             { backgroundColor: theme.background, borderColor: theme.border },
           ]}
         >
-          <View
-            style={[styles.userAvatar, { backgroundColor: colors.primary }]}
-          >
-            <Text style={styles.userAvatarText}>{initials}</Text>
-          </View>
-          <View style={styles.userInfo}>
-            <Text style={[styles.userName, { color: theme.textStrong }]}>
-              {fullName}
-            </Text>
+          <View style={styles.profileRow}>
             <View
               style={[
-                styles.rolePill,
-                {
-                  backgroundColor: `${colors.primary}15`,
-                  borderColor: `${colors.primary}20`,
-                },
+                styles.avatar,
+                { backgroundColor: theme.backgroundAlt },
               ]}
             >
-              <Text style={[styles.rolePillText, { color: colors.primary }]}>
-                {t.chef}
-              </Text>
+              <AvatarPlaceholder width="100%" height="100%" />
             </View>
-            {user?.email && (
-              <View style={styles.contactRow}>
-                <Ionicons name="mail-outline" size={13} color={theme.text} />
-                <Text style={[styles.contactText, { color: theme.text }]}>
-                  {' '}
-                  {user.email}
-                </Text>
-              </View>
-            )}
-            {user?.phone_number && (
-              <View style={styles.contactRow}>
-                <Ionicons name="call-outline" size={13} color={theme.text} />
-                <Text style={[styles.contactText, { color: theme.text }]}>
-                  {' '}
+            <View style={styles.profileInfo}>
+              <Text style={[styles.profileName, { color: theme.textStrong }]}>
+                {user
+                  ? [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username
+                  : '—'}
+              </Text>
+              <Text style={[styles.profileUsername, { color: theme.text }]}>
+                {user?.username}
+              </Text>
+              <Text style={[styles.profileEmail, { color: theme.text }]}>
+                {user?.email}
+              </Text>
+              {user?.phone_number && (
+                <Text style={[styles.profilePhone, { color: theme.text }]}>
                   {user.phone_number}
                 </Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Roles */}
-        {user?.role && user.role.length > 0 && (
-          <View
-            style={[
-              styles.rolesSection,
-              { backgroundColor: theme.background, borderColor: theme.border },
-            ]}
-          >
-            <Text style={[styles.rolesLabel, { color: theme.textStrong }]}>
-              {t.roles}
-            </Text>
-            <View style={styles.rolesRow}>
-              {user.role.map(r => {
-                const cfg = ROLE_COLORS[r] || {
-                  color: theme.text,
-                  bg: theme.backgroundAlt,
-                };
-                return (
-                  <View
-                    key={r}
-                    style={[styles.roleTag, { backgroundColor: cfg.bg }]}
-                  >
-                    <Text style={[styles.roleTagText, { color: cfg.color }]}>
-                      {r}
-                    </Text>
-                  </View>
-                );
-              })}
+              )}
             </View>
           </View>
-        )}
+        </View>
 
         {/* Mon compte */}
         <View
@@ -332,27 +270,35 @@ export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (la
             { backgroundColor: theme.background, borderColor: theme.border },
           ]}
         >
+          <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
+            {t.myAccount}
+          </Text>
+          <MenuItem
+            icon="person-outline"
+            label={t.personalInfo}
+            desc={t.personalInfoDesc}
+            onPress={() => navigation.navigate('ProfileSettings')}
+          />
           <MenuItem
             icon="business-outline"
-            iconColor="#0891b2"
-            iconBg="#cffafe15"
             label={t.myOrg}
             desc={t.myOrgDesc}
             onPress={() => navigation.navigate('OrgMyOrganization')}
           />
         </View>
 
-        {/* Preferences */}
+        {/* Préférences */}
         <View
           style={[
             styles.menuSection,
             { backgroundColor: theme.background, borderColor: theme.border },
           ]}
         >
+          <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
+            {t.preferences}
+          </Text>
           <MenuItem
             icon="language-outline"
-            iconColor={colors.primary}
-            iconBg={`${colors.primary}15`}
             label={t.lang}
             desc={lang === 'fr' ? 'Français (FR)' : 'English (EN)'}
             onPress={handleLangChange}
@@ -366,8 +312,6 @@ export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (la
           />
           <MenuItem
             icon="keypad-outline"
-            iconColor={colors.success}
-            iconBg={`${colors.success}15`}
             label={t.pinCode}
             desc={pinEnabled ? t.pinActive : t.pinInactive}
             onPress={() =>
@@ -405,47 +349,44 @@ export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (la
               </View>
             }
           />
-          <MenuItem
-            icon="help-circle-outline"
-            iconColor="#7c3aed"
-            iconBg="#f5f3ff15"
-            label={t.help}
-            desc={t.helpDesc}
-            onPress={() => {
-              require('react-native').Linking.openURL(SUPPORT_URL);
-            }}
-          />
-          <MenuItem
-            icon="information-circle-outline"
-            iconColor={theme.text}
-            iconBg={theme.backgroundAlt}
-            label={t.about}
-            desc={t.aboutDesc}
-            onPress={() => {
-              require('react-native').Linking.openURL(CGU_URL);
-            }}
-          />
         </View>
 
-        {/* Logout */}
+        {/* Support */}
         <View
           style={[
             styles.menuSection,
             { backgroundColor: theme.background, borderColor: theme.border },
           ]}
         >
+          <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
+            {t.support}
+          </Text>
           <MenuItem
-            icon="log-out-outline"
-            iconColor={colors.error}
-            iconBg={`${colors.error}15`}
-            label={t.logout}
-            desc={t.logoutDesc}
-            onPress={() => logout(navigation)}
-            danger
+            icon="help-circle-outline"
+            label={t.helpCenter}
+            desc={t.helpCenterDesc}
+            onPress={() => Linking.openURL(SUPPORT_URL)}
+          />
+          <MenuItem
+            icon="document-text-outline"
+            label={t.terms}
+            desc={t.termsDesc}
+            onPress={() => Linking.openURL(CGU_URL)}
           />
         </View>
 
-        <View style={{ height: spacing.xl }} />
+        {/* Logout */}
+        <View style={styles.logoutContainer}>
+          <TouchableOpacity
+            style={[styles.logoutBtn, { borderColor: colors.error }]}
+            onPress={() => logout(navigation)}
+          >
+            <Ionicons name="log-out-outline" size={20} color={colors.error} />
+            <Text style={[styles.logoutText, { color: colors.error }]}>
+              {t.logout}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -453,10 +394,9 @@ export default function OrgProfil({ setLang: notifyParentLang }: { setLang?: (la
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
@@ -464,67 +404,39 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { ...typography.heading, fontSize: typography.sizes.xl },
-  subtitle: { ...typography.body, fontSize: typography.sizes.sm, marginTop: 2 },
-  headerAvatarPlaceholder: { width: 36, height: 36, borderRadius: 18 },
+  avatarSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
 
-  userCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
+  profileCard: {
     margin: spacing.lg,
     borderWidth: 1,
     borderRadius: 4,
     padding: spacing.md,
   },
-  userAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  profileRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'flex-start',
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
-  userAvatarText: {
-    ...typography.heading,
-    fontSize: typography.sizes.lg,
-    color: '#fff',
-  },
-  userInfo: { flex: 1, gap: 4 },
-  userName: { ...typography.bodyBold, fontSize: typography.sizes.md },
-  rolePill: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  rolePillText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
-  contactRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-  contactText: { ...typography.body, fontSize: typography.sizes.xs },
-  editIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-
-  rolesSection: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderRadius: 4,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  rolesLabel: { ...typography.bodyBold, fontSize: typography.sizes.sm },
-  rolesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  roleTag: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  roleTagText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
+  profileInfo: { flex: 1, gap: 3 },
+  profileName: { ...typography.heading, fontSize: typography.sizes.lg },
+  profileUsername: { ...typography.body, fontSize: typography.sizes.sm },
+  profileEmail: { ...typography.body, fontSize: typography.sizes.sm },
+  profilePhone: { ...typography.body, fontSize: typography.sizes.sm },
 
   menuSection: {
     marginHorizontal: spacing.lg,
@@ -532,6 +444,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 4,
     overflow: 'hidden',
+  },
+  sectionTitle: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
   menuItem: {
     flexDirection: 'row',
@@ -569,4 +488,19 @@ const styles = StyleSheet.create({
   },
   pinDot: { width: 6, height: 6, borderRadius: 3 },
   pinStatusText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
+
+  logoutContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    borderWidth: 1.5,
+    borderRadius: 4,
+    height: 52,
+  },
+  logoutText: { ...typography.bodyBold, fontSize: typography.sizes.md },
 });

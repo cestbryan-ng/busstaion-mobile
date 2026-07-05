@@ -20,7 +20,11 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import { SkeletonOrgDashboard } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
 import type { RootStackParamList } from '../../../../navigation';
+import AvatarPlaceholder from '../../../../assets/placeholders/avatar-2.svg';
+import BuildingPlaceholder from '../../../../assets/placeholders/building.svg';
+import ImagePlaceholder from '../../../../assets/placeholders/image.svg';
 
 const { width } = Dimensions.get('window');
 
@@ -28,9 +32,11 @@ type Organization = {
   organization_id: string;
   long_name: string;
   short_name: string;
-  logo_url?: string;
-  location?: string;
-  is_active: boolean;
+  logo_url?: string | null;
+  location?: string | null;
+  status: string;
+  email?: string | null;
+  ceo_name?: string | null;
 };
 
 type Agency = {
@@ -327,7 +333,7 @@ function DonutChart({
 }
 
 export default function OrgDashboard({
-  drawerOpen,
+  drawerOpen: _drawerOpen,
   setDrawerOpen,
   lang,
   setLang,
@@ -337,6 +343,7 @@ export default function OrgDashboard({
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
+  const [user, setUser] = useState<{ first_name?: string; last_name?: string } | null>(null);
   const [org, setOrg] = useState<Organization | null>(null);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null);
@@ -346,14 +353,82 @@ export default function OrgDashboard({
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [taxes, setTaxes] = useState<Tax | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const [unreadAlerts, setUnreadAlerts] = useState(0); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const hour = new Date().getHours();
+
+  const GREETINGS = {
+    fr: {
+      morning: [
+        'Bonjour ! Prêt à piloter votre organisation ? ☀️',
+        'Bonjour ! Une belle journée s\'annonce pour votre équipe ☀️',
+        'Bonjour ! Votre tableau de bord vous attend ☀️',
+        'Bon matin ! Faites briller votre organisation ☀️',
+      ],
+      afternoon: [
+        'Bonne après-midi ! Comment se porte votre activité ? 🌤️',
+        'Bonne après-midi ! Continuez sur cette lancée 🌤️',
+        'Bonne après-midi ! Un œil sur vos statistiques ? 🌤️',
+        'Bonne après-midi ! Votre équipe compte sur vous 🌤️',
+      ],
+      evening: [
+        'Bonsoir ! Récapitulez la journée de votre organisation 🌙',
+        'Bonsoir ! Préparez demain dès maintenant 🌙',
+        'Bonsoir ! Votre équipe a bien travaillé aujourd\'hui 🌙',
+        'Bonsoir ! Planifiez vos prochains voyages 🌙',
+      ],
+      night: [
+        'Bonne nuit ! Vos voyages continuent pendant votre repos 🌙',
+        'Bonne nuit ! Préparez demain pour votre organisation 🌙',
+        'Bonne nuit ! Reposez-vous, tout est sous contrôle 🌙',
+        'Bonne nuit ! Votre organisation tourne à plein régime 🌙',
+      ],
+    },
+    en: {
+      morning: [
+        'Good morning! Ready to manage your organization? ☀️',
+        'Good morning! A great day ahead for your team ☀️',
+        'Good morning! Your dashboard is waiting for you ☀️',
+        'Good morning! Make your organization shine today ☀️',
+      ],
+      afternoon: [
+        'Good afternoon! How is your activity going? 🌤️',
+        'Good afternoon! Keep up the great momentum 🌤️',
+        'Good afternoon! Take a look at your stats 🌤️',
+        'Good afternoon! Your team is counting on you 🌤️',
+      ],
+      evening: [
+        'Good evening! Time to recap your organization\'s day 🌙',
+        'Good evening! Plan tomorrow starting now 🌙',
+        'Good evening! Your team did great today 🌙',
+        'Good evening! Schedule your upcoming trips 🌙',
+      ],
+      night: [
+        'Good night! Your trips continue while you rest 🌙',
+        'Good night! Prepare tomorrow for your organization 🌙',
+        'Good night! Rest well, everything is under control 🌙',
+        'Good night! Your organization is running smoothly 🌙',
+      ],
+    },
+  };
+
+  const [greetingIndex] = useState(() => Math.floor(Math.random() * 4));
+
+  const pickGreeting = (l: 'fr' | 'en') => {
+    const set = GREETINGS[l];
+    const idx = greetingIndex;
+    if (hour >= 5 && hour < 12) return set.morning[idx];
+    if (hour >= 12 && hour < 18) return set.afternoon[idx];
+    if (hour >= 18 && hour < 22) return set.evening[idx];
+    return set.night[idx];
+  };
 
   const t = {
     fr: {
       title: 'Accueil',
-      greeting: (name: string) => `Bonjour, ${name} 👋`,
+      greeting: pickGreeting('fr'),
       subtitle: "Voici un aperçu de l'activité de votre organisation.",
       active: 'Active',
       inactive: 'Inactive',
@@ -388,7 +463,7 @@ export default function OrgDashboard({
     },
     en: {
       title: 'Home',
-      greeting: (name: string) => `Hello, ${name} 👋`,
+      greeting: pickGreeting('en'),
       subtitle: "Here's an overview of your organization's activity.",
       active: 'Active',
       inactive: 'Inactive',
@@ -425,38 +500,40 @@ export default function OrgDashboard({
 
   const loadData = useCallback(async () => {
     try {
-      const [token, userRaw, orgRaw, storedLang] = await Promise.all([
+      const [token, userRaw, storedLang] = await Promise.all([
         AsyncStorage.getItem('token'),
         AsyncStorage.getItem('user'),
-        AsyncStorage.getItem('organization'),
         AsyncStorage.getItem('app_lang'),
       ]);
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-      if (orgRaw) setOrg(JSON.parse(orgRaw));
-
-      const user = userRaw ? JSON.parse(userRaw) : null;
-      const orgData = orgRaw ? JSON.parse(orgRaw) : null;
-      const orgId =
-        user?.organisationId ||
-        user?.organization_id ||
-        orgData?.organization_id;
-      if (!orgId) return;
+      const userParsed = userRaw ? JSON.parse(userRaw) : null;
+      if (userParsed) setUser(userParsed);
+      const userId = userParsed?.userId || userParsed?.id || userParsed?.user_id;
+      if (!userId) return;
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      // Load org + agencies
-      const [orgRes, agenciesRes] = await Promise.allSettled([
-        fetch(`${API_URL}/organizations/${orgId}`, { headers }),
+      // Fetch organizations for this user
+      const orgsRes = await fetch(`${API_URL}/organizations/user/${userId}`, { headers });
+      let orgId = '';
+      if (orgsRes.ok) {
+        const orgsData: Organization[] = await orgsRes.json();
+        const first = Array.isArray(orgsData) ? orgsData[0] : null;
+        if (first) {
+          setOrg(first);
+          orgId = first.organization_id;
+          await AsyncStorage.setItem('organization', JSON.stringify(first));
+        }
+      }
+      if (!orgId) return;
+
+      // Load agencies
+      const [agenciesRes] = await Promise.allSettled([
         fetch(`${API_URL}/organizations/agencies/${orgId}`, { headers }),
       ]);
 
       let agencyId = '';
-      if (orgRes.status === 'fulfilled' && orgRes.value.ok) {
-        const data = await orgRes.value.json();
-        setOrg(data);
-        await AsyncStorage.setItem('organization', JSON.stringify(data));
-      }
       if (agenciesRes.status === 'fulfilled' && agenciesRes.value.ok) {
         const data = await agenciesRes.value.json();
         const list: Agency[] = data.content || data || [];
@@ -584,8 +661,7 @@ export default function OrgDashboard({
 
   if (loading) return <SkeletonOrgDashboard />;
 
-  const userRaw = null; // user name from AsyncStorage loaded at top
-  const userName = selectedAgency?.longName.split(' ')[0] || 'Paul';
+  const userName = user?.first_name || org?.short_name?.split(' ')[0] || '—';
 
   // Donut segments
   const tripSegments = [
@@ -630,24 +706,31 @@ export default function OrgDashboard({
           },
         ]}
       >
-        <TouchableOpacity onPress={() => setDrawerOpen(true)}>
-          <Ionicons name="menu-outline" size={26} color={theme.textStrong} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.textStrong }]}>
-          {t.title}
-        </Text>
-        <TouchableOpacity style={styles.bellContainer}>
-          <Ionicons
-            name="notifications-outline"
-            size={24}
-            color={theme.textStrong}
+        {/* Left: avatar + name */}
+        <View style={styles.headerLeft}>
+          <View style={[styles.headerAvatar, { backgroundColor: theme.backgroundAlt }]}>
+            <AvatarPlaceholder width="100%" height="100%" />
+          </View>
+          <Text style={[styles.headerName, { color: theme.textStrong }]} numberOfLines={1}>
+            {userName}
+          </Text>
+        </View>
+
+        {/* Center: logo */}
+        <View style={styles.headerCenter}>
+          <Image
+            source={require('../../../../assets/images/busstation_bleu.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
           />
-          {unreadAlerts > 0 && (
-            <View style={[styles.bellBadge, { backgroundColor: colors.error }]}>
-              <Text style={styles.bellBadgeText}>{unreadAlerts}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        </View>
+
+        {/* Right: hamburger */}
+        <View style={styles.headerRight}>
+          <TouchableOpacity onPress={() => setDrawerOpen(true)} style={styles.hamburgerBtn}>
+            <Ionicons name="menu-outline" size={26} color={theme.textStrong} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -660,18 +743,19 @@ export default function OrgDashboard({
           />
         }
       >
-        {/* Greeting */}
+        {/* Greeting banner */}
         <View style={styles.greetingSection}>
           <Text style={[styles.greetingText, { color: theme.textStrong }]}>
-            {t.greeting(userName)}
-          </Text>
-          <Text style={[styles.greetingSubtitle, { color: theme.text }]}>
-            {t.subtitle}
+            {t.greeting}
           </Text>
         </View>
 
         {/* Org card */}
-        <View style={[styles.orgCard, { backgroundColor: colors.primary }]}>
+        <TouchableOpacity
+          style={[styles.orgCard, { backgroundColor: colors.primary }]}
+          onPress={() => navigation.navigate('OrgMyOrganization')}
+          activeOpacity={0.85}
+        >
           <View
             style={[
               styles.orgLogo,
@@ -685,11 +769,7 @@ export default function OrgDashboard({
                 resizeMode="contain"
               />
             ) : (
-              <Text style={styles.orgLogoText}>
-                {(org?.short_name || org?.long_name || 'ORG')
-                  .slice(0, 3)
-                  .toUpperCase()}
-              </Text>
+              <BuildingPlaceholder width="70%" height="70%" />
             )}
           </View>
           <View style={styles.orgInfo}>
@@ -712,10 +792,10 @@ export default function OrgDashboard({
           </View>
           <View style={styles.orgActiveBadge}>
             <Text style={styles.orgActiveBadgeText}>
-              {org?.is_active ? t.active : t.inactive}
+              {org?.status === 'ACTIVE' ? t.active : t.inactive}
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Stats grid 6 cells */}
         <View
@@ -728,7 +808,7 @@ export default function OrgDashboard({
             {
               icon: 'people-outline',
               iconColor: '#7c3aed',
-              iconBg: '#f5f3ff',
+              iconBg: '#fef3c715',
               value: String(stats?.nombreEmployes || 0),
               label: t.employees,
               sub: t.total,
@@ -768,7 +848,7 @@ export default function OrgDashboard({
             {
               icon: 'pie-chart-outline',
               iconColor: '#7c3aed',
-              iconBg: '#f5f3ff',
+              iconBg: '#fef3c715',
               value: `${Math.round((stats?.tauxOccupation || 0) * 100)}%`,
               label: t.occupation,
               sub: t.rate,
@@ -948,22 +1028,24 @@ export default function OrgDashboard({
         )}
 
         {/* Recent trips */}
-        {trips.length > 0 && (
-          <View style={styles.tripsSection}>
-            <View style={styles.cardHeaderRow}>
-              <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
-                {t.recentTrips}
+        <View style={styles.tripsSection}>
+          <View style={[styles.cardHeaderRow, { paddingRight: spacing.lg }]}>
+            <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
+              {t.recentTrips}
+            </Text>
+            <TouchableOpacity>
+              <Text style={[styles.seeAll, { color: colors.primary }]}>
+                {t.seeAll}
               </Text>
-              <TouchableOpacity>
-                <Text style={[styles.seeAll, { color: colors.primary }]}>
-                  {t.seeAll}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
+          </View>
+          {trips.length === 0 ? (
+            <EmptyState type="result" message={lang === 'fr' ? 'Aucun voyage récent' : 'No recent trips'} textColor={theme.text} />
+          ) : (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: spacing.md }}
+              contentContainerStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}
             >
               {trips.map(trip => {
                 const statusCfg =
@@ -993,11 +1075,7 @@ export default function OrgDashboard({
                           resizeMode="cover"
                         />
                       ) : (
-                        <Ionicons
-                          name="bus-outline"
-                          size={28}
-                          color={theme.text}
-                        />
+                        <ImagePlaceholder width="60%" height="60%" />
                       )}
                       <View
                         style={[
@@ -1052,28 +1130,29 @@ export default function OrgDashboard({
                 );
               })}
             </ScrollView>
-          </View>
-        )}
+          )}
+        </View>
 
         {/* Recent reservations */}
-        {reservations.length > 0 && (
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: theme.background, borderColor: theme.border },
-            ]}
-          >
-            <View style={styles.cardHeaderRow}>
-              <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
-                {t.recentReservations}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+        >
+          <View style={styles.cardHeaderRow}>
+            <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
+              {t.recentReservations}
+            </Text>
+            <TouchableOpacity>
+              <Text style={[styles.seeAll, { color: colors.primary }]}>
+                {t.seeAll2}
               </Text>
-              <TouchableOpacity>
-                <Text style={[styles.seeAll, { color: colors.primary }]}>
-                  {t.seeAll2}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {reservations.map((item, i) => {
+            </TouchableOpacity>
+          </View>
+          {reservations.length === 0 ? (
+            <EmptyState type="result" message={lang === 'fr' ? 'Aucune réservation récente' : 'No recent reservations'} textColor={theme.text} />
+          ) : reservations.map((item, i) => {
               const statusCfg =
                 RESERVATION_STATUS[item.reservation.statutReservation] ||
                 RESERVATION_STATUS.RESERVER;
@@ -1151,9 +1230,8 @@ export default function OrgDashboard({
                   />
                 </View>
               );
-            })}
-          </View>
-        )}
+          })}
+        </View>
 
         {/* Revenue evolution (big chart) */}
         {revenuePoints.length > 1 && (
@@ -1352,70 +1430,60 @@ export default function OrgDashboard({
         )}
 
         {/* Alerts */}
-        {alerts.length > 0 && (
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: theme.background, borderColor: theme.border },
-            ]}
-          >
-            <View style={styles.cardHeaderRow}>
-              <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
-                {t.recentAlerts}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+        >
+          <View style={styles.cardHeaderRow}>
+            <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
+              {t.recentAlerts}
+            </Text>
+            <TouchableOpacity>
+              <Text style={[styles.seeAll, { color: colors.primary }]}>
+                {t.seeAllAlerts}
               </Text>
-              <TouchableOpacity>
-                <Text style={[styles.seeAll, { color: colors.primary }]}>
-                  {t.seeAllAlerts}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {alerts.slice(0, 3).map((alert, i) => {
-              const cfg =
-                ALERT_ICONS[alert.type] || ALERT_ICONS.ALERTE_GENERALE;
-              return (
-                <TouchableOpacity
-                  key={alert.idAlerte}
-                  style={[
-                    styles.alertRow,
-                    {
-                      borderTopColor: theme.border,
-                      borderTopWidth: i === 0 ? 0 : 1,
-                    },
-                  ]}
-                  onPress={() => markAlertRead(alert.idAlerte)}
-                >
-                  <View style={[styles.alertIcon, { backgroundColor: cfg.bg }]}>
-                    <Ionicons name={cfg.icon} size={20} color={cfg.color} />
-                  </View>
-                  <View style={styles.alertInfo}>
-                    <Text
-                      style={[styles.alertMessage, { color: theme.textStrong }]}
-                      numberOfLines={2}
-                    >
-                      {alert.message}
-                    </Text>
-                    <Text style={[styles.alertDate, { color: theme.text }]}>
-                      {formatDate(alert.createdAt, lang)}
-                    </Text>
-                  </View>
-                  {!alert.lu && (
-                    <View
-                      style={[
-                        styles.unreadDot,
-                        { backgroundColor: colors.error },
-                      ]}
-                    />
-                  )}
-                  <Ionicons
-                    name="chevron-forward"
-                    size={16}
-                    color={theme.text}
-                  />
-                </TouchableOpacity>
-              );
-            })}
+            </TouchableOpacity>
           </View>
-        )}
+          {alerts.length === 0 ? (
+            <EmptyState type="result" message={lang === 'fr' ? 'Aucune alerte' : 'No alerts'} textColor={theme.text} />
+          ) : alerts.slice(0, 3).map((alert, i) => {
+            const cfg = ALERT_ICONS[alert.type] || ALERT_ICONS.ALERTE_GENERALE;
+            return (
+              <TouchableOpacity
+                key={alert.idAlerte}
+                style={[
+                  styles.alertRow,
+                  {
+                    borderTopColor: theme.border,
+                    borderTopWidth: i === 0 ? 0 : 1,
+                  },
+                ]}
+                onPress={() => markAlertRead(alert.idAlerte)}
+              >
+                <View style={[styles.alertIcon, { backgroundColor: cfg.bg }]}>
+                  <Ionicons name={cfg.icon} size={20} color={cfg.color} />
+                </View>
+                <View style={styles.alertInfo}>
+                  <Text
+                    style={[styles.alertMessage, { color: theme.textStrong }]}
+                    numberOfLines={2}
+                  >
+                    {alert.message}
+                  </Text>
+                  <Text style={[styles.alertDate, { color: theme.text }]}>
+                    {formatDate(alert.createdAt, lang)}
+                  </Text>
+                </View>
+                {!alert.lu && (
+                  <View style={[styles.unreadDot, { backgroundColor: colors.error }]} />
+                )}
+                <Ionicons name="chevron-forward" size={16} color={theme.text} />
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
         <View style={{ height: spacing.xl }} />
       </ScrollView>
@@ -1436,6 +1504,38 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
+  headerLeft: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  headerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  headerName: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+  },
+  headerCenter: {
+    flex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerLogo: {
+    width: 120,
+    height: 48,
+  },
+  headerRight: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  hamburgerBtn: {
+    padding: spacing.xs,
+  },
   title: { ...typography.heading, fontSize: typography.sizes.xl },
   bellContainer: { position: 'relative', padding: 4 },
   bellBadge: {
@@ -1452,14 +1552,15 @@ const styles = StyleSheet.create({
 
   greetingSection: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
+    alignItems: 'center',
   },
-  greetingText: { ...typography.heading, fontSize: typography.sizes.lg },
-  greetingSubtitle: {
-    ...typography.body,
-    fontSize: typography.sizes.sm,
-    marginTop: 3,
+  greetingText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 
   orgCard: {
@@ -1480,11 +1581,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   orgLogoImage: { width: '100%', height: '100%' },
-  orgLogoText: {
-    ...typography.heading,
-    fontSize: typography.sizes.md,
-    color: '#fff',
-  },
   orgInfo: { flex: 1 },
   orgName: {
     ...typography.bodyBold,

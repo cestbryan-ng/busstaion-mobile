@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  ActivityIndicator,
   useColorScheme,
   RefreshControl,
 } from 'react-native';
@@ -21,7 +20,9 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
 import { useDebounce } from '../../../../hooks/useDebounce';
+import BuildingPlaceholder from '../../../../assets/placeholders/building.svg';
 
 type Agency = {
   agencyId: string;
@@ -30,7 +31,6 @@ type Agency = {
   logoUrl?: string;
   location?: string;
   isActive: boolean;
-  // enriched
   nbrLignes?: number;
   nbrVehicules?: number;
   nbrChauffeurs?: number;
@@ -48,6 +48,7 @@ export default function OrgMyAgencies() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const [filterActive, setFilterActive] = useState<boolean | null>(null);
   const debouncedSearch = useDebounce(search);
 
   const t = {
@@ -60,7 +61,7 @@ export default function OrgMyAgencies() {
       vehicules: 'Véhicules',
       chauffeurs: 'Chauffeurs',
       voyages: 'Voyages',
-      noAgencies: 'Aucune agence',
+      noAgencies: 'Aucune agence trouvée',
     },
     en: {
       title: 'My agencies',
@@ -71,7 +72,7 @@ export default function OrgMyAgencies() {
       vehicules: 'Vehicles',
       chauffeurs: 'Drivers',
       voyages: 'Trips',
-      noAgencies: 'No agencies',
+      noAgencies: 'No agencies found',
     },
   }[lang];
 
@@ -96,47 +97,32 @@ export default function OrgMyAgencies() {
       const data = await res.json();
       const list: Agency[] = data.content || data || [];
 
-      // Enrich each agency with stats
       const enriched = await Promise.all(
         list.map(async a => {
           try {
             const [vRes, dRes, lRes, tRes] = await Promise.allSettled([
               fetch(`${API_URL}/vehicule/agence/${a.agencyId}`, { headers }),
-              fetch(`${API_URL}/utilisateur/chauffeurs/${a.agencyId}`, {
-                headers,
-              }),
-              fetch(`${API_URL}/ligne-service/agence/${a.agencyId}`, {
-                headers,
-              }),
-              fetch(`${API_URL}/voyage/agence/${a.agencyId}?size=1`, {
-                headers,
-              }),
+              fetch(`${API_URL}/utilisateur/chauffeurs/${a.agencyId}`, { headers }),
+              fetch(`${API_URL}/ligne-service/agence/${a.agencyId}`, { headers }),
+              fetch(`${API_URL}/voyage/agence/${a.agencyId}?size=1`, { headers }),
             ]);
             return {
               ...a,
               nbrVehicules:
                 vRes.status === 'fulfilled' && vRes.value.ok
-                  ? await vRes.value
-                      .json()
-                      .then((d: any) => (d.content || d || []).length)
+                  ? await vRes.value.json().then((d: any) => (d.content || d || []).length)
                   : 0,
               nbrChauffeurs:
                 dRes.status === 'fulfilled' && dRes.value.ok
-                  ? await dRes.value
-                      .json()
-                      .then((d: any) => (d.content || d || []).length)
+                  ? await dRes.value.json().then((d: any) => (d.content || d || []).length)
                   : 0,
               nbrLignes:
                 lRes.status === 'fulfilled' && lRes.value.ok
-                  ? await lRes.value
-                      .json()
-                      .then((d: any) => (d.content || d || []).length)
+                  ? await lRes.value.json().then((d: any) => (d.content || d || []).length)
                   : 0,
               nbrVoyages:
                 tRes.status === 'fulfilled' && tRes.value.ok
-                  ? await tRes.value
-                      .json()
-                      .then((d: any) => d.totalElements || 0)
+                  ? await tRes.value.json().then((d: any) => d.totalElements || 0)
                   : 0,
             };
           } catch {
@@ -164,48 +150,39 @@ export default function OrgMyAgencies() {
 
   const filtered = useMemo(
     () =>
-      agencies.filter(
-        a =>
-          !debouncedSearch.trim() ||
-          a.longName.toLowerCase().includes(debouncedSearch.toLowerCase()),
-      ),
-    [agencies, debouncedSearch],
+      agencies.filter(a => {
+        if (debouncedSearch.trim() && !a.longName.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
+        if (filterActive !== null && a.isActive !== filterActive) return false;
+        return true;
+      }),
+    [agencies, debouncedSearch, filterActive],
   );
 
   if (loading) return <SkeletonListScreen />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {/* Header */}
       <View
         style={[
           styles.header,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
+          { backgroundColor: theme.background, borderBottomColor: theme.border },
         ]}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="menu-outline" size={26} color={theme.textStrong} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.textStrong }]}>
           {t.title}
         </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('OrgCreateAgency')}>
-          <View style={[styles.addBtn, { backgroundColor: colors.primary }]}>
-            <Ionicons name="add" size={20} color="#fff" />
-          </View>
-        </TouchableOpacity>
+        <View style={styles.backBtn} />
       </View>
 
       {/* Search */}
       <View
         style={[
           styles.searchRow,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
+          { backgroundColor: theme.background, borderBottomColor: theme.border },
         ]}
       >
         <View
@@ -224,55 +201,55 @@ export default function OrgMyAgencies() {
           />
         </View>
         <TouchableOpacity
-          style={[styles.filterBtn, { borderColor: theme.border }]}
+          style={[
+            styles.filterBtn,
+            {
+              borderColor: filterActive !== null ? colors.primary : theme.border,
+              backgroundColor: filterActive !== null ? `${colors.primary}15` : 'transparent',
+            },
+          ]}
+          onPress={() => {
+            if (filterActive === null) setFilterActive(true);
+            else if (filterActive === true) setFilterActive(false);
+            else setFilterActive(null);
+          }}
         >
-          <Ionicons name="options-outline" size={20} color={theme.textStrong} />
+          <Ionicons
+            name="options-outline"
+            size={20}
+            color={filterActive !== null ? colors.primary : theme.textStrong}
+          />
         </TouchableOpacity>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
         contentContainerStyle={styles.list}
       >
         {filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="business-outline" size={48} color={theme.text} />
-            <Text style={[styles.emptyText, { color: theme.text }]}>
-              {t.noAgencies}
-            </Text>
-          </View>
+          <EmptyState
+            type="result"
+            message={t.noAgencies}
+            textColor={theme.text}
+          />
         ) : (
           filtered.map(agency => (
             <TouchableOpacity
               key={agency.agencyId}
               style={[
                 styles.agencyCard,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
+                { backgroundColor: theme.background, borderColor: theme.border },
               ]}
               activeOpacity={0.85}
               onPress={() =>
-                navigation.navigate('OrgAgencyDetail', {
-                  agencyId: agency.agencyId,
-                })
+                navigation.navigate('OrgAgencyDetail', { agencyId: agency.agencyId })
               }
             >
               <View style={styles.agencyCardTop}>
-                <View
-                  style={[
-                    styles.agencyLogo,
-                    { backgroundColor: theme.backgroundAlt },
-                  ]}
-                >
+                <View style={[styles.agencyLogo, { backgroundColor: theme.backgroundAlt }]}>
                   {agency.logoUrl ? (
                     <Image
                       source={{ uri: agency.logoUrl }}
@@ -280,13 +257,7 @@ export default function OrgMyAgencies() {
                       resizeMode="contain"
                     />
                   ) : (
-                    <Text
-                      style={[styles.agencyLogoText, { color: colors.primary }]}
-                    >
-                      {(agency.shortName || agency.longName)
-                        .slice(0, 3)
-                        .toUpperCase()}
-                    </Text>
+                    <BuildingPlaceholder width="70%" height="70%" />
                   )}
                 </View>
                 <View style={styles.agencyMainInfo}>
@@ -298,16 +269,9 @@ export default function OrgMyAgencies() {
                   </Text>
                   {agency.location && (
                     <View style={styles.agencyLocationRow}>
-                      <Ionicons
-                        name="location-outline"
-                        size={12}
-                        color={theme.text}
-                      />
-                      <Text
-                        style={[styles.agencyLocation, { color: theme.text }]}
-                      >
-                        {' '}
-                        {agency.location}
+                      <Ionicons name="location-outline" size={12} color={theme.text} />
+                      <Text style={[styles.agencyLocation, { color: theme.text }]}>
+                        {' '}{agency.location}
                       </Text>
                     </View>
                   )}
@@ -325,9 +289,7 @@ export default function OrgMyAgencies() {
                   <Text
                     style={[
                       styles.statusText,
-                      {
-                        color: agency.isActive ? colors.success : colors.error,
-                      },
+                      { color: agency.isActive ? colors.success : colors.error },
                     ]}
                   >
                     {agency.isActive ? t.active : t.inactive}
@@ -337,12 +299,7 @@ export default function OrgMyAgencies() {
               </View>
 
               {/* Stats row */}
-              <View
-                style={[
-                  styles.agencyStatsRow,
-                  { borderTopColor: theme.border },
-                ]}
-              >
+              <View style={[styles.agencyStatsRow, { borderTopColor: theme.border }]}>
                 {[
                   { label: t.lignes, value: agency.nbrLignes ?? 0 },
                   { label: t.vehicules, value: agency.nbrVehicules ?? 0 },
@@ -353,23 +310,13 @@ export default function OrgMyAgencies() {
                     key={stat.label}
                     style={[
                       styles.agencyStat,
-                      {
-                        borderLeftColor: theme.border,
-                        borderLeftWidth: i === 0 ? 0 : 1,
-                      },
+                      { borderLeftColor: theme.border, borderLeftWidth: i === 0 ? 0 : 1 },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.agencyStatValue,
-                        { color: theme.textStrong },
-                      ]}
-                    >
+                    <Text style={[styles.agencyStatValue, { color: theme.textStrong }]}>
                       {stat.value}
                     </Text>
-                    <Text
-                      style={[styles.agencyStatLabel, { color: theme.text }]}
-                    >
+                    <Text style={[styles.agencyStatLabel, { color: theme.text }]}>
                       {stat.label}
                     </Text>
                   </View>
@@ -378,15 +325,23 @@ export default function OrgMyAgencies() {
             </TouchableOpacity>
           ))
         )}
-        <View style={{ height: spacing.xl }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: colors.primary }]}
+        onPress={() => navigation.navigate('OrgCreateAgency')}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -396,14 +351,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
-  title: { ...typography.heading, fontSize: typography.sizes.xl },
-  addBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  backBtn: { width: 36 },
+  title: { ...typography.heading, fontSize: typography.sizes.xl, flex: 1, textAlign: 'center' },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -453,29 +402,29 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   agencyLogoImage: { width: '100%', height: '100%' },
-  agencyLogoText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   agencyMainInfo: { flex: 1 },
   agencyName: { ...typography.bodyBold, fontSize: typography.sizes.md },
-  agencyLocationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
+  agencyLocationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   agencyLocation: { ...typography.body, fontSize: typography.sizes.xs },
-  statusBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
+  statusBadge: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: 4 },
   statusText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
   agencyStatsRow: { flexDirection: 'row', borderTopWidth: 1 },
   agencyStat: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm },
   agencyStatValue: { ...typography.bodyBold, fontSize: typography.sizes.md },
   agencyStatLabel: { ...typography.body, fontSize: typography.sizes.xs },
-  empty: {
+  fab: {
+    position: 'absolute',
+    bottom: spacing.xl,
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing.xxl,
-    gap: spacing.md,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
   },
-  emptyText: { ...typography.body, fontSize: typography.sizes.md },
 });
