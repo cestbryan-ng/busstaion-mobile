@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
@@ -35,9 +35,7 @@ export default function OrgAgencies() {
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [agencies, setAgencies] = useState<Agency[]>([]);
-  const [vehicles, setVehicles] = useState(0);
   const [drivers, setDrivers] = useState(0);
-  const [lines, setLines] = useState(0);
   const [tripsToday, setTripsToday] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -129,27 +127,14 @@ export default function OrgAgencies() {
       // Aggregate from first agency for overview
       if (list.length > 0) {
         const firstId = list[0].agencyId;
-        const [vRes, dRes, lRes, tRes] = await Promise.allSettled([
-          fetch(`${API_URL}/vehicule/agence/${firstId}`, { headers }),
+        const [dRes, tRes] = await Promise.allSettled([
           fetch(`${API_URL}/utilisateur/chauffeurs/${firstId}`, { headers }),
-          fetch(`${API_URL}/ligne-service/agence/${firstId}`, { headers }),
           fetch(`${API_URL}/voyage/agence/${firstId}?size=100`, { headers }),
         ]);
 
-        if (vRes.status === 'fulfilled' && vRes.value.ok) {
-          const d = await vRes.value.json();
-          setVehicles((d.content || d || []).length);
-        }
         if (dRes.status === 'fulfilled' && dRes.value.ok) {
           const d = await dRes.value.json();
           setDrivers((d.content || d || []).length);
-        }
-        if (lRes.status === 'fulfilled' && lRes.value.ok) {
-          const d = await lRes.value.json();
-          const activeLines = (d.content || d || []).filter(
-            (l: any) => l.statut === 'ACTIF',
-          );
-          setLines(activeLines.length);
         }
         if (tRes.status === 'fulfilled' && tRes.value.ok) {
           const d = await tRes.value.json();
@@ -169,9 +154,12 @@ export default function OrgAgencies() {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      loadData();
+    }, [loadData]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -182,8 +170,6 @@ export default function OrgAgencies() {
   const stationCount = new Set(
     agencies.map(a => a.gareRoutiereId).filter(Boolean),
   ).size;
-  const firstAgencyId = agencies[0]?.agencyId;
-
   const QUICK_ACCESS = [
     {
       icon: 'business-outline',
@@ -196,32 +182,6 @@ export default function OrgAgencies() {
       label: t.stationPartners,
       desc: t.stationsDesc,
       onPress: () => navigation.navigate('OrgStations'),
-    },
-    {
-      icon: 'car-outline',
-      label: t.vehicles,
-      desc: t.vehiclesDesc,
-      onPress: firstAgencyId
-        ? () => navigation.navigate('OrgVehicles', { agencyId: firstAgencyId })
-        : () => {},
-    },
-    {
-      icon: 'git-branch-outline',
-      label: t.serviceLines,
-      desc: t.linesDesc,
-      onPress: firstAgencyId
-        ? () =>
-            navigation.navigate('OrgServiceLines', { agencyId: firstAgencyId })
-        : () => {},
-    },
-    {
-      icon: 'people-outline',
-      label: t.employees,
-      desc: t.employeesDesc,
-      onPress: firstAgencyId
-        ? () =>
-            navigation.navigate('OrgEmployees', { agencyId: firstAgencyId })
-        : () => {},
     },
   ];
 
@@ -326,28 +286,12 @@ export default function OrgAgencies() {
           <View style={styles.overviewGrid}>
             {[
               {
-                icon: 'car-outline',
-                color: '#7c3aed',
-                bg: '#f5f3ff15',
-                value: vehicles,
-                label: t.vehicles,
-                sub: t.total,
-              },
-              {
                 icon: 'person-outline',
                 color: colors.success,
                 bg: `${colors.success}15`,
                 value: drivers,
                 label: t.drivers,
                 sub: t.total,
-              },
-              {
-                icon: 'git-branch-outline',
-                color: colors.primary,
-                bg: `${colors.primary}15`,
-                value: lines,
-                label: t.serviceLines,
-                sub: t.active,
               },
               {
                 icon: 'bus-outline',

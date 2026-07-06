@@ -22,7 +22,7 @@ export default function OrgCreateAgencySuccess() {
       buttonText={
         lang === 'fr' ? 'Retour au tableau de bord' : 'Back to dashboard'
       }
-      navigateTo="OrgAgencies"
+      navigateTo="OrgMain"
     />
   );
 }

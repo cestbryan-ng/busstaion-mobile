@@ -927,7 +927,7 @@ export default function Home({
         />
 
         {/* ── Partner Agencies ── */}
-        <SectionHeader title={t.partnerAgencies} />
+        <SectionHeader title={t.partnerAgencies} onPress={() => (navigation as any).navigate('explore')} />
         <FlatList
           horizontal
           data={agencies}
@@ -945,7 +945,7 @@ export default function Home({
         />
 
         {/* ── Nearby Stations ── */}
-        <SectionHeader title={t.nearbyStations} feminine />
+        <SectionHeader title={t.nearbyStations} feminine onPress={() => (navigation as any).navigate('explore')} />
         <FlatList
           horizontal
           data={gares}
@@ -963,7 +963,7 @@ export default function Home({
         />
 
         {/* ── Promotions ── */}
-        <SectionHeader title={t.promotions} feminine />
+        <SectionHeader title={t.promotions} feminine onPress={() => navigation.navigate('Coupons')} />
         <View
           style={[
             styles.promoCard,

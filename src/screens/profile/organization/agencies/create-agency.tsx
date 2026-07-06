@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import BuildingPlaceholder from '../../../../assets/placeholders/building.svg';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -32,20 +33,13 @@ type Station = {
   ville: string;
   quartier?: string;
   photoUrl?: string;
+  services?: string[];
+  nbreAgence?: number | null;
+  open?: boolean;
+  isOpen?: boolean;
 };
 
-type StaffMember = {
-  employeId: string;
-  userId: string;
-  username: string;
-  firstName?: string;
-  lastName?: string;
-  email: string;
-  poste?: string;
-  nomAgence?: string;
-};
-
-type FormData = {
+type AgencyForm = {
   longName: string;
   shortName: string;
   location: string;
@@ -54,7 +48,49 @@ type FormData = {
   greetingMessage: string;
 };
 
-type FormErrors = Partial<Record<keyof FormData, string>>;
+type ChefForm = {
+  email: string;
+  username: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  gender: 'MALE' | 'FEMALE';
+  poste: string;
+  departement: string;
+};
+
+type AgencyErrors = Partial<Record<keyof AgencyForm, string>>;
+type ChefErrors = Partial<Record<'email' | 'username' | 'password', string>>;
+
+type EmployeeOption = {
+  employeId: string;
+  userId: string;
+  displayName: string;
+  email: string;
+  poste?: string;
+};
+
+const EMPTY_AGENCY: AgencyForm = {
+  longName: '',
+  shortName: '',
+  location: '',
+  socialNetwork: '',
+  description: '',
+  greetingMessage: '',
+};
+
+const EMPTY_CHEF: ChefForm = {
+  email: '',
+  username: '',
+  password: '',
+  first_name: '',
+  last_name: '',
+  phone_number: '',
+  gender: 'MALE',
+  poste: "Chef d'agence",
+  departement: 'Administration',
+};
 
 export default function OrgCreateAgency() {
   const isDark = useColorScheme() === 'dark';
@@ -66,30 +102,30 @@ export default function OrgCreateAgency() {
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
+  const [apiError, setApiError] = useState('');
 
-  // Step 1 — Station search/select
+  // Step 1 — Station
   const [search, setSearch] = useState('');
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [stationsLoading, setStationsLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>(
+    'all',
+  );
 
-  // Step 2 — Form
-  const [form, setForm] = useState<FormData>({
-    longName: '',
-    shortName: '',
-    location: '',
-    socialNetwork: '',
-    description: '',
-    greetingMessage: '',
-  });
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [apiError, setApiError] = useState('');
+  // Step 2 — Agency form
+  const [form, setForm] = useState<AgencyForm>(EMPTY_AGENCY);
+  const [agencyErrors, setAgencyErrors] = useState<AgencyErrors>({});
 
-  // Step 3 — Staff / Chef d'agence
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [staffLoading, setStaffLoading] = useState(false);
-  const [selectedChef, setSelectedChef] = useState<StaffMember | null>(null);
-  const [staffSearch, setStaffSearch] = useState('');
+  // Step 3 — Chef form
+  const [chefForm, setChefForm] = useState<ChefForm>(EMPTY_CHEF);
+  const [chefErrors, setChefErrors] = useState<ChefErrors>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [chefMode, setChefMode] = useState<'select' | 'create'>('create');
+  const [orgEmployees, setOrgEmployees] = useState<EmployeeOption[]>([]);
+  const [orgEmployeesLoading, setOrgEmployeesLoading] = useState(false);
+  const [selectedExistingUserId, setSelectedExistingUserId] = useState<string | null>(null);
 
   const t = {
     fr: {
@@ -111,14 +147,19 @@ export default function OrgCreateAgency() {
       socialNetwork: 'Réseaux sociaux (optionnel)',
       description: 'Description (optionnel)',
       greeting: "Message d'accueil (optionnel)",
-      selectChef: "Désigner un chef d'agence",
-      selectChefDesc:
-        "Choisissez un membre du staff pour diriger cette agence",
-      searchStaff: 'Rechercher un membre...',
-      noStaff: 'Aucun employé trouvé',
-      noStaffHint:
-        "Vous n'avez pas encore d'employés dans vos autres agences.",
-      chefRequired: "Veuillez sélectionner un chef d'agence.",
+      createChef: "Créer le chef d'agence",
+      createChefDesc: 'Créez le compte du responsable qui gérera cette agence',
+      firstName: 'Prénom',
+      lastName: 'Nom',
+      username: "Nom d'utilisateur",
+      email: 'Email',
+      password: 'Mot de passe',
+      phone: 'Téléphone',
+      gender: 'Genre',
+      male: 'Homme',
+      female: 'Femme',
+      poste: 'Poste',
+      departement: 'Département',
       verifyInfo: 'Vérification des informations',
       verifyDesc: 'Vérifiez les informations avant la création',
       selectedStation: 'Gare routière sélectionnée',
@@ -137,6 +178,15 @@ export default function OrgCreateAgency() {
       createError: 'Erreur lors de la création',
       error: 'Une erreur est survenue',
       chefDAgence: "Chef d'agence",
+      filterAll: 'Toutes',
+      filterOpen: 'Ouvertes',
+      filterClosed: 'Fermées',
+      open: 'OUVERTE',
+      closed: 'FERMÉE',
+      selectExisting: 'Choisir existant',
+      createNew: 'Créer nouveau',
+      selectChefRequired: 'Veuillez sélectionner un employé.',
+      employeesLoading: 'Chargement des employés...',
     },
     en: {
       title: 'Create an agency',
@@ -158,12 +208,20 @@ export default function OrgCreateAgency() {
       socialNetwork: 'Social networks (optional)',
       description: 'Description (optional)',
       greeting: 'Greeting message (optional)',
-      selectChef: 'Designate an agency chief',
-      selectChefDesc: 'Choose a staff member to lead this agency',
-      searchStaff: 'Search a member...',
-      noStaff: 'No employees found',
-      noStaffHint: 'You have no employees in your other agencies yet.',
-      chefRequired: 'Please select an agency chief.',
+      createChef: 'Create agency chief',
+      createChefDesc:
+        'Create the account of the manager who will run this agency',
+      firstName: 'First name',
+      lastName: 'Last name',
+      username: 'Username',
+      email: 'Email',
+      password: 'Password',
+      phone: 'Phone',
+      gender: 'Gender',
+      male: 'Male',
+      female: 'Female',
+      poste: 'Position',
+      departement: 'Department',
       verifyInfo: 'Verify information',
       verifyDesc: 'Verify the information before creation',
       selectedStation: 'Selected station',
@@ -182,6 +240,15 @@ export default function OrgCreateAgency() {
       createError: 'Creation error',
       error: 'An error occurred',
       chefDAgence: 'Agency chief',
+      filterAll: 'All',
+      filterOpen: 'Open',
+      filterClosed: 'Closed',
+      open: 'OPEN',
+      closed: 'CLOSED',
+      selectExisting: 'Choose existing',
+      createNew: 'Create new',
+      selectChefRequired: 'Please select an employee.',
+      employeesLoading: 'Loading employees...',
     },
   }[lang];
 
@@ -217,133 +284,150 @@ export default function OrgCreateAgency() {
     return () => clearTimeout(timeout);
   }, [search, loadStations]);
 
-  // Load staff when entering step 3
+  const loadOrgEmployees = useCallback(async () => {
+    setOrgEmployeesLoading(true);
+    try {
+      const [token, orgRaw] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('organization'),
+      ]);
+      const org = orgRaw ? JSON.parse(orgRaw) : null;
+      if (!org?.organization_id) return;
+      const headers = { Authorization: `Bearer ${token}` };
+
+      const agenciesRes = await fetch(
+        `${API_URL}/organizations/agencies/${org.organization_id}`,
+        { headers },
+      );
+      if (!agenciesRes.ok) return;
+      const agenciesData = await agenciesRes.json();
+      const agencies: any[] = agenciesData.content || agenciesData || [];
+
+      const all: EmployeeOption[] = [];
+      await Promise.allSettled(
+        agencies.map(async (a: any) => {
+          const empRes = await fetch(`${API_URL}/employe/agence/${a.agencyId}`, { headers });
+          if (!empRes.ok) return;
+          const empData = await empRes.json();
+          const list: any[] = empData.content || empData || [];
+          list.forEach(e => {
+            all.push({
+              employeId: e.employeId,
+              userId: e.userId,
+              displayName: [e.firstName, e.lastName].filter(Boolean).join(' ') || e.username,
+              email: e.email,
+              poste: e.poste,
+            });
+          });
+        }),
+      );
+      setOrgEmployees(all);
+      setChefMode(all.length > 0 ? 'select' : 'create');
+    } catch {
+      setChefMode('create');
+    } finally {
+      setOrgEmployeesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    if (step !== 3) return;
-    let cancelled = false;
+    if (step === 3) loadOrgEmployees();
+  }, [step, loadOrgEmployees]);
 
-    const loadStaff = async () => {
-      setStaffLoading(true);
-      try {
-        const [token, orgRaw] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('organization'),
-        ]);
-        const org = orgRaw ? JSON.parse(orgRaw) : null;
-        if (!org?.organization_id) return;
+  const STATION_FILTERS = [
+    { key: 'all' as const, label: t.filterAll },
+    { key: 'open' as const, label: t.filterOpen },
+    { key: 'closed' as const, label: t.filterClosed },
+  ];
 
-        const headers = { Authorization: `Bearer ${token}` };
+  const filteredStations = useMemo(
+    () =>
+      stations.filter(s => {
+        const isOpen = s.open ?? s.isOpen ?? true;
+        if (filterStatus === 'open' && !isOpen) return false;
+        if (filterStatus === 'closed' && isOpen) return false;
+        return true;
+      }),
+    [stations, filterStatus],
+  );
 
-        // 1. Get all agencies of the organization
-        const agenciesRes = await fetch(
-          `${API_URL}/organizations/agencies/${org.organization_id}`,
-          { headers },
-        );
-        if (!agenciesRes.ok || cancelled) return;
-        const agenciesData = await agenciesRes.json();
-        const agencies: Array<{ agencyId: string; longName?: string }> =
-          agenciesData.content || agenciesData || [];
-
-        if (agencies.length === 0) {
-          if (!cancelled) setStaff([]);
-          return;
-        }
-
-        // 2. Get employees from each agency
-        const results = await Promise.allSettled(
-          agencies.map(a =>
-            fetch(`${API_URL}/employe/agence/${a.agencyId}`, { headers })
-              .then(r => (r.ok ? r.json() : []))
-              .then((members: any[]) =>
-                (Array.isArray(members) ? members : []).map(m => ({
-                  employeId: m.employeId,
-                  userId: m.userId,
-                  username: m.username,
-                  firstName: m.firstName,
-                  lastName: m.lastName,
-                  email: m.email,
-                  poste: m.poste,
-                  nomAgence: m.nomAgence,
-                })),
-              ),
-          ),
-        );
-
-        // 3. Aggregate and deduplicate by userId
-        const seen = new Set<string>();
-        const all: StaffMember[] = [];
-        for (const r of results) {
-          if (r.status === 'fulfilled') {
-            for (const m of r.value) {
-              if (!seen.has(m.userId)) {
-                seen.add(m.userId);
-                all.push(m);
-              }
-            }
-          }
-        }
-
-        if (!cancelled) setStaff(all);
-      } catch {
-        // silent
-      } finally {
-        if (!cancelled) setStaffLoading(false);
-      }
-    };
-
-    loadStaff();
-    return () => {
-      cancelled = true;
-    };
-  }, [step]);
-
-  const update = (key: keyof FormData, value: string) => {
+  const updateAgency = (key: keyof AgencyForm, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }));
-    setErrors(prev => ({ ...prev, [key]: undefined }));
+    setAgencyErrors(prev => ({ ...prev, [key]: undefined }));
+  };
+
+  const updateChef = (key: keyof ChefForm, value: string) => {
+    setChefForm(prev => ({ ...prev, [key]: value }));
+    setChefErrors(prev => ({ ...prev, [key]: undefined }));
   };
 
   const validateStep2 = (): boolean => {
-    const e: FormErrors = {};
+    const e: AgencyErrors = {};
     if (!form.longName.trim() || form.longName.trim().length < 3)
       e.longName = t.required;
     if (!form.shortName.trim()) e.shortName = t.required;
     if (!form.location.trim()) e.location = t.required;
-    setErrors(e);
+    setAgencyErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const validateStep3 = (): boolean => {
+    if (chefMode === 'select') {
+      if (!selectedExistingUserId) {
+        toast.error(t.selectChefRequired);
+        return false;
+      }
+      return true;
+    }
+    const e: ChefErrors = {};
+    if (!chefForm.email.trim()) e.email = t.required;
+    if (!chefForm.username.trim()) e.username = t.required;
+    if (!chefForm.password.trim()) e.password = t.required;
+    setChefErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const handleStep1Next = () => {
     if (selectedStation) setStep(2);
   };
-
   const handleStep2Next = () => {
     if (validateStep2()) setStep(3);
   };
-
   const handleStep3Next = () => {
-    if (!selectedChef) {
-      toast.error(t.chefRequired);
-      return;
-    }
-    setStep(4);
+    if (validateStep3()) setStep(4);
   };
 
   const handleCreate = async () => {
-    if (!selectedStation || !selectedChef) return;
+    if (!selectedStation) return;
     setSubmitting(true);
     setApiError('');
 
     try {
-      const token = await AsyncStorage.getItem('token');
+      const [token, orgRaw, userRaw] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('organization'),
+        AsyncStorage.getItem('user'),
+      ]);
+      const org = orgRaw ? JSON.parse(orgRaw) : null;
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      const orgId = org?.organization_id;
+      const currentUserId: string | undefined = user?.userId || user?.id;
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      };
 
-      const res = await fetch(`${API_URL}/agence`, {
+      // Step A — Create agency
+      // If existing employee selected: pass their userId directly (no PATCH needed)
+      // If new employee: pass current actor's userId, then PATCH after creation
+      const initialUserId = selectedExistingUserId ?? currentUserId;
+
+      const agenceRes = await fetch(`${API_URL}/agence`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
-          user_id: selectedChef.userId,
+          organisation_id: orgId,
+          user_id: initialUserId,
           long_name: form.longName,
           short_name: form.shortName,
           location: form.location,
@@ -354,20 +438,53 @@ export default function OrgCreateAgency() {
         }),
       });
 
-      if (res.ok || res.status === 201) {
-        toast.success(t.agencyCreated);
-        navigation.navigate('OrgCreateAgencySuccess');
-      } else if (res.status === 400) {
+      if (!agenceRes.ok && agenceRes.status !== 201) {
+        const d = await agenceRes.json().catch(() => ({}));
         toast.error(t.createError);
-        setApiError(t.errorExists);
-      } else if (res.status === 404) {
-        toast.error(t.createError);
-        setApiError(t.errorNotFound);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(t.createError);
-        setApiError(data.message || t.errorGeneric);
+        setApiError(agenceRes.status === 400 ? t.errorExists : d.message || t.errorGeneric);
+        return;
       }
+
+      const agenceData = await agenceRes.json();
+      const agenceId: string = agenceData.id;
+
+      // Step B & C — Only needed when creating a new employee
+      if (!selectedExistingUserId) {
+        const employeRes = await fetch(`${API_URL}/employe`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            email: chefForm.email.trim(),
+            username: chefForm.username.trim(),
+            password: chefForm.password,
+            role: ['EMPLOYE'],
+            gender: chefForm.gender,
+            first_name: chefForm.first_name.trim() || undefined,
+            last_name: chefForm.last_name.trim() || undefined,
+            phone_number: chefForm.phone_number.trim() || undefined,
+            agenceVoyageId: agenceId,
+            poste: chefForm.poste.trim() || "Chef d'agence",
+            departement: chefForm.departement.trim() || undefined,
+          }),
+        });
+        if (!employeRes.ok && employeRes.status !== 201) {
+          const d = await employeRes.json().catch(() => ({}));
+          toast.error(t.createError);
+          setApiError(d.message || t.errorGeneric);
+          return;
+        }
+        const employeData = await employeRes.json();
+        const newChefUserId: string = employeData.id;
+
+        await fetch(`${API_URL}/agence/${agenceId}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ user_id: newChefUserId }),
+        });
+      }
+
+      toast.success(t.agencyCreated);
+      navigation.navigate('OrgCreateAgencySuccess');
     } catch {
       toast.error(t.error);
       setApiError(t.errorGeneric);
@@ -394,8 +511,8 @@ export default function OrgCreateAgency() {
               <View
                 style={[
                   styles.stepDot,
-                  isActive && { backgroundColor: colors.error },
-                  isDone && { backgroundColor: colors.error },
+                  isActive && { backgroundColor: colors.primary },
+                  isDone && { backgroundColor: colors.primary },
                   !isActive && !isDone && { backgroundColor: theme.border },
                 ]}
               >
@@ -415,7 +532,7 @@ export default function OrgCreateAgency() {
               <Text
                 style={[
                   styles.stepLabel,
-                  { color: isActive ? colors.error : theme.text },
+                  { color: isActive ? colors.primary : theme.text },
                 ]}
               >
                 {s.label}
@@ -426,7 +543,8 @@ export default function OrgCreateAgency() {
                 style={[
                   styles.stepLine,
                   {
-                    backgroundColor: s.num < step ? colors.error : theme.border,
+                    backgroundColor:
+                      s.num < step ? colors.primary : theme.border,
                   },
                 ]}
               />
@@ -437,7 +555,7 @@ export default function OrgCreateAgency() {
     </View>
   );
 
-  // ─── Step 1 — Select station ────────────────────────────────────────────────
+  // ─── Step 1 — Select station ─────────────────────────────────────────────────
 
   const Step1 = () => (
     <View style={styles.stepContent}>
@@ -465,37 +583,81 @@ export default function OrgCreateAgency() {
           />
         </View>
         <TouchableOpacity
-          style={[styles.filterBtn, { borderColor: theme.border }]}
+          style={[
+            styles.filterBtn,
+            {
+              borderColor: showFilters ? colors.primary : theme.border,
+              backgroundColor: showFilters
+                ? `${colors.primary}15`
+                : 'transparent',
+            },
+          ]}
+          onPress={() => setShowFilters(v => !v)}
         >
-          <Ionicons name="options-outline" size={20} color={theme.textStrong} />
+          <Ionicons
+            name="options-outline"
+            size={20}
+            color={showFilters ? colors.primary : theme.textStrong}
+          />
         </TouchableOpacity>
       </View>
+
+      {showFilters && (
+        <View style={styles.filterChips}>
+          {STATION_FILTERS.map(f => {
+            const active = filterStatus === f.key;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: active ? colors.primary : theme.background,
+                    borderColor: active ? colors.primary : theme.border,
+                  },
+                ]}
+                onPress={() => setFilterStatus(f.key)}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: active ? '#fff' : theme.text },
+                  ]}
+                >
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       {stationsLoading ? (
         <ActivityIndicator
           size="small"
-          color={colors.error}
+          color={colors.primary}
           style={{ marginTop: spacing.lg }}
         />
-      ) : stations.length === 0 ? (
+      ) : filteredStations.length === 0 ? (
         <EmptyState
           type="result"
           message={t.noStations}
           textColor={theme.text}
         />
       ) : (
-        stations.map(station => {
+        filteredStations.map(station => {
           const isSelected =
             selectedStation?.idGareRoutiere === station.idGareRoutiere;
+          const isOpen = station.open ?? station.isOpen ?? true;
           return (
             <TouchableOpacity
               key={station.idGareRoutiere}
               style={[
                 styles.stationCard,
                 {
-                  borderColor: isSelected ? colors.error : theme.border,
+                  borderColor: isSelected ? colors.primary : theme.border,
                   backgroundColor: isSelected
-                    ? `${colors.error}08`
+                    ? `${colors.primary}08`
                     : theme.background,
                 },
               ]}
@@ -515,11 +677,7 @@ export default function OrgCreateAgency() {
                     resizeMode="cover"
                   />
                 ) : (
-                  <Ionicons
-                    name="business-outline"
-                    size={24}
-                    color={theme.text}
-                  />
+                  <BuildingPlaceholder width="70%" height="70%" />
                 )}
               </View>
               <View style={styles.stationInfo}>
@@ -538,35 +696,41 @@ export default function OrgCreateAgency() {
                   <Text style={[styles.stationMeta, { color: theme.text }]}>
                     {' '}
                     {station.ville}
+                    {station.quartier ? ` · ${station.quartier}` : ''}
                   </Text>
                 </View>
-                {station.quartier && (
-                  <View style={styles.stationMetaRow}>
-                    <Ionicons
-                      name="map-outline"
-                      size={12}
-                      color={theme.text}
-                    />
-                    <Text
-                      style={[styles.stationMeta, { color: theme.text }]}
-                      numberOfLines={1}
-                    >
-                      {' '}
-                      {station.quartier}
-                    </Text>
+              </View>
+              <View style={styles.stationRight}>
+                <View
+                  style={[
+                    styles.openBadge,
+                    {
+                      backgroundColor: isOpen
+                        ? `${colors.success}15`
+                        : `${colors.error}15`,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.openBadgeText,
+                      { color: isOpen ? colors.success : colors.error },
+                    ]}
+                  >
+                    {isOpen ? t.open : t.closed}
+                  </Text>
+                </View>
+                {isSelected && (
+                  <View
+                    style={[
+                      styles.checkCircle,
+                      { backgroundColor: colors.primary },
+                    ]}
+                  >
+                    <Ionicons name="checkmark" size={14} color="#fff" />
                   </View>
                 )}
               </View>
-              {isSelected && (
-                <View
-                  style={[
-                    styles.checkCircle,
-                    { backgroundColor: colors.error },
-                  ]}
-                >
-                  <Ionicons name="checkmark" size={14} color="#fff" />
-                </View>
-              )}
             </TouchableOpacity>
           );
         })
@@ -593,7 +757,7 @@ export default function OrgCreateAgency() {
     </View>
   );
 
-  // ─── Step 2 — Form ──────────────────────────────────────────────────────────
+  // ─── Step 2 — Agency form ─────────────────────────────────────────────────────
 
   const Step2 = () => (
     <View style={styles.stepContent}>
@@ -612,19 +776,19 @@ export default function OrgCreateAgency() {
           style={[
             styles.simpleInput,
             {
-              borderColor: errors.longName ? colors.error : theme.border,
+              borderColor: agencyErrors.longName ? colors.error : theme.border,
               backgroundColor: theme.backgroundAlt,
               color: theme.textStrong,
             },
           ]}
           value={form.longName}
-          onChangeText={v => update('longName', v)}
+          onChangeText={v => updateAgency('longName', v)}
           placeholder="Agence Voyages Cameroun"
           placeholderTextColor={theme.text}
         />
-        {errors.longName && (
+        {agencyErrors.longName && (
           <Text style={[styles.fieldError, { color: colors.error }]}>
-            {errors.longName}
+            {agencyErrors.longName}
           </Text>
         )}
       </View>
@@ -637,19 +801,19 @@ export default function OrgCreateAgency() {
           style={[
             styles.simpleInput,
             {
-              borderColor: errors.shortName ? colors.error : theme.border,
+              borderColor: agencyErrors.shortName ? colors.error : theme.border,
               backgroundColor: theme.backgroundAlt,
               color: theme.textStrong,
             },
           ]}
           value={form.shortName}
-          onChangeText={v => update('shortName', v)}
+          onChangeText={v => updateAgency('shortName', v)}
           placeholder="AVC"
           placeholderTextColor={theme.text}
         />
-        {errors.shortName && (
+        {agencyErrors.shortName && (
           <Text style={[styles.fieldError, { color: colors.error }]}>
-            {errors.shortName}
+            {agencyErrors.shortName}
           </Text>
         )}
       </View>
@@ -662,19 +826,19 @@ export default function OrgCreateAgency() {
           style={[
             styles.simpleInput,
             {
-              borderColor: errors.location ? colors.error : theme.border,
+              borderColor: agencyErrors.location ? colors.error : theme.border,
               backgroundColor: theme.backgroundAlt,
               color: theme.textStrong,
             },
           ]}
           value={form.location}
-          onChangeText={v => update('location', v)}
+          onChangeText={v => updateAgency('location', v)}
           placeholder="Yaoundé, Cameroun"
           placeholderTextColor={theme.text}
         />
-        {errors.location && (
+        {agencyErrors.location && (
           <Text style={[styles.fieldError, { color: colors.error }]}>
-            {errors.location}
+            {agencyErrors.location}
           </Text>
         )}
       </View>
@@ -693,7 +857,7 @@ export default function OrgCreateAgency() {
           <TextInput
             style={[styles.fieldInput, { color: theme.textStrong }]}
             value={form.socialNetwork}
-            onChangeText={v => update('socialNetwork', v)}
+            onChangeText={v => updateAgency('socialNetwork', v)}
             placeholder="facebook.com/avcameroun"
             placeholderTextColor={theme.text}
             autoCapitalize="none"
@@ -715,7 +879,7 @@ export default function OrgCreateAgency() {
             },
           ]}
           value={form.description}
-          onChangeText={v => update('description', v.slice(0, 500))}
+          onChangeText={v => updateAgency('description', v.slice(0, 500))}
           placeholder="Agence spécialisée en transport interurbain..."
           placeholderTextColor={theme.text}
           multiline
@@ -741,7 +905,7 @@ export default function OrgCreateAgency() {
             },
           ]}
           value={form.greetingMessage}
-          onChangeText={v => update('greetingMessage', v.slice(0, 200))}
+          onChangeText={v => updateAgency('greetingMessage', v.slice(0, 200))}
           placeholder="Bienvenue chez AVC !"
           placeholderTextColor={theme.text}
           multiline
@@ -754,148 +918,220 @@ export default function OrgCreateAgency() {
     </View>
   );
 
-  // ─── Step 3 — Chef d'agence ─────────────────────────────────────────────────
+  // ─── Step 3 — Chef (select existing or create new) ───────────────────────────
 
-  const filteredStaff = staff.filter(m => {
-    if (!staffSearch.trim()) return true;
-    const q = staffSearch.toLowerCase();
-    const full = `${m.firstName ?? ''} ${m.lastName ?? ''} ${m.username} ${m.email}`.toLowerCase();
-    return full.includes(q);
-  });
+  const ChefCreateForm = () => (
+    <View style={{ gap: spacing.md }}>
+      <View style={styles.row}>
+        <View style={styles.half}>
+          <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.firstName}</Text>
+          <TextInput
+            style={[styles.simpleInput, { borderColor: theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong }]}
+            value={chefForm.first_name}
+            onChangeText={v => updateChef('first_name', v)}
+            placeholder={t.firstName}
+            placeholderTextColor={theme.text}
+          />
+        </View>
+        <View style={styles.half}>
+          <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.lastName}</Text>
+          <TextInput
+            style={[styles.simpleInput, { borderColor: theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong }]}
+            value={chefForm.last_name}
+            onChangeText={v => updateChef('last_name', v)}
+            placeholder={t.lastName}
+            placeholderTextColor={theme.text}
+          />
+        </View>
+      </View>
 
-  const Step3 = () => (
-    <View style={styles.stepContent}>
-      <Text style={[styles.stepTitle, { color: theme.textStrong }]}>
-        {t.selectChef}
-      </Text>
-      <Text style={[styles.stepDesc, { color: theme.text }]}>
-        {t.selectChefDesc}
-      </Text>
-
-      {staffLoading ? (
-        <ActivityIndicator
-          size="small"
-          color={colors.error}
-          style={{ marginTop: spacing.xl }}
+      <View style={styles.field}>
+        <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
+          {t.username} <Text style={{ color: colors.error }}>*</Text>
+        </Text>
+        <TextInput
+          style={[styles.simpleInput, { borderColor: chefErrors.username ? colors.error : theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong }]}
+          value={chefForm.username}
+          onChangeText={v => updateChef('username', v)}
+          placeholder={t.username}
+          placeholderTextColor={theme.text}
+          autoCapitalize="none"
         />
-      ) : staff.length === 0 ? (
-        <EmptyState
-          type="result"
-          message={t.noStaff}
-          textColor={theme.text}
-        />
-      ) : (
-        <>
-          {/* Search */}
-          <View
-            style={[
-              styles.searchInput,
-              {
-                borderColor: theme.border,
-                backgroundColor: theme.backgroundAlt,
-              },
-            ]}
-          >
-            <Ionicons name="search-outline" size={16} color={theme.text} />
-            <TextInput
-              style={[styles.searchText, { color: theme.textStrong }]}
-              placeholder={t.searchStaff}
-              placeholderTextColor={theme.text}
-              value={staffSearch}
-              onChangeText={setStaffSearch}
-            />
-          </View>
+        {chefErrors.username && <Text style={[styles.fieldError, { color: colors.error }]}>{chefErrors.username}</Text>}
+      </View>
 
-          {filteredStaff.map(member => {
-            const isSelected = selectedChef?.userId === member.userId;
-            const displayName =
-              member.firstName || member.lastName
-                ? `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim()
-                : member.username;
-            return (
-              <TouchableOpacity
-                key={member.userId}
-                style={[
-                  styles.staffCard,
-                  {
-                    borderColor: isSelected ? colors.error : theme.border,
-                    backgroundColor: isSelected
-                      ? `${colors.error}08`
-                      : theme.background,
-                  },
-                ]}
-                onPress={() =>
-                  setSelectedChef(isSelected ? null : member)
-                }
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[
-                    styles.staffAvatar,
-                    { backgroundColor: `${colors.error}15` },
-                  ]}
-                >
-                  <Text style={[styles.staffAvatarText, { color: colors.error }]}>
-                    {displayName.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.staffInfo}>
-                  <Text
-                    style={[styles.staffName, { color: theme.textStrong }]}
-                    numberOfLines={1}
-                  >
-                    {displayName}
-                  </Text>
-                  <Text
-                    style={[styles.staffEmail, { color: theme.text }]}
-                    numberOfLines={1}
-                  >
-                    {member.email}
-                  </Text>
-                  {(member.poste || member.nomAgence) && (
-                    <View style={styles.stationMetaRow}>
-                      <Ionicons
-                        name="briefcase-outline"
-                        size={11}
-                        color={theme.text}
-                      />
-                      <Text
-                        style={[styles.stationMeta, { color: theme.text }]}
-                        numberOfLines={1}
-                      >
-                        {' '}
-                        {[member.poste, member.nomAgence]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                {isSelected && (
-                  <View
-                    style={[
-                      styles.checkCircle,
-                      { backgroundColor: colors.error },
-                    ]}
-                  >
-                    <Ionicons name="checkmark" size={14} color="#fff" />
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </>
-      )}
+      <View style={styles.field}>
+        <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
+          {t.email} <Text style={{ color: colors.error }}>*</Text>
+        </Text>
+        <TextInput
+          style={[styles.simpleInput, { borderColor: chefErrors.email ? colors.error : theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong }]}
+          value={chefForm.email}
+          onChangeText={v => updateChef('email', v)}
+          placeholder={t.email}
+          placeholderTextColor={theme.text}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        {chefErrors.email && <Text style={[styles.fieldError, { color: colors.error }]}>{chefErrors.email}</Text>}
+      </View>
+
+      <View style={styles.field}>
+        <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
+          {t.password} <Text style={{ color: colors.error }}>*</Text>
+        </Text>
+        <View style={[styles.passwordRow, { borderColor: chefErrors.password ? colors.error : theme.border, backgroundColor: theme.backgroundAlt }]}>
+          <TextInput
+            style={[styles.passwordInput, { color: theme.textStrong }]}
+            value={chefForm.password}
+            onChangeText={v => updateChef('password', v)}
+            placeholder={t.password}
+            placeholderTextColor={theme.text}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity onPress={() => setShowPassword(s => !s)}>
+            <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={theme.text} />
+          </TouchableOpacity>
+        </View>
+        {chefErrors.password && <Text style={[styles.fieldError, { color: colors.error }]}>{chefErrors.password}</Text>}
+      </View>
+
+      <View style={styles.field}>
+        <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.phone}</Text>
+        <TextInput
+          style={[styles.simpleInput, { borderColor: theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong }]}
+          value={chefForm.phone_number}
+          onChangeText={v => updateChef('phone_number', v)}
+          placeholder="+237 6XX XXX XXX"
+          placeholderTextColor={theme.text}
+          keyboardType="phone-pad"
+        />
+      </View>
+
+      <View style={styles.field}>
+        <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.gender}</Text>
+        <View style={styles.genderRow}>
+          {(['MALE', 'FEMALE'] as const).map(g => (
+            <TouchableOpacity
+              key={g}
+              onPress={() => setChefForm(f => ({ ...f, gender: g }))}
+              style={[styles.genderBtn, { borderColor: chefForm.gender === g ? colors.primary : theme.border, backgroundColor: chefForm.gender === g ? `${colors.primary}10` : theme.backgroundAlt }]}
+            >
+              <Ionicons name={g === 'MALE' ? 'male-outline' : 'female-outline'} size={16} color={chefForm.gender === g ? colors.primary : theme.text} />
+              <Text style={[styles.genderText, { color: chefForm.gender === g ? colors.primary : theme.text }]}>
+                {g === 'MALE' ? t.male : t.female}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={styles.half}>
+          <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.poste}</Text>
+          <TextInput
+            style={[styles.simpleInput, { borderColor: theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong }]}
+            value={chefForm.poste}
+            onChangeText={v => updateChef('poste', v)}
+            placeholder="Chef d'agence"
+            placeholderTextColor={theme.text}
+          />
+        </View>
+        <View style={styles.half}>
+          <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.departement}</Text>
+          <TextInput
+            style={[styles.simpleInput, { borderColor: theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong }]}
+            value={chefForm.departement}
+            onChangeText={v => updateChef('departement', v)}
+            placeholder="Administration"
+            placeholderTextColor={theme.text}
+          />
+        </View>
+      </View>
     </View>
   );
 
-  // ─── Step 4 — Confirmation ──────────────────────────────────────────────────
+  const Step3 = () => {
+    if (orgEmployeesLoading) {
+      return (
+        <View style={[styles.stepContent, { alignItems: 'center', paddingTop: spacing.xl }]}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[styles.stepDesc, { color: theme.text, marginTop: spacing.md }]}>{t.employeesLoading}</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.stepContent}>
+        <Text style={[styles.stepTitle, { color: theme.textStrong }]}>{t.createChef}</Text>
+        <Text style={[styles.stepDesc, { color: theme.text }]}>{t.createChefDesc}</Text>
+
+        {/* Toggle — only shown if there are existing employees */}
+        {orgEmployees.length > 0 && (
+          <View style={[styles.modeToggle, { backgroundColor: theme.backgroundAlt, borderColor: theme.border }]}>
+            {(['select', 'create'] as const).map(mode => (
+              <TouchableOpacity
+                key={mode}
+                onPress={() => { setChefMode(mode); setSelectedExistingUserId(null); }}
+                style={[styles.modeBtn, chefMode === mode && { backgroundColor: colors.primary }]}
+              >
+                <Text style={[styles.modeBtnText, { color: chefMode === mode ? '#fff' : theme.text }]}>
+                  {mode === 'select' ? t.selectExisting : t.createNew}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Select existing */}
+        {chefMode === 'select' && orgEmployees.map(emp => {
+          const isSelected = selectedExistingUserId === emp.userId;
+          return (
+            <TouchableOpacity
+              key={emp.employeId}
+              onPress={() => setSelectedExistingUserId(emp.userId)}
+              style={[
+                styles.employeeCard,
+                {
+                  borderColor: isSelected ? colors.primary : theme.border,
+                  backgroundColor: isSelected ? `${colors.primary}08` : theme.background,
+                },
+              ]}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.empAvatar, { backgroundColor: `${colors.primary}15` }]}>
+                <Text style={[styles.empAvatarText, { color: colors.primary }]}>
+                  {emp.displayName.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.staffName, { color: theme.textStrong }]}>{emp.displayName}</Text>
+                <Text style={[styles.staffEmail, { color: theme.text }]}>{emp.email}</Text>
+                {emp.poste ? <Text style={[styles.staffEmail, { color: theme.text }]}>{emp.poste}</Text> : null}
+              </View>
+              {isSelected && (
+                <View style={[styles.checkCircle, { backgroundColor: colors.primary }]}>
+                  <Ionicons name="checkmark" size={14} color="#fff" />
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+
+        {/* Create form */}
+        {chefMode === 'create' && ChefCreateForm()}
+      </View>
+    );
+  };
+
+  // ─── Step 4 — Confirmation ────────────────────────────────────────────────────
 
   const Step4 = () => {
-    const displayName =
-      selectedChef?.firstName || selectedChef?.lastName
-        ? `${selectedChef.firstName ?? ''} ${selectedChef.lastName ?? ''}`.trim()
-        : selectedChef?.username ?? '';
+    const chefDisplayName =
+      chefForm.first_name || chefForm.last_name
+        ? `${chefForm.first_name} ${chefForm.last_name}`.trim()
+        : chefForm.username;
 
     return (
       <View style={styles.stepContent}>
@@ -906,7 +1142,7 @@ export default function OrgCreateAgency() {
           {t.verifyDesc}
         </Text>
 
-        {/* Selected station */}
+        {/* Station */}
         <Text style={[styles.summaryLabel, { color: theme.textStrong }]}>
           {t.selectedStation}
         </Text>
@@ -929,7 +1165,7 @@ export default function OrgCreateAgency() {
                 resizeMode="cover"
               />
             ) : (
-              <Ionicons name="business-outline" size={22} color={theme.text} />
+              <BuildingPlaceholder width="70%" height="70%" />
             )}
           </View>
           <View style={styles.stationInfo}>
@@ -945,13 +1181,13 @@ export default function OrgCreateAgency() {
             </View>
           </View>
           <TouchableOpacity onPress={() => setStep(1)}>
-            <Text style={[styles.changeLink, { color: colors.error }]}>
+            <Text style={[styles.changeLink, { color: colors.primary }]}>
               {t.change}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Agency info summary */}
+        {/* Agency info */}
         <View
           style={[
             styles.summaryCard,
@@ -985,35 +1221,30 @@ export default function OrgCreateAgency() {
                   },
                 ]
               : []),
-            ...(form.greetingMessage
-              ? [
-                  {
-                    label: t.greeting
-                      .replace(' (optionnel)', '')
-                      .replace(' (optional)', ''),
-                    value: form.greetingMessage,
-                  },
-                ]
-              : []),
           ].map((row, i) => (
             <View
               key={row.label}
               style={[
                 styles.summaryRow,
-                { borderTopColor: theme.border, borderTopWidth: i === 0 ? 0 : 1 },
+                {
+                  borderTopColor: theme.border,
+                  borderTopWidth: i === 0 ? 0 : 1,
+                },
               ]}
             >
               <Text style={[styles.summaryRowLabel, { color: theme.text }]}>
                 {row.label}
               </Text>
-              <Text style={[styles.summaryRowValue, { color: theme.textStrong }]}>
+              <Text
+                style={[styles.summaryRowValue, { color: theme.textStrong }]}
+              >
                 {row.value}
               </Text>
             </View>
           ))}
         </View>
 
-        {/* Chef d'agence */}
+        {/* Chef */}
         <Text style={[styles.summaryLabel, { color: theme.textStrong }]}>
           {t.chefDAgence}
         </Text>
@@ -1025,32 +1256,35 @@ export default function OrgCreateAgency() {
         >
           <View
             style={[
-              styles.staffAvatar,
-              { backgroundColor: `${colors.error}15` },
+              styles.chefAvatar,
+              { backgroundColor: `${colors.primary}15` },
             ]}
           >
-            <Text
-              style={[styles.staffAvatarText, { color: colors.error }]}
-            >
-              {displayName.charAt(0).toUpperCase()}
+            <Text style={[styles.chefAvatarText, { color: colors.primary }]}>
+              {chefDisplayName.charAt(0).toUpperCase()}
             </Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.staffName, { color: theme.textStrong }]}>
-              {displayName}
+              {chefDisplayName}
             </Text>
             <Text style={[styles.staffEmail, { color: theme.text }]}>
-              {selectedChef?.email}
+              {chefForm.email}
             </Text>
+            {chefForm.poste ? (
+              <Text style={[styles.staffEmail, { color: theme.text }]}>
+                {chefForm.poste}
+              </Text>
+            ) : null}
           </View>
           <TouchableOpacity onPress={() => setStep(3)}>
-            <Text style={[styles.changeLink, { color: colors.error }]}>
+            <Text style={[styles.changeLink, { color: colors.primary }]}>
               {t.change}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Important notice */}
+        {/* Important */}
         <View
           style={[
             styles.importantBox,
@@ -1063,9 +1297,7 @@ export default function OrgCreateAgency() {
             color="#d97706"
           />
           <View style={{ flex: 1 }}>
-            <Text
-              style={[styles.importantTitle, { color: theme.textStrong }]}
-            >
+            <Text style={[styles.importantTitle, { color: theme.textStrong }]}>
               {t.important}
             </Text>
             <Text style={[styles.importantText, { color: theme.text }]}>
@@ -1131,10 +1363,10 @@ export default function OrgCreateAgency() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {step === 1 && <Step1 />}
-          {step === 2 && <Step2 />}
-          {step === 3 && <Step3 />}
-          {step === 4 && <Step4 />}
+          {step === 1 && Step1()}
+          {step === 2 && Step2()}
+          {step === 3 && Step3()}
+          {step === 4 && Step4()}
           <View style={{ height: 100 }} />
         </ScrollView>
 
@@ -1150,7 +1382,7 @@ export default function OrgCreateAgency() {
               style={[
                 styles.primaryBtn,
                 {
-                  backgroundColor: colors.error,
+                  backgroundColor: colors.primary,
                   opacity: selectedStation ? 1 : 0.5,
                 },
               ]}
@@ -1162,7 +1394,7 @@ export default function OrgCreateAgency() {
           )}
           {step === 2 && (
             <TouchableOpacity
-              style={[styles.primaryBtn, { backgroundColor: colors.error }]}
+              style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
               onPress={handleStep2Next}
             >
               <Text style={styles.primaryBtnText}>{t.continueBtn}</Text>
@@ -1171,15 +1403,8 @@ export default function OrgCreateAgency() {
           {step === 3 && (
             <View style={styles.finalButtons}>
               <TouchableOpacity
-                style={[
-                  styles.primaryBtn,
-                  {
-                    backgroundColor: colors.error,
-                    opacity: selectedChef ? 1 : 0.5,
-                  },
-                ]}
+                style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
                 onPress={handleStep3Next}
-                disabled={!selectedChef}
               >
                 <Text style={styles.primaryBtnText}>{t.continueBtn}</Text>
               </TouchableOpacity>
@@ -1188,10 +1413,7 @@ export default function OrgCreateAgency() {
                 onPress={() => setStep(2)}
               >
                 <Text
-                  style={[
-                    styles.secondaryBtnText,
-                    { color: theme.textStrong },
-                  ]}
+                  style={[styles.secondaryBtnText, { color: theme.textStrong }]}
                 >
                   {t.back}
                 </Text>
@@ -1204,7 +1426,7 @@ export default function OrgCreateAgency() {
                 style={[
                   styles.primaryBtn,
                   {
-                    backgroundColor: colors.error,
+                    backgroundColor: colors.primary,
                     opacity: submitting ? 0.7 : 1,
                   },
                 ]}
@@ -1222,10 +1444,7 @@ export default function OrgCreateAgency() {
                 onPress={() => setStep(3)}
               >
                 <Text
-                  style={[
-                    styles.secondaryBtnText,
-                    { color: theme.textStrong },
-                  ]}
+                  style={[styles.secondaryBtnText, { color: theme.textStrong }]}
                 >
                   {t.back}
                 </Text>
@@ -1238,7 +1457,7 @@ export default function OrgCreateAgency() {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -1252,7 +1471,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { ...typography.heading, fontSize: typography.sizes.lg },
-
   stepperContainer: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
@@ -1270,7 +1488,6 @@ const styles = StyleSheet.create({
   stepDotText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   stepLabel: { ...typography.body, fontSize: 9, textAlign: 'center' },
   stepLine: { flex: 1, height: 1.5, marginHorizontal: 4, marginBottom: 16 },
-
   stepContent: { padding: spacing.lg, gap: spacing.md },
   stepTitle: { ...typography.heading, fontSize: typography.sizes.lg },
   stepDesc: {
@@ -1299,6 +1516,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  filterChips: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  chipText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
 
   stationCard: {
     flexDirection: 'row',
@@ -1321,6 +1551,13 @@ const styles = StyleSheet.create({
   stationName: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   stationMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   stationMeta: { ...typography.body, fontSize: typography.sizes.xs },
+  stationRight: { alignItems: 'flex-end', gap: spacing.xs },
+  openBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  openBadgeText: { ...typography.bodyBold, fontSize: 9 },
   checkCircle: {
     width: 22,
     height: 22,
@@ -1328,7 +1565,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
   hintBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1343,30 +1579,6 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
-
-  // Staff cards
-  staffCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    borderWidth: 1.5,
-    borderRadius: 4,
-    padding: spacing.md,
-  },
-  staffAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  staffAvatarText: {
-    ...typography.bodyBold,
-    fontSize: typography.sizes.lg,
-  },
-  staffInfo: { flex: 1 },
-  staffName: { ...typography.bodyBold, fontSize: typography.sizes.sm },
-  staffEmail: { ...typography.body, fontSize: typography.sizes.xs, marginTop: 1 },
 
   field: { gap: spacing.xs },
   fieldLabel: { ...typography.bodyBold, fontSize: typography.sizes.sm },
@@ -1388,11 +1600,7 @@ const styles = StyleSheet.create({
     height: 48,
   },
   fieldInput: { flex: 1, ...typography.body, fontSize: typography.sizes.sm },
-  fieldError: {
-    ...typography.body,
-    fontSize: typography.sizes.xs,
-    color: colors.error,
-  },
+  fieldError: { ...typography.body, fontSize: typography.sizes.xs },
   textarea: {
     borderWidth: 1,
     borderRadius: 4,
@@ -1408,6 +1616,36 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
 
+  row: { flexDirection: 'row', gap: spacing.sm },
+  half: { flex: 1 },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    height: 48,
+    gap: spacing.sm,
+  },
+  passwordInput: {
+    flex: 1,
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    padding: 0,
+  },
+  genderRow: { flexDirection: 'row', gap: spacing.sm },
+  genderBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingVertical: spacing.sm,
+  },
+  genderText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
+
   summaryLabel: {
     ...typography.bodyBold,
     fontSize: typography.sizes.md,
@@ -1422,16 +1660,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   changeLink: { ...typography.bodyBold, fontSize: typography.sizes.sm },
-
-  chefSummaryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    borderWidth: 1,
-    borderRadius: 4,
-    padding: spacing.md,
-  },
-
   summaryCard: {
     borderWidth: 1,
     borderRadius: 4,
@@ -1450,7 +1678,28 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     marginTop: 2,
   },
-
+  chefSummaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderWidth: 1,
+    borderRadius: 4,
+    padding: spacing.md,
+  },
+  chefAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chefAvatarText: { ...typography.bodyBold, fontSize: typography.sizes.lg },
+  staffName: { ...typography.bodyBold, fontSize: typography.sizes.sm },
+  staffEmail: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+    marginTop: 1,
+  },
   importantBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1469,7 +1718,6 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.xs,
     lineHeight: 18,
   },
-
   apiErrorText: {
     ...typography.body,
     fontSize: typography.sizes.sm,
@@ -1501,4 +1749,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryBtnText: { ...typography.bodyBold, fontSize: typography.sizes.md },
+  modeToggle: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: spacing.sm,
+  },
+  modeBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modeBtnText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
+  employeeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderWidth: 1.5,
+    borderRadius: 4,
+    padding: spacing.md,
+  },
+  empAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  empAvatarText: { ...typography.bodyBold, fontSize: typography.sizes.md },
 });

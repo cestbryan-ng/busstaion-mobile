@@ -6,10 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   useColorScheme,
   Linking,
   RefreshControl,
+  Share,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,6 +21,8 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonStationDetail } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
+import BuildingPlaceholder from '../../../../assets/placeholders/building.svg';
 
 type Station = {
   idGareRoutiere: string;
@@ -34,7 +36,8 @@ type Station = {
   photoUrl?: string;
   nomPresident?: string;
   managerId?: string;
-  nbreAgence: number;
+  nbreAgence: number | null;
+  open?: boolean;
   localisation?: { latitude: number; longitude: number };
 };
 
@@ -102,6 +105,20 @@ export default function OrgStationDetail() {
     setRefreshing(false);
   }, [loadData]);
 
+  const handleShare = async () => {
+    if (!station) return;
+    try {
+      await Share.share({
+        message: `🚌 ${station.nomGareRoutiere}\n📍 ${station.ville}${
+          station.quartier ? `, ${station.quartier}` : ''
+        }${station.horaires ? `\n🕐 ${station.horaires}` : ''}`,
+        title: station.nomGareRoutiere,
+      });
+    } catch {
+      // silent
+    }
+  };
+
   if (loading) return <SkeletonStationDetail />;
   if (!station) return null;
 
@@ -122,8 +139,8 @@ export default function OrgStationDetail() {
         <Text style={[styles.title, { color: theme.textStrong }]}>
           {lang === 'fr' ? 'Détails de la gare' : 'Station details'}
         </Text>
-        <TouchableOpacity>
-          <Ionicons name="create-outline" size={22} color={theme.textStrong} />
+        <TouchableOpacity onPress={handleShare}>
+          <Ionicons name="share-outline" size={22} color={theme.textStrong} />
         </TouchableOpacity>
       </View>
 
@@ -143,11 +160,7 @@ export default function OrgStationDetail() {
                 { backgroundColor: `${colors.primary}10` },
               ]}
             >
-              <Ionicons
-                name="business-outline"
-                size={56}
-                color={colors.primary}
-              />
+              <BuildingPlaceholder width="40%" height="70%" />
             </View>
           )}
         </View>
@@ -221,35 +234,41 @@ export default function OrgStationDetail() {
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
             {lang === 'fr' ? 'Services disponibles' : 'Available services'}
           </Text>
-          <View style={styles.servicesGrid}>
-            {station.services.map(s => (
-              <View
-                key={s}
-                style={[
-                  styles.serviceItem,
-                  {
-                    backgroundColor: theme.backgroundAlt,
-                    borderColor: theme.border,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={SERVICE_ICONS[s] || 'ellipse-outline'}
-                  size={22}
-                  color={theme.textStrong}
-                />
-                <Text
-                  style={[styles.serviceLabel, { color: theme.textStrong }]}
+          {station.services.length === 0 ? (
+            <EmptyState
+              type="result"
+              message={lang === 'fr' ? 'Aucun service renseigné' : 'No services listed'}
+              textColor={theme.text}
+            />
+          ) : (
+            <View style={styles.servicesGrid}>
+              {station.services.map(s => (
+                <View
+                  key={s}
+                  style={[
+                    styles.serviceItem,
+                    {
+                      backgroundColor: theme.backgroundAlt,
+                      borderColor: theme.border,
+                    },
+                  ]}
                 >
-                  {SERVICE_LABELS_FR[s] || s}
-                </Text>
-              </View>
-            ))}
-          </View>
+                  <Ionicons
+                    name={SERVICE_ICONS[s] || 'ellipse-outline'}
+                    size={22}
+                    color={theme.textStrong}
+                  />
+                  <Text style={[styles.serviceLabel, { color: theme.textStrong }]}>
+                    {SERVICE_LABELS_FR[s] || s}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Affiliated agencies count */}
-        <TouchableOpacity
+        <View
           style={[
             styles.affiliatedRow,
             { backgroundColor: theme.background, borderColor: theme.border },
@@ -259,10 +278,9 @@ export default function OrgStationDetail() {
             {lang === 'fr' ? 'Agences affiliées' : 'Affiliated agencies'}
           </Text>
           <Text style={[styles.affiliatedCount, { color: colors.primary }]}>
-            {station.nbreAgence}
+            {station.nbreAgence ?? '—'}
           </Text>
-          <Ionicons name="chevron-forward" size={18} color={theme.text} />
-        </TouchableOpacity>
+        </View>
 
         {/* Map link */}
         {station.localisation && (

@@ -299,7 +299,7 @@ export default function BsmAgencies() {
           <View
             style={[styles.agencyLogo, { backgroundColor: `${colors.primary}15` }]}
           >
-            {logo ? (
+            {logo && logo.startsWith('http') ? (
               <Image
                 source={{ uri: logo }}
                 style={styles.agencyLogoImage}
@@ -385,7 +385,7 @@ export default function BsmAgencies() {
         <View
           style={[styles.agencyLogo, { backgroundColor: theme.backgroundAlt }]}
         >
-          {item.logoUrl ? (
+          {item.logoUrl && item.logoUrl.startsWith('http') ? (
             <Image
               source={{ uri: item.logoUrl }}
               style={styles.agencyLogoImage}

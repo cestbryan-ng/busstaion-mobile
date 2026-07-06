@@ -28,7 +28,7 @@ type Tax = {
   tauxTaxe: number;
   montantFixe: number;
   dateEffet: string;
-  documentUrl?: string;
+  documentUrl?: string | null;
 };
 
 type TaxResponse = {
@@ -53,6 +53,7 @@ export default function OrgAffiliationTaxes() {
     longName: string;
     location?: string;
   } | null>(null);
+  const [stationName, setStationName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -67,7 +68,6 @@ export default function OrgAffiliationTaxes() {
       fixedAmount: 'Montant fixe',
       from: 'Depuis le',
       documents: 'Documents',
-      payBtn: 'Payer les taxes dues',
       noTaxes: 'Aucune taxe',
     },
     en: {
@@ -80,7 +80,6 @@ export default function OrgAffiliationTaxes() {
       fixedAmount: 'Fixed amount',
       from: 'From',
       documents: 'Documents',
-      payBtn: 'Pay due taxes',
       noTaxes: 'No taxes',
     },
   }[lang];
@@ -99,11 +98,22 @@ export default function OrgAffiliationTaxes() {
         fetch(`${API_URL}/agence/${agencyId}`, { headers }),
       ]);
 
-      if (taxRes.status === 'fulfilled' && taxRes.value.ok)
-        setTaxData(await taxRes.value.json());
+      let gareId: string | null = null;
+      if (taxRes.status === 'fulfilled' && taxRes.value.ok) {
+        const tax = await taxRes.value.json();
+        setTaxData(tax);
+        gareId = tax.gareRoutiereId || null;
+      }
       if (agencyRes.status === 'fulfilled' && agencyRes.value.ok) {
         const d = await agencyRes.value.json();
         setAgencyInfo({ longName: d.longName, location: d.location });
+      }
+      if (gareId) {
+        const stationRes = await fetch(`${API_URL}/gare/${gareId}`);
+        if (stationRes.ok) {
+          const s = await stationRes.json();
+          setStationName(s.nomGareRoutiere || null);
+        }
       }
     } catch {
       // silent
@@ -139,13 +149,7 @@ export default function OrgAffiliationTaxes() {
         <Text style={[styles.title, { color: theme.textStrong }]}>
           {t.title}
         </Text>
-        <TouchableOpacity>
-          <Ionicons
-            name="information-circle-outline"
-            size={22}
-            color={theme.textStrong}
-          />
-        </TouchableOpacity>
+        <View style={{ width: 22 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
@@ -177,7 +181,7 @@ export default function OrgAffiliationTaxes() {
               {t.station}
             </Text>
             <Text style={[styles.infoValue, { color: theme.textStrong }]}>
-              {taxData?.gareRoutiereId ? 'Gare Routière' : '—'}
+              {stationName || '—'}
             </Text>
           </View>
           <View
@@ -237,7 +241,10 @@ export default function OrgAffiliationTaxes() {
                     {tax.nomTaxe}
                   </Text>
                   <Text style={[styles.taxRate, { color: theme.text }]}>
-                    {tax.tauxTaxe * 100}% · {t.from}{' '}
+                    {tax.tauxTaxe > 0 ? `${tax.tauxTaxe * 100}% · ` : ''}
+                    {new Date(tax.dateEffet) < new Date()
+                      ? (lang === 'fr' ? 'Depuis le' : 'Since')
+                      : (lang === 'fr' ? 'À partir du' : 'From')}{' '}
                     {new Date(tax.dateEffet).toLocaleDateString(
                       lang === 'fr' ? 'fr-FR' : 'en-GB',
                       { day: 'numeric', month: 'short', year: 'numeric' },
@@ -316,16 +323,6 @@ export default function OrgAffiliationTaxes() {
           </View>
         )}
 
-        {/* Pay button */}
-        {(taxData?.montantTotalDu || 0) > 0 && (
-          <View style={styles.payBtnContainer}>
-            <TouchableOpacity
-              style={[styles.payBtn, { backgroundColor: colors.primary }]}
-            >
-              <Text style={styles.payBtnText}>{t.payBtn}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
 
         <View style={{ height: spacing.xl }} />
       </ScrollView>
@@ -419,16 +416,4 @@ const styles = StyleSheet.create({
   docInfo: { flex: 1 },
   docName: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   docMeta: { ...typography.body, fontSize: typography.sizes.xs },
-  payBtnContainer: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  payBtn: {
-    height: 52,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  payBtnText: {
-    ...typography.bodyBold,
-    fontSize: typography.sizes.md,
-    color: '#fff',
-  },
 });

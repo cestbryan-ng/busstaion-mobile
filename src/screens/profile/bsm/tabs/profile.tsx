@@ -63,6 +63,7 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
   const [lastLogin, setLastLogin] = useState('');
 
   const [taxesCollected, setTaxesCollected] = useState(0);
+  const [agenciesCount, setAgenciesCount] = useState(0);
 
   const t = {
     fr: {
@@ -165,6 +166,12 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
           const stationData = await stationRes.json();
           setStation(stationData);
           gareId = stationData.idGareRoutiere ?? '';
+
+          const agenciesRes = await fetch(`${API_URL}/gare/${gareId}/agences`, { headers }).catch(() => null);
+          if (agenciesRes?.ok) {
+            const agData = await agenciesRes.json();
+            setAgenciesCount((agData.content || agData || []).length);
+          }
         }
 
         const taxesRes = await fetch(
@@ -429,7 +436,7 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
                 />
               </View>
               <Text style={[styles.statValue, { color: theme.textStrong }]}>
-                {station?.nbreAgence ?? 0}
+                {station?.nbreAgence ?? agenciesCount}
               </Text>
               <Text style={[styles.statLabel, { color: theme.text }]}>
                 {t.affiliatedAgencies}

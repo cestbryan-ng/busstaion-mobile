@@ -43,7 +43,7 @@ import OrgServiceLines from '../screens/profile/organization/services/service-li
 import OrgServiceLineDetail from '../screens/profile/organization/services/service-line-detail';
 import OrgLineSlots from '../screens/profile/organization/services/line-slots';
 import OrgAffiliationTaxes from '../screens/profile/organization/affiliations/affiliation-taxes';
-import OrgVehicles from '../screens/profile/organization/vehicles/vehicles';
+import OrgVehicles from '../screens/profile/organization/resources/vehicles';
 import OrgAffiliations from '../screens/profile/organization/affiliations/affiliations';
 import OrgCreateAgency from '../screens/profile/organization/agencies/create-agency';
 import OrgCreateAgencySuccess from '../screens/profile/organization/agencies/create-agency-success';

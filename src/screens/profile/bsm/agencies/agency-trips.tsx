@@ -21,6 +21,7 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
+import AgencyPlaceholder from '../../../../assets/placeholders/shape.svg';
 
 type Trip = {
   idVoyage: string;
@@ -169,16 +170,6 @@ export default function AgencyTripsBsm() {
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
 
-  const todayCount = trips.filter(t =>
-    isSameDay(new Date(t.dateDepartPrev), today),
-  ).length;
-  const tomorrowCount = trips.filter(t =>
-    isSameDay(new Date(t.dateDepartPrev), tomorrow),
-  ).length;
-  const weekCount = trips.filter(t =>
-    isWithinWeek(new Date(t.dateDepartPrev), today),
-  ).length;
-
   const filtered = useMemo(() => {
     if (dateFilter === 'today')
       return trips.filter(t => isSameDay(new Date(t.dateDepartPrev), today));
@@ -202,7 +193,7 @@ export default function AgencyTripsBsm() {
         ]}
       >
         <View style={styles.tripLeft}>
-          <Text style={[styles.tripHour, { color: colors.error }]}>
+          <Text style={[styles.tripHour, { color: colors.primary }]}>
             {trip.heureDepartEffectif || ''}
           </Text>
           <Text style={[styles.tripDate, { color: theme.text }]}>
@@ -246,7 +237,7 @@ export default function AgencyTripsBsm() {
               {trip.nbrPlaceRestante ?? 0} {t.seats}
             </Text>
           </View>
-          <Text style={[styles.tripPrice, { color: colors.error }]}>
+          <Text style={[styles.tripPrice, { color: colors.primary }]}>
             {trip.prix.toLocaleString('fr-FR')} FCFA
           </Text>
           <Ionicons name="chevron-forward" size={16} color={theme.text} />
@@ -261,15 +252,11 @@ export default function AgencyTripsBsm() {
     ? TAX_STATUS_CONFIG['payé']
     : null;
 
-  const FILTERS: { key: DateFilter; label: string; count: number }[] = [
-    { key: 'all', label: `${t.all} (${trips.length})`, count: trips.length },
-    { key: 'today', label: `${t.today} (${todayCount})`, count: todayCount },
-    {
-      key: 'tomorrow',
-      label: `${t.tomorrow} (${tomorrowCount})`,
-      count: tomorrowCount,
-    },
-    { key: 'week', label: `${t.week} (${weekCount})`, count: weekCount },
+  const FILTERS: { key: DateFilter; label: string }[] = [
+    { key: 'all', label: t.all },
+    { key: 'today', label: t.today },
+    { key: 'tomorrow', label: t.tomorrow },
+    { key: 'week', label: t.week },
   ];
 
   return (
@@ -308,18 +295,14 @@ export default function AgencyTripsBsm() {
                 { backgroundColor: theme.backgroundAlt },
               ]}
             >
-              {agency.logoUrl ? (
+              {agency.logoUrl && agency.logoUrl.startsWith('http') ? (
                 <Image
                   source={{ uri: agency.logoUrl }}
                   style={styles.agencyLogoImage}
                   resizeMode="contain"
                 />
               ) : (
-                <Text
-                  style={[styles.agencyLogoText, { color: colors.primary }]}
-                >
-                  {agency.longName.slice(0, 2).toUpperCase()}
-                </Text>
+                <AgencyPlaceholder width={36} height={36} />
               )}
             </View>
             <View style={styles.agencyInfo}>
@@ -376,8 +359,8 @@ export default function AgencyTripsBsm() {
               style={[
                 styles.filterChip,
                 dateFilter === f.key && {
-                  backgroundColor: colors.error,
-                  borderColor: colors.error,
+                  backgroundColor: colors.primary,
+                  borderColor: colors.primary,
                 },
                 dateFilter !== f.key && { borderColor: theme.border },
               ]}
@@ -467,8 +450,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   filterChip: {
-    borderWidth: 1.5,
-    borderRadius: 20,
+    borderWidth: 1,
+    borderRadius: 4,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },

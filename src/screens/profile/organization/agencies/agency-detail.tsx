@@ -10,6 +10,7 @@ import {
   useColorScheme,
   Linking,
   RefreshControl,
+  Share,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,6 +22,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonOrgAgencyDetail } from '../../../../components/skeleton';
+import ShapePlaceholder from '../../../../assets/placeholders/shape.svg';
 
 type Agency = {
   id: string;
@@ -42,10 +44,15 @@ type Agency = {
 };
 
 type Stats = {
-  nombreVoyages?: number;
-  nombreVehicules?: number;
+  nombreEmployes?: number;
   nombreChauffeurs?: number;
+  nombreVoyages?: number;
+  nombreReservations?: number;
   revenus?: number;
+  nouveauxUtilisateurs?: number;
+  tauxOccupation?: number;
+  voyagesParStatut?: Record<string, number>;
+  reservationsParStatut?: Record<string, number>;
 };
 
 type TabType = 'agence' | 'ressources' | 'lignes' | 'finances';
@@ -61,6 +68,7 @@ export default function OrgAgencyDetail() {
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [agency, setAgency] = useState<Agency | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [stationName, setStationName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('agence');
   const [refreshing, setRefreshing] = useState(false);
@@ -84,7 +92,7 @@ export default function OrgAgencyDetail() {
       greeting: "Message d'accueil",
       stats: 'Statistiques',
       voyages: 'Voyages',
-      vehicles: 'Véhicules',
+      employees: 'Employés',
       drivers: 'Chauffeurs',
       revenue: 'Revenus',
       total: 'Total',
@@ -118,7 +126,7 @@ export default function OrgAgencyDetail() {
       greeting: 'Greeting message',
       stats: 'Statistics',
       voyages: 'Trips',
-      vehicles: 'Vehicles',
+      employees: 'Employees',
       drivers: 'Drivers',
       revenue: 'Revenue',
       total: 'Total',
@@ -152,10 +160,21 @@ export default function OrgAgencyDetail() {
         }),
       ]);
 
-      if (agencyRes.status === 'fulfilled' && agencyRes.value.ok)
-        setAgency(await agencyRes.value.json());
-      if (statsRes.status === 'fulfilled' && statsRes.value.ok)
+      if (agencyRes.status === 'fulfilled' && agencyRes.value.ok) {
+        const data = await agencyRes.value.json();
+        setAgency(data);
+        const gareId = data.gareIds?.[0];
+        if (gareId) {
+          const gareRes = await fetch(`${API_URL}/gare/${gareId}`, { headers });
+          if (gareRes.ok) {
+            const g = await gareRes.json();
+            setStationName(g.nomGareRoutiere || null);
+          }
+        }
+      }
+      if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
         setStats(await statsRes.value.json());
+      }
     } catch {
       // silent
     } finally {
@@ -171,11 +190,24 @@ export default function OrgAgencyDetail() {
     setRefreshing(false);
   }, [loadData]);
 
+  const handleShare = async () => {
+    if (!agency) return;
+    try {
+      await Share.share({
+        message: `🏢 ${agency.longName}${agency.shortName ? ` (${agency.shortName})` : ''}${agency.location ? `\n📍 ${agency.location}` : ''}${agency.description ? `\n${agency.description}` : ''}`,
+        title: agency.longName,
+      });
+    } catch {
+      // silent
+    }
+  };
+
   if (loading) return <SkeletonOrgAgencyDetail />;
 
   if (!agency) return null;
 
   const realId = agency.id || agency.agencyId || agencyId;
+  const hasLogo = !!agency.logoUrl && agency.logoUrl.startsWith('http');
 
   const AgenceTab = () => (
     <ScrollView
@@ -196,10 +228,7 @@ export default function OrgAgencyDetail() {
           { label: t.fullName, value: agency.longName },
           { label: t.shortName, value: agency.shortName },
           { label: t.location, value: agency.location },
-          {
-            label: t.station,
-            value: agency.gareIds?.[0] ? 'Gare affiliée' : '—',
-          },
+          { label: t.station, value: stationName },
           { label: t.socialNetwork, value: agency.socialNetwork },
         ]
           .filter(r => r.value)
@@ -271,8 +300,8 @@ export default function OrgAgencyDetail() {
               sub: t.total,
             },
             {
-              label: t.vehicles,
-              value: stats?.nombreVehicules ?? 0,
+              label: t.employees,
+              value: stats?.nombreEmployes ?? 0,
               sub: t.total,
             },
             {
@@ -568,8 +597,8 @@ export default function OrgAgencyDetail() {
         <Text style={[styles.headerTitle, { color: theme.textStrong }]}>
           {t.title}
         </Text>
-        <TouchableOpacity>
-          <Ionicons name="create-outline" size={22} color={theme.textStrong} />
+        <TouchableOpacity onPress={handleShare}>
+          <Ionicons name="share-outline" size={22} color={theme.textStrong} />
         </TouchableOpacity>
       </View>
 
@@ -589,16 +618,14 @@ export default function OrgAgencyDetail() {
             { backgroundColor: `${colors.primary}15` },
           ]}
         >
-          {agency.logoUrl ? (
+          {hasLogo ? (
             <Image
-              source={{ uri: agency.logoUrl }}
+              source={{ uri: agency.logoUrl! }}
               style={styles.bannerLogoImage}
               resizeMode="contain"
             />
           ) : (
-            <Text style={[styles.bannerLogoText, { color: colors.primary }]}>
-              {(agency.shortName || agency.longName).slice(0, 3).toUpperCase()}
-            </Text>
+            <ShapePlaceholder width="70%" height="70%" />
           )}
         </View>
         <View style={styles.bannerInfo}>

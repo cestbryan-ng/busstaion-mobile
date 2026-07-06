@@ -48,7 +48,8 @@ export default function OrgMyAgencies() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
-  const [filterActive, setFilterActive] = useState<boolean | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const debouncedSearch = useDebounce(search);
 
   const t = {
@@ -148,14 +149,21 @@ export default function OrgMyAgencies() {
     setRefreshing(false);
   }, [loadData]);
 
+  const FILTERS = [
+    { key: 'all' as const, label: lang === 'fr' ? 'Toutes' : 'All' },
+    { key: 'active' as const, label: lang === 'fr' ? 'Actives' : 'Active' },
+    { key: 'inactive' as const, label: lang === 'fr' ? 'Inactives' : 'Inactive' },
+  ];
+
   const filtered = useMemo(
     () =>
       agencies.filter(a => {
         if (debouncedSearch.trim() && !a.longName.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
-        if (filterActive !== null && a.isActive !== filterActive) return false;
+        if (filterStatus === 'active' && !a.isActive) return false;
+        if (filterStatus === 'inactive' && a.isActive) return false;
         return true;
       }),
-    [agencies, debouncedSearch, filterActive],
+    [agencies, debouncedSearch, filterStatus],
   );
 
   if (loading) return <SkeletonListScreen />;
@@ -204,23 +212,45 @@ export default function OrgMyAgencies() {
           style={[
             styles.filterBtn,
             {
-              borderColor: filterActive !== null ? colors.primary : theme.border,
-              backgroundColor: filterActive !== null ? `${colors.primary}15` : 'transparent',
+              borderColor: showFilters ? colors.primary : theme.border,
+              backgroundColor: showFilters ? `${colors.primary}15` : 'transparent',
             },
           ]}
-          onPress={() => {
-            if (filterActive === null) setFilterActive(true);
-            else if (filterActive === true) setFilterActive(false);
-            else setFilterActive(null);
-          }}
+          onPress={() => setShowFilters(v => !v)}
         >
           <Ionicons
             name="options-outline"
             size={20}
-            color={filterActive !== null ? colors.primary : theme.textStrong}
+            color={showFilters ? colors.primary : theme.textStrong}
           />
         </TouchableOpacity>
       </View>
+
+      {/* Filter chips */}
+      {showFilters && (
+        <View style={styles.filterChips}>
+          {FILTERS.map(f => {
+            const active = filterStatus === f.key;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: active ? colors.primary : theme.background,
+                    borderColor: active ? colors.primary : theme.border,
+                  },
+                ]}
+                onPress={() => setFilterStatus(f.key)}
+              >
+                <Text style={[styles.chipText, { color: active ? '#fff' : theme.text }]}>
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -380,6 +410,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  filterChips: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  chipText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   list: { padding: spacing.lg, gap: spacing.md },
   agencyCard: {
     borderWidth: 1,

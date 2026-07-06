@@ -76,7 +76,8 @@ export default function OrgAffiliations() {
       title: 'Affiliations',
       myAffiliations: 'Mes affiliations',
       taxesDues: 'Taxes dues',
-      dueDate: 'Échéance :',
+      since: 'Depuis le',
+      from: 'À partir du',
       noAffiliations: 'Aucune affiliation',
       seeAll: 'Voir toutes les affiliations',
     },
@@ -84,7 +85,8 @@ export default function OrgAffiliations() {
       title: 'Affiliations',
       myAffiliations: 'My affiliations',
       taxesDues: 'Due taxes',
-      dueDate: 'Due date:',
+      since: 'Since',
+      from: 'From',
       noAffiliations: 'No affiliations',
       seeAll: 'See all affiliations',
     },
@@ -140,11 +142,7 @@ export default function OrgAffiliations() {
         <Text style={[styles.title, { color: theme.textStrong }]}>
           {t.title}
         </Text>
-        <TouchableOpacity>
-          <View style={[styles.addBtn, { backgroundColor: colors.primary }]}>
-            <Ionicons name="add" size={20} color="#fff" />
-          </View>
-        </TouchableOpacity>
+        <View style={styles.addBtn} />
       </View>
 
       <View style={[styles.tabsRow, { borderBottomColor: theme.border }]}>
@@ -241,7 +239,7 @@ export default function OrgAffiliations() {
                         <Text
                           style={[styles.affiliEcheance, { color: theme.text }]}
                         >
-                          {t.dueDate}{' '}
+                          {new Date(affil.echeance) < new Date() ? t.since : t.from}{' '}
                           {new Date(affil.echeance).toLocaleDateString(
                             lang === 'fr' ? 'fr-FR' : 'en-GB',
                             { day: 'numeric', month: 'short', year: 'numeric' },

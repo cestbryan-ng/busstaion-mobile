@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   useColorScheme,
   RefreshControl,
 } from 'react-native';
@@ -20,6 +19,7 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
 import { useDebounce } from '../../../../hooks/useDebounce';
 
 type Line = {
@@ -68,6 +68,7 @@ export default function OrgServiceLines() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search);
   const [tab, setTab] = useState<TabFilter>('all');
+  const [showFilters, setShowFilters] = useState(false);
 
   const t = {
     fr: {
@@ -78,7 +79,7 @@ export default function OrgServiceLines() {
       inactive: 'Inactives',
       slots: 'Créneaux',
       from: 'Depuis le',
-      noLines: 'Aucune ligne',
+      noLines: 'Aucune ligne de service',
     },
     en: {
       title: 'Service lines',
@@ -88,7 +89,7 @@ export default function OrgServiceLines() {
       inactive: 'Inactive',
       slots: 'Slots',
       from: 'From',
-      noLines: 'No lines',
+      noLines: 'No service lines',
     },
   }[lang];
 
@@ -164,11 +165,7 @@ export default function OrgServiceLines() {
         <Text style={[styles.title, { color: theme.textStrong }]}>
           {t.title}
         </Text>
-        <TouchableOpacity>
-          <View style={[styles.addBtn, { backgroundColor: colors.primary }]}>
-            <Ionicons name="add" size={20} color="#fff" />
-          </View>
-        </TouchableOpacity>
+        <View style={{ width: 24 }} />
       </View>
 
       <View
@@ -196,42 +193,57 @@ export default function OrgServiceLines() {
           />
         </View>
         <TouchableOpacity
-          style={[styles.filterBtn, { borderColor: theme.border }]}
+          style={[
+            styles.filterBtn,
+            {
+              borderColor: showFilters ? colors.primary : theme.border,
+              backgroundColor: showFilters ? `${colors.primary}15` : 'transparent',
+            },
+          ]}
+          onPress={() => setShowFilters(v => !v)}
         >
-          <Ionicons name="options-outline" size={20} color={theme.textStrong} />
+          <Ionicons
+            name="options-outline"
+            size={20}
+            color={showFilters ? colors.primary : theme.textStrong}
+          />
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={[styles.tabsScroll, { borderBottomColor: theme.border }]}
-        contentContainerStyle={styles.tabsContent}
-      >
-        {TABS.map(tabItem => (
-          <TouchableOpacity
-            key={tabItem.key}
-            style={[
-              styles.tabChip,
-              tab === tabItem.key && {
-                backgroundColor: colors.primary,
-                borderColor: colors.primary,
-              },
-              tab !== tabItem.key && { borderColor: theme.border },
-            ]}
-            onPress={() => setTab(tabItem.key)}
-          >
-            <Text
-              style={[
-                styles.tabChipText,
-                { color: tab === tabItem.key ? '#fff' : theme.text },
-              ]}
-            >
-              {tabItem.label} ({tabItem.count})
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {showFilters && (
+        <View
+          style={[
+            styles.filterChips,
+            { backgroundColor: theme.background, borderBottomColor: theme.border },
+          ]}
+        >
+          {TABS.map(tabItem => {
+            const active = tab === tabItem.key;
+            return (
+              <TouchableOpacity
+                key={tabItem.key}
+                style={[
+                  styles.tabChip,
+                  {
+                    backgroundColor: active ? colors.primary : theme.background,
+                    borderColor: active ? colors.primary : theme.border,
+                  },
+                ]}
+                onPress={() => setTab(tabItem.key)}
+              >
+                <Text
+                  style={[
+                    styles.tabChipText,
+                    { color: active ? '#fff' : theme.text },
+                  ]}
+                >
+                  {tabItem.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -245,12 +257,11 @@ export default function OrgServiceLines() {
         contentContainerStyle={styles.list}
       >
         {filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="git-branch-outline" size={48} color={theme.text} />
-            <Text style={[styles.emptyText, { color: theme.text }]}>
-              {t.noLines}
-            </Text>
-          </View>
+          <EmptyState
+            type="result"
+            message={t.noLines}
+            textColor={theme.text}
+          />
         ) : (
           filtered.map(line => {
             const statusCfg =
@@ -334,15 +345,21 @@ export default function OrgServiceLines() {
             );
           })
         )}
-        <View style={{ height: spacing.xl }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
+
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: colors.primary }]}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -353,13 +370,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { ...typography.heading, fontSize: typography.sizes.lg },
-  addBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -387,15 +397,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  tabsScroll: { borderBottomWidth: 1, maxHeight: 52 },
-  tabsContent: {
+  filterChips: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     gap: spacing.sm,
+    flexWrap: 'wrap',
+    borderBottomWidth: 1,
   },
   tabChip: {
-    borderWidth: 1.5,
-    borderRadius: 20,
+    borderWidth: 1,
+    borderRadius: 4,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
@@ -439,10 +452,19 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   lineMetaText: { ...typography.body, fontSize: typography.sizes.xs },
-  empty: {
+  fab: {
+    position: 'absolute',
+    bottom: spacing.xl,
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing.xxl,
-    gap: spacing.md,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
   },
-  emptyText: { ...typography.body, fontSize: typography.sizes.md },
 });

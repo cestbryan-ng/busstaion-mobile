@@ -24,13 +24,19 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonAgencyDetail } from '../../../../components/skeleton';
+import BuildingPlaceholder from '../../../../assets/placeholders/building.svg';
 
 type Agency = {
   id: string;
   longName: string;
+  shortName?: string;
   logoUrl?: string;
   location?: string;
   description?: string;
+  greetingMessage?: string;
+  socialNetwork?: string;
+  rating?: number;
+  gareIds?: string[];
   contact?: { email?: string; phone?: string; website?: string };
   isActive: boolean;
 };
@@ -65,6 +71,7 @@ export default function AgencyDetailBsm() {
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [token, setToken] = useState('');
   const [agency, setAgency] = useState<Agency | null>(null);
+  const [stationName, setStationName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [suspending, setSuspending] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -76,29 +83,37 @@ export default function AgencyDetailBsm() {
       title: 'Détails agence',
       seeTrips: "Voir les voyages de l'agence",
       suspend: 'Suspendre',
-      activate: 'Réactiver',
+      activate: 'Activer',
       confirmSuspend: 'Suspendre cette agence ?',
       confirmSuspendMsg: "L'agence ne pourra plus opérer.",
-      confirmActivate: 'Réactiver cette agence ?',
-      confirmActivateMsg: "L'agence pourra de nouveau opérer.",
+      confirmActivate: 'Activer cette agence ?',
+      confirmActivateMsg: "L'agence pourra opérer.",
       cancel: 'Annuler',
       error: 'Une erreur est survenue',
       statusUpdated: 'Statut mis à jour',
       updateError: 'Erreur lors de la mise à jour',
+      station: 'Gare affiliée',
+      rating: 'Note',
+      greeting: 'Message d\'accueil',
+      socialNetwork: 'Réseau social',
     },
     en: {
       title: 'Agency details',
       seeTrips: "View agency's trips",
       suspend: 'Suspend',
-      activate: 'Reactivate',
+      activate: 'Activate',
       confirmSuspend: 'Suspend this agency?',
       confirmSuspendMsg: 'The agency will no longer be able to operate.',
-      confirmActivate: 'Reactivate this agency?',
-      confirmActivateMsg: 'The agency will be able to operate again.',
+      confirmActivate: 'Activate this agency?',
+      confirmActivateMsg: 'The agency will be able to operate.',
       cancel: 'Cancel',
       error: 'An error occurred',
       statusUpdated: 'Status updated',
       updateError: 'Update error',
+      station: 'Affiliated station',
+      rating: 'Rating',
+      greeting: 'Welcome message',
+      socialNetwork: 'Social network',
     },
   }[lang];
 
@@ -111,10 +126,21 @@ export default function AgencyDetailBsm() {
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
       setToken(tk ?? '');
 
-      const res = await fetch(`${API_URL}/agence/${agencyId}`, {
-        headers: { Authorization: `Bearer ${tk}` },
-      });
-      if (res.ok) setAgency(await res.json());
+      const headers = { Authorization: `Bearer ${tk}` };
+      const res = await fetch(`${API_URL}/agence/${agencyId}`, { headers });
+      if (res.ok) {
+        const data: Agency = await res.json();
+        setAgency(data);
+
+        const gareId = data.gareIds?.[0];
+        if (gareId) {
+          const gareRes = await fetch(`${API_URL}/gare/${gareId}`, { headers });
+          if (gareRes.ok) {
+            const g = await gareRes.json();
+            setStationName(g.nomGareRoutiere || null);
+          }
+        }
+      }
     } catch {
       // silent
     } finally {
@@ -177,12 +203,30 @@ export default function AgencyDetailBsm() {
     }
   };
 
-  if (loading) return <SkeletonAgencyDetail />;
+  const socialUrl = agency?.socialNetwork
+    ? agency.socialNetwork.startsWith('http')
+      ? agency.socialNetwork
+      : `https://${agency.socialNetwork}`
+    : null;
 
+  const initials = (agency?.shortName || agency?.longName || '??')
+    .slice(0, 2)
+    .toUpperCase();
+
+  if (loading) return <SkeletonAgencyDetail />;
   if (!agency) return null;
 
   const statusCfg = STATUT_CONFIG[agency.isActive ? 'ACTIF' : 'SUSPENDU'];
-  const canToggle = true;
+
+  const infoRows = [
+    stationName && { icon: 'business-outline', label: t.station, value: stationName },
+    agency.location && { icon: 'location-outline', label: null, value: agency.location },
+    agency.contact?.phone && { icon: 'call-outline', label: null, value: agency.contact.phone, onPress: () => Linking.openURL(`tel:${agency.contact!.phone}`) },
+    agency.contact?.email && { icon: 'mail-outline', label: null, value: agency.contact.email, onPress: () => Linking.openURL(`mailto:${agency.contact!.email}`) },
+    agency.contact?.website && { icon: 'globe-outline', label: null, value: agency.contact.website, onPress: () => Linking.openURL(agency.contact!.website!) },
+    socialUrl && { icon: 'logo-facebook', label: t.socialNetwork, value: agency.socialNetwork!, onPress: () => Linking.openURL(socialUrl) },
+    typeof agency.rating === 'number' && { icon: 'star-outline', label: t.rating, value: `${agency.rating} / 5` },
+  ].filter(Boolean) as { icon: string; label: string | null; value: string; onPress?: () => void }[];
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -190,10 +234,7 @@ export default function AgencyDetailBsm() {
       <View
         style={[
           styles.header,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
+          { backgroundColor: theme.background, borderBottomColor: theme.border },
         ]}
       >
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -207,36 +248,32 @@ export default function AgencyDetailBsm() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
-        {/* Banner / Logo */}
-        <View
-          style={[
-            styles.bannerPlaceholder,
-            { backgroundColor: `${colors.primary}10` },
-          ]}
-        >
-          <Ionicons name="bus-outline" size={48} color={colors.primary} />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
+      >
+        {/* Banner */}
+        <View style={[styles.banner, { backgroundColor: `${colors.primary}10` }]}>
+          <BuildingPlaceholder width="90%" height="90%" />
         </View>
+
+        {/* Logo overlay */}
         <View
           style={[
             styles.logoOverlay,
-            { backgroundColor: theme.background, borderColor: theme.border },
+            { backgroundColor: theme.background, borderColor: `${colors.primary}30` },
           ]}
         >
-          {agency.logoUrl ? (
-            <Image
-              source={{ uri: agency.logoUrl }}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
+          {agency.logoUrl && agency.logoUrl.startsWith('http') ? (
+            <Image source={{ uri: agency.logoUrl }} style={styles.logoImage} resizeMode="contain" />
           ) : (
-            <Text style={[styles.logoLetter, { color: colors.primary }]}>
-              {agency.longName.slice(0, 2).toUpperCase()}
-            </Text>
+            <Text style={[styles.logoLetter, { color: colors.primary }]}>{initials}</Text>
           )}
         </View>
 
-        {/* Info */}
+        {/* Name + status */}
         <View
           style={[
             styles.infoSection,
@@ -244,9 +281,16 @@ export default function AgencyDetailBsm() {
           ]}
         >
           <View style={styles.nameRow}>
-            <Text style={[styles.agencyName, { color: theme.textStrong }]}>
-              {agency.longName}
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.agencyName, { color: theme.textStrong }]} numberOfLines={2}>
+                {agency.longName}
+              </Text>
+              {agency.shortName && (
+                <Text style={[styles.shortName, { color: colors.primary }]}>
+                  {agency.shortName}
+                </Text>
+              )}
+            </View>
             <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
               <Text style={[styles.statusText, { color: statusCfg.color }]}>
                 {lang === 'fr' ? statusCfg.label : statusCfg.labelEn}
@@ -260,65 +304,60 @@ export default function AgencyDetailBsm() {
             </Text>
           )}
 
-          {/* Contact */}
-          <View style={[styles.contactList, { borderTopColor: theme.border }]}>
-            {agency.contact?.phone && (
-              <TouchableOpacity
-                style={[styles.contactRow, { borderBottomColor: theme.border }]}
-                onPress={() => Linking.openURL(`tel:${agency.contact!.phone}`)}
-              >
-                <Ionicons name="call-outline" size={18} color={theme.textStrong} />
-                <Text style={[styles.contactText, { color: theme.textStrong }]}>
-                  {agency.contact.phone}
-                </Text>
-                <View
+          {/* Greeting message */}
+          {!!agency.greetingMessage && (
+            <View style={[styles.greetingBox, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}20` }]}>
+              <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.primary} />
+              <Text style={[styles.greetingText, { color: theme.text }]}>
+                {agency.greetingMessage}
+              </Text>
+            </View>
+          )}
+
+          {/* Info rows */}
+          {infoRows.length > 0 && (
+            <View style={[styles.contactList, { borderTopColor: theme.border }]}>
+              {infoRows.map((row, i) => (
+                <TouchableOpacity
+                  key={i}
                   style={[
-                    styles.contactIconBtn,
-                    { backgroundColor: `${colors.primary}10` },
+                    styles.contactRow,
+                    { borderBottomColor: i < infoRows.length - 1 ? theme.border : 'transparent' },
                   ]}
+                  onPress={row.onPress}
+                  activeOpacity={row.onPress ? 0.7 : 1}
+                  disabled={!row.onPress}
                 >
-                  <Ionicons name="call-outline" size={14} color={colors.primary} />
-                </View>
-              </TouchableOpacity>
-            )}
-            {agency.contact?.email && (
-              <TouchableOpacity
-                style={[styles.contactRow, { borderBottomColor: theme.border }]}
-                onPress={() => Linking.openURL(`mailto:${agency.contact!.email}`)}
-              >
-                <Ionicons name="mail-outline" size={18} color={theme.textStrong} />
-                <Text style={[styles.contactText, { color: theme.textStrong }]}>
-                  {agency.contact.email}
-                </Text>
-                <View
-                  style={[
-                    styles.contactIconBtn,
-                    { backgroundColor: `${colors.primary}10` },
-                  ]}
-                >
-                  <Ionicons name="mail-outline" size={14} color={colors.primary} />
-                </View>
-              </TouchableOpacity>
-            )}
-            {agency.location && (
-              <View style={[styles.contactRow, { borderBottomColor: 'transparent' }]}>
-                <Ionicons
-                  name="location-outline"
-                  size={18}
-                  color={theme.textStrong}
-                />
-                <Text style={[styles.contactText, { color: theme.text }]}>
-                  {agency.location}
-                </Text>
-              </View>
-            )}
-          </View>
+                  <View style={[styles.contactIconBox, { backgroundColor: `${colors.primary}10` }]}>
+                    <Ionicons name={row.icon} size={16} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    {row.label && (
+                      <Text style={[styles.contactLabel, { color: theme.text }]}>{row.label}</Text>
+                    )}
+                    <Text
+                      style={[
+                        styles.contactText,
+                        { color: row.onPress ? colors.primary : theme.textStrong },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {row.value}
+                    </Text>
+                  </View>
+                  {row.onPress && (
+                    <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Actions */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity
-            style={[styles.primaryBtn, { backgroundColor: colors.error }]}
+            style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
             onPress={() =>
               navigation.navigate('AgencyTripsBsm', {
                 agencyId: agency.id,
@@ -327,52 +366,34 @@ export default function AgencyDetailBsm() {
             }
             activeOpacity={0.85}
           >
-            <Text style={styles.primaryBtnText}>{t.seeTrips}</Text>
+              <Text style={styles.primaryBtnText}>{t.seeTrips}</Text>
           </TouchableOpacity>
 
-          {canToggle && (
-            <TouchableOpacity
-              style={[
-                styles.toggleBtn,
-                {
-                  borderColor:
-                    agency.isActive ? colors.error : colors.success,
-                },
-              ]}
-              onPress={handleToggleStatut}
-              disabled={suspending}
-              activeOpacity={0.85}
-            >
-              {suspending ? (
-                <ActivityIndicator
-                  size="small"
-                  color={agency.isActive ? colors.error : colors.success}
-                />
-              ) : (
-                <>
-                  <Ionicons
-                    name={
-                      agency.isActive
-                        ? 'ban-outline'
-                        : 'checkmark-circle-outline'
-                    }
-                    size={18}
-                    color={agency.isActive ? colors.error : colors.success}
-                  />
-                  <Text
-                    style={[
-                      styles.toggleBtnText,
-                      {
-                        color: agency.isActive ? colors.error : colors.success,
-                      },
-                    ]}
-                  >
-                    {agency.isActive ? t.suspend : t.activate}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[
+              styles.toggleBtn,
+              { borderColor: agency.isActive ? colors.error : colors.success },
+            ]}
+            onPress={handleToggleStatut}
+            disabled={suspending}
+            activeOpacity={0.85}
+          >
+            {suspending ? (
+              <ActivityIndicator
+                size="small"
+                color={agency.isActive ? colors.error : colors.success}
+              />
+            ) : (
+              <Text
+                style={[
+                  styles.toggleBtnText,
+                  { color: agency.isActive ? colors.error : colors.success },
+                ]}
+              >
+                {agency.isActive ? t.suspend : t.activate}
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
 
         <View style={{ height: spacing.xl }} />
@@ -393,7 +414,6 @@ export default function AgencyDetailBsm() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -405,7 +425,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { ...typography.heading, fontSize: typography.sizes.lg },
 
-  bannerPlaceholder: {
+  banner: {
     height: 150,
     justifyContent: 'center',
     alignItems: 'center',
@@ -435,15 +455,16 @@ const styles = StyleSheet.create({
   },
   nameRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: spacing.sm,
   },
-  agencyName: { ...typography.heading, fontSize: typography.sizes.xl, flex: 1 },
+  agencyName: { ...typography.heading, fontSize: typography.sizes.xl },
+  shortName: { ...typography.bodyBold, fontSize: typography.sizes.sm, marginTop: 2 },
   statusBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: 4,
+    marginTop: 4,
   },
   statusText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
   description: {
@@ -453,10 +474,27 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
 
+  greetingBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 4,
+    padding: spacing.sm,
+    marginTop: spacing.md,
+  },
+  greetingText: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    fontStyle: 'italic',
+    flex: 1,
+    lineHeight: 20,
+  },
+
   contactList: {
     marginTop: spacing.md,
     borderTopWidth: 1,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
   },
   contactRow: {
     flexDirection: 'row',
@@ -465,24 +503,27 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
   },
-  contactText: { ...typography.body, fontSize: typography.sizes.sm, flex: 1 },
-  contactIconBtn: {
-    width: 28,
-    height: 28,
+  contactIconBox: {
+    width: 32,
+    height: 32,
     borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  contactLabel: { ...typography.body, fontSize: 10, marginBottom: 1 },
+  contactText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
 
   actionsContainer: {
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
   },
   primaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
     height: 52,
     borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   primaryBtnText: {
     ...typography.bodyBold,

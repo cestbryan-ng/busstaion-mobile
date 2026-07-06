@@ -12,7 +12,6 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -24,6 +23,9 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
+import { useToast } from '../../../../components/toast';
+import { EmptyState } from '../../../../components/empty-state';
+import AvatarPlaceholder from '../../../../assets/placeholders/avatar-2.svg';
 
 type Employee = {
   employeId: string;
@@ -79,6 +81,7 @@ export default function OrgEmployees() {
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const toast = useToast();
 
   const t = {
     fr: {
@@ -171,7 +174,7 @@ export default function OrgEmployees() {
 
   const handleCreate = async () => {
     if (!form.email.trim() || !form.username.trim() || !form.password.trim()) {
-      Alert.alert(t.required, t.fillRequired);
+      toast.warning(t.fillRequired);
       return;
     }
 
@@ -204,14 +207,14 @@ export default function OrgEmployees() {
       if (res.ok) {
         setModalVisible(false);
         setForm(EMPTY_FORM);
-        Alert.alert('', t.success);
+        toast.success(t.success);
         loadEmployees();
       } else {
         const err = await res.json().catch(() => ({}));
-        Alert.alert(t.error, err?.message || `HTTP ${res.status}`);
+        toast.error(err?.message || t.error);
       }
-    } catch (e: any) {
-      Alert.alert(t.error, e?.message || 'Network error');
+    } catch {
+      toast.error(t.error);
     } finally {
       setSubmitting(false);
     }
@@ -231,23 +234,13 @@ export default function OrgEmployees() {
           { backgroundColor: theme.background, borderBottomColor: theme.border },
         ]}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.headerSide} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
         </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: theme.textStrong }]}>
-            {t.title}
-          </Text>
-          <Text style={[styles.headerSub, { color: theme.text }]}>
-            {t.subtitle}
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => setModalVisible(true)}
-          style={[styles.addBtn, { backgroundColor: colors.primary }]}
-        >
-          <Ionicons name="add" size={20} color="#fff" />
-        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.textStrong }]}>
+          {t.title}
+        </Text>
+        <View style={styles.headerSide} />
       </View>
 
       <ScrollView
@@ -262,17 +255,11 @@ export default function OrgEmployees() {
         }
       >
         {employees.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons
-              name="people-outline"
-              size={48}
-              color={theme.text}
-              style={{ opacity: 0.4 }}
-            />
-            <Text style={[styles.emptyText, { color: theme.text }]}>
-              {t.noEmployees}
-            </Text>
-          </View>
+          <EmptyState
+            type="result"
+            message={t.noEmployees}
+            textColor={theme.text}
+          />
         ) : (
           employees.map(emp => (
             <View
@@ -285,12 +272,10 @@ export default function OrgEmployees() {
               <View
                 style={[
                   styles.avatar,
-                  { backgroundColor: `${colors.primary}15` },
+                  { backgroundColor: `${colors.primary}10` },
                 ]}
               >
-                <Text style={[styles.avatarText, { color: colors.primary }]}>
-                  {((emp.firstName || emp.username || '?').charAt(0)).toUpperCase()}
-                </Text>
+                <AvatarPlaceholder width="70%" height="70%" />
               </View>
               <View style={styles.cardInfo}>
                 <Text style={[styles.cardName, { color: theme.textStrong }]}>
@@ -329,6 +314,14 @@ export default function OrgEmployees() {
         )}
         <View style={{ height: spacing.xl }} />
       </ScrollView>
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: colors.primary }]}
+        onPress={() => setModalVisible(true)}
+      >
+        <Ionicons name="add" size={26} color="#fff" />
+      </TouchableOpacity>
 
       {/* Create modal */}
       <Modal
@@ -397,7 +390,7 @@ export default function OrgEmployees() {
                     value={form.first_name}
                     onChangeText={v => setForm(f => ({ ...f, first_name: v }))}
                     placeholderTextColor={theme.text}
-                    placeholder="Jean"
+                    placeholder={t.firstName}
                   />
                 </View>
                 <View style={styles.half}>
@@ -416,7 +409,7 @@ export default function OrgEmployees() {
                     value={form.last_name}
                     onChangeText={v => setForm(f => ({ ...f, last_name: v }))}
                     placeholderTextColor={theme.text}
-                    placeholder="Dupont"
+                    placeholder={t.lastName}
                   />
                 </View>
               </View>
@@ -437,7 +430,7 @@ export default function OrgEmployees() {
                 value={form.username}
                 onChangeText={v => setForm(f => ({ ...f, username: v }))}
                 placeholderTextColor={theme.text}
-                placeholder="jean.dupont"
+                placeholder={t.username}
                 autoCapitalize="none"
               />
 
@@ -457,7 +450,7 @@ export default function OrgEmployees() {
                 value={form.email}
                 onChangeText={v => setForm(f => ({ ...f, email: v }))}
                 placeholderTextColor={theme.text}
-                placeholder="jean@agence.com"
+                placeholder={t.email}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
@@ -480,7 +473,7 @@ export default function OrgEmployees() {
                   value={form.password}
                   onChangeText={v => setForm(f => ({ ...f, password: v }))}
                   placeholderTextColor={theme.text}
-                  placeholder="••••••••"
+                  placeholder={t.password}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                 />
@@ -507,7 +500,7 @@ export default function OrgEmployees() {
                 value={form.phone_number}
                 onChangeText={v => setForm(f => ({ ...f, phone_number: v }))}
                 placeholderTextColor={theme.text}
-                placeholder="+237 6XX XXX XXX"
+                placeholder={t.phone}
                 keyboardType="phone-pad"
               />
 
@@ -605,26 +598,15 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    gap: spacing.md,
   },
-  headerCenter: { flex: 1 },
-  headerTitle: { ...typography.bodyBold, fontSize: typography.sizes.lg },
-  headerSub: { ...typography.body, fontSize: typography.sizes.xs, marginTop: 1 },
-  addBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
+  headerSide: { width: 40, justifyContent: 'center' },
+  headerTitle: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.lg,
+    flex: 1,
+    textAlign: 'center',
   },
   list: { padding: spacing.lg, gap: spacing.sm },
-  empty: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.xxl,
-    gap: spacing.md,
-  },
-  emptyText: { ...typography.body, fontSize: typography.sizes.sm },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -717,4 +699,19 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   genderText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
+  fab: {
+    position: 'absolute',
+    bottom: spacing.xl,
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
 });

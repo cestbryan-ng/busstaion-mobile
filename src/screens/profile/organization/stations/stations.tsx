@@ -21,7 +21,9 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
 import { useDebounce } from '../../../../hooks/useDebounce';
+import BuildingPlaceholder from '../../../../assets/placeholders/building.svg';
 
 type Station = {
   idGareRoutiere: string;
@@ -30,7 +32,7 @@ type Station = {
   quartier?: string;
   photoUrl?: string;
   services: string[];
-  nbreAgence: number;
+  nbreAgence: number | null;
   open: boolean;
 };
 
@@ -41,6 +43,12 @@ const SERVICE_ICONS: Record<string, string> = {
   SALLE_ATTENTE: 'people-outline',
   TOILETTES: 'water-outline',
   SECURITE: 'shield-outline',
+  CLIMATISATION: 'snow-outline',
+  CONSIGNE: 'archive-outline',
+  BILLETTERIE_ELECTRONIQUE: 'card-outline',
+  MOBILE_MONEY: 'phone-portrait-outline',
+  INFIRMERIE: 'medkit-outline',
+  BOUTIQUES: 'bag-handle-outline',
 };
 
 export default function OrgStations() {
@@ -54,6 +62,8 @@ export default function OrgStations() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
   const debouncedSearch = useDebounce(search);
 
   const t = {
@@ -63,7 +73,10 @@ export default function OrgStations() {
       open: 'OUVERTE',
       closed: 'FERMÉE',
       agencies: 'agences',
-      noStations: 'Aucune gare',
+      noStations: 'Aucune gare trouvée',
+      filterAll: 'Toutes',
+      filterOpen: 'Ouvertes',
+      filterClosed: 'Fermées',
     },
     en: {
       title: 'Bus stations',
@@ -71,7 +84,10 @@ export default function OrgStations() {
       open: 'OPEN',
       closed: 'CLOSED',
       agencies: 'agencies',
-      noStations: 'No stations',
+      noStations: 'No stations found',
+      filterAll: 'All',
+      filterOpen: 'Open',
+      filterClosed: 'Closed',
     },
   }[lang];
 
@@ -104,6 +120,22 @@ export default function OrgStations() {
     await loadData();
     setRefreshing(false);
   }, [loadData]);
+
+  const FILTERS = [
+    { key: 'all' as const, label: t.filterAll },
+    { key: 'open' as const, label: t.filterOpen },
+    { key: 'closed' as const, label: t.filterClosed },
+  ];
+
+  const filtered = useMemo(
+    () =>
+      stations.filter(s => {
+        if (filterStatus === 'open' && !s.open) return false;
+        if (filterStatus === 'closed' && s.open) return false;
+        return true;
+      }),
+    [stations, filterStatus],
+  );
 
   if (loading) return <SkeletonListScreen />;
 
@@ -152,11 +184,48 @@ export default function OrgStations() {
           />
         </View>
         <TouchableOpacity
-          style={[styles.filterBtn, { borderColor: theme.border }]}
+          style={[
+            styles.filterBtn,
+            {
+              borderColor: showFilters ? colors.primary : theme.border,
+              backgroundColor: showFilters ? `${colors.primary}15` : 'transparent',
+            },
+          ]}
+          onPress={() => setShowFilters(v => !v)}
         >
-          <Ionicons name="options-outline" size={20} color={theme.textStrong} />
+          <Ionicons
+            name="options-outline"
+            size={20}
+            color={showFilters ? colors.primary : theme.textStrong}
+          />
         </TouchableOpacity>
       </View>
+
+      {/* Filter chips */}
+      {showFilters && (
+        <View style={[styles.filterChips, { backgroundColor: theme.background, borderBottomColor: theme.border }]}>
+          {FILTERS.map(f => {
+            const active = filterStatus === f.key;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: active ? colors.primary : theme.backgroundAlt,
+                    borderColor: active ? colors.primary : theme.border,
+                  },
+                ]}
+                onPress={() => setFilterStatus(f.key)}
+              >
+                <Text style={[styles.chipText, { color: active ? '#fff' : theme.text }]}>
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -169,15 +238,14 @@ export default function OrgStations() {
         }
         contentContainerStyle={styles.list}
       >
-        {stations.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="business-outline" size={48} color={theme.text} />
-            <Text style={[styles.emptyText, { color: theme.text }]}>
-              {t.noStations}
-            </Text>
-          </View>
+        {filtered.length === 0 ? (
+          <EmptyState
+            type="result"
+            message={t.noStations}
+            textColor={theme.text}
+          />
         ) : (
-          stations.map(station => (
+          filtered.map(station => (
             <TouchableOpacity
               key={station.idGareRoutiere}
               style={[
@@ -207,11 +275,7 @@ export default function OrgStations() {
                     resizeMode="cover"
                   />
                 ) : (
-                  <Ionicons
-                    name="business-outline"
-                    size={28}
-                    color={theme.text}
-                  />
+                  <BuildingPlaceholder width="70%" height="70%" />
                 )}
               </View>
               <View style={styles.stationInfo}>
@@ -338,6 +402,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  filterChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  chipText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   list: { padding: spacing.lg },
   stationCard: {
     flexDirection: 'row',

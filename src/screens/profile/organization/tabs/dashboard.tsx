@@ -98,7 +98,7 @@ type Reservation = {
 
 type Tax = {
   montantTotalDu: number;
-  taxes: { nomTaxe: string; tauxTaxe: number; montantFixe: number }[];
+  taxes: { nomTaxe: string; tauxTaxe: number; montantFixe: number; dateEffet?: string }[];
 };
 
 type Alert = {
@@ -964,16 +964,9 @@ export default function OrgDashboard({
               { backgroundColor: theme.background, borderColor: theme.border },
             ]}
           >
-            <View style={styles.cardHeaderRow}>
-              <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
-                {t.evolution}
-              </Text>
-              <TouchableOpacity>
-                <Text style={[styles.seeAll, { color: colors.primary }]}>
-                  {t.seeAll}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
+              {t.evolution}
+            </Text>
             <View style={styles.sparkGrid}>
               {[
                 {
@@ -1029,16 +1022,9 @@ export default function OrgDashboard({
 
         {/* Recent trips */}
         <View style={styles.tripsSection}>
-          <View style={[styles.cardHeaderRow, { paddingRight: spacing.lg }]}>
-            <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
-              {t.recentTrips}
-            </Text>
-            <TouchableOpacity>
-              <Text style={[styles.seeAll, { color: colors.primary }]}>
-                {t.seeAll}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={[styles.cardTitle, { color: theme.textStrong, paddingRight: spacing.lg }]}>
+            {t.recentTrips}
+          </Text>
           {trips.length === 0 ? (
             <EmptyState type="result" message={lang === 'fr' ? 'Aucun voyage récent' : 'No recent trips'} textColor={theme.text} />
           ) : (
@@ -1140,16 +1126,9 @@ export default function OrgDashboard({
             { backgroundColor: theme.background, borderColor: theme.border },
           ]}
         >
-          <View style={styles.cardHeaderRow}>
-            <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
-              {t.recentReservations}
-            </Text>
-            <TouchableOpacity>
-              <Text style={[styles.seeAll, { color: colors.primary }]}>
-                {t.seeAll2}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
+            {t.recentReservations}
+          </Text>
           {reservations.length === 0 ? (
             <EmptyState type="result" message={lang === 'fr' ? 'Aucune réservation récente' : 'No recent reservations'} textColor={theme.text} />
           ) : reservations.map((item, i) => {
@@ -1241,16 +1220,9 @@ export default function OrgDashboard({
               { backgroundColor: theme.background, borderColor: theme.border },
             ]}
           >
-            <View style={styles.cardHeaderRow}>
-              <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
-                {t.revenueEvolution}
-              </Text>
-              <TouchableOpacity>
-                <Text style={[styles.seeAll, { color: colors.primary }]}>
-                  {t.seeAll}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
+              {t.revenueEvolution}
+            </Text>
             <View style={[styles.bigChartArea, { height: 140 }]}>
               {/* Y labels */}
               {[0, 1, 2, 3].map(i => {
@@ -1365,9 +1337,16 @@ export default function OrgDashboard({
               { backgroundColor: theme.background, borderColor: theme.border },
             ]}
           >
-            <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
-              {t.affiliationTaxes}
-            </Text>
+            <View style={styles.cardHeaderRow}>
+              <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0 }]}>
+                {t.affiliationTaxes}
+              </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('OrgMyAgencies')}>
+                <Text style={[styles.seeAll, { color: colors.primary }]}>
+                  {t.seeAll}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             <View
               style={[
@@ -1397,9 +1376,22 @@ export default function OrgDashboard({
                   },
                 ]}
               >
-                <Text style={[styles.taxName, { color: theme.textStrong }]}>
-                  {tax.nomTaxe}
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.taxName, { color: theme.textStrong }]}>
+                    {tax.nomTaxe}
+                  </Text>
+                  {tax.dateEffet && (
+                    <Text style={[styles.taxDate, { color: theme.text }]}>
+                      {new Date(tax.dateEffet) < new Date()
+                        ? (lang === 'fr' ? 'Depuis le' : 'Since')
+                        : (lang === 'fr' ? 'À partir du' : 'From')}{' '}
+                      {new Date(tax.dateEffet).toLocaleDateString(
+                        lang === 'fr' ? 'fr-FR' : 'en-GB',
+                        { day: 'numeric', month: 'short', year: 'numeric' },
+                      )}
+                    </Text>
+                  )}
+                </View>
                 <Text style={[styles.taxRate, { color: theme.text }]}>
                   {tax.tauxTaxe * 100}%
                 </Text>
@@ -1436,16 +1428,9 @@ export default function OrgDashboard({
             { backgroundColor: theme.background, borderColor: theme.border },
           ]}
         >
-          <View style={styles.cardHeaderRow}>
-            <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
-              {t.recentAlerts}
-            </Text>
-            <TouchableOpacity>
-              <Text style={[styles.seeAll, { color: colors.primary }]}>
-                {t.seeAllAlerts}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
+            {t.recentAlerts}
+          </Text>
           {alerts.length === 0 ? (
             <EmptyState type="result" message={lang === 'fr' ? 'Aucune alerte' : 'No alerts'} textColor={theme.text} />
           ) : alerts.slice(0, 3).map((alert, i) => {
@@ -1660,6 +1645,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.lg,
   },
   legendCol: { flex: 1, gap: spacing.sm },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
@@ -1804,7 +1790,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
   },
-  taxName: { ...typography.body, fontSize: typography.sizes.sm, flex: 1 },
+  taxName: { ...typography.body, fontSize: typography.sizes.sm },
+  taxDate: { ...typography.body, fontSize: typography.sizes.xs, marginTop: 2 },
   taxRate: {
     ...typography.body,
     fontSize: typography.sizes.sm,
