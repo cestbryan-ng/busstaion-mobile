@@ -23,7 +23,6 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
-import ConfirmModal from '../../../../components/confirm-modal';
 import { useToast } from '../../../../components/toast';
 import { SkeletonBookingDetail } from '../../../../components/skeleton';
 import type { RootStackParamList } from '../../../../navigation';
@@ -353,8 +352,6 @@ export default function BookingDetails() {
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [reservation, setReservation] = useState<ReservationDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [cancelModalVisible, setCancelModalVisible] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [payModalVisible, setPayModalVisible] = useState(false);
@@ -377,12 +374,6 @@ export default function BookingDetails() {
       totalToPay: 'Total à payer',
       downloadTicket: 'Exporter en PDF',
       exportingPdf: 'Préparation...',
-      cancelReservation: 'Annuler la réservation',
-      cancelTitle: 'Annuler la réservation',
-      cancelMessage:
-        'Voulez-vous vraiment annuler cette réservation ? Cette action est irréversible.',
-      confirmCancel: 'Oui, annuler',
-      noCancel: 'Non',
       seat: 'Siège',
       ticketPrice: 'Prix du billet',
       shareTitle: 'Billet de voyage',
@@ -390,8 +381,6 @@ export default function BookingDetails() {
       arrival: 'Arrivée',
       duration: 'Durée',
       depHour: 'Heure départ',
-      bookingCancelled: 'Réservation annulée',
-      cancelError: "Erreur lors de l'annulation",
       payNow: 'Payer maintenant',
       payTitle: 'Paiement',
       operatorLabel: 'Opérateur',
@@ -413,12 +402,6 @@ export default function BookingDetails() {
       totalToPay: 'Total to pay',
       downloadTicket: 'Export as PDF',
       exportingPdf: 'Preparing...',
-      cancelReservation: 'Cancel reservation',
-      cancelTitle: 'Cancel reservation',
-      cancelMessage:
-        'Are you sure you want to cancel this reservation? This action is irreversible.',
-      confirmCancel: 'Yes, cancel',
-      noCancel: 'No',
       seat: 'Seat',
       ticketPrice: 'Ticket price',
       shareTitle: 'Travel ticket',
@@ -426,8 +409,6 @@ export default function BookingDetails() {
       arrival: 'Arrival',
       duration: 'Duration',
       depHour: 'Dep. time',
-      bookingCancelled: 'Booking cancelled',
-      cancelError: 'Cancellation error',
       payNow: 'Pay now',
       payTitle: 'Payment',
       operatorLabel: 'Operator',
@@ -515,42 +496,6 @@ export default function BookingDetails() {
       toast.error(lang === 'fr' ? 'Impossible d\'exporter le PDF' : 'Could not export PDF');
     } finally {
       setExportingPdf(false);
-    }
-  };
-
-  const handleCancel = async () => {
-    if (!reservation) return;
-    setCancelling(true);
-    try {
-      const token = await AsyncStorage.getItem('token');
-      const res = await fetch(
-        `${API_URL}/reservation/annuler/${reservation.reservation.idReservation}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            idReservation: reservation.reservation.idReservation,
-            idPassagers: (reservation.passagers || []).map(p => p.idPassager),
-            causeAnnulation: 'Annulation à la demande du client',
-            origineAnnulation: 'CLIENT',
-            canceled: true,
-          }),
-        },
-      );
-      if (res.ok) {
-        toast.success(t.bookingCancelled);
-        setCancelModalVisible(false);
-        navigation.goBack();
-      } else {
-        toast.error(t.cancelError);
-      }
-    } catch {
-      toast.error(t.cancelError);
-    } finally {
-      setCancelling(false);
     }
   };
 
@@ -1030,12 +975,28 @@ export default function BookingDetails() {
           )}
 
           {!isCancelled && (
-            <TouchableOpacity
-              style={[styles.cancelBtn, { backgroundColor: colors.error }]}
-              onPress={() => setCancelModalVisible(true)}
-            >
-              <Text style={styles.cancelBtnText}>{t.cancelReservation}</Text>
-            </TouchableOpacity>
+            <View style={[styles.infoBox, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}25` }]}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.primary} style={{ marginTop: 2 }} />
+              <View style={{ flex: 1, gap: spacing.sm }}>
+                <Text style={[styles.infoBoxText, { color: theme.text }]}>
+                  {lang === 'fr'
+                    ? `Pour toute demande d'annulation de votre réservation, nous vous invitons à vous rapprocher directement de l'agence concernée ou à la contacter via les coordonnées indiquées ci-dessus.`
+                    : `To request a cancellation of your reservation, please visit the agency directly or reach out via the contact details provided above.`}
+                </Text>
+                <Text style={[styles.infoBoxText, { color: theme.text }]}>
+                  {lang === 'fr'
+                    ? `En cas d'annulation initiée par l'agence, vous disposez d'un droit au remboursement. Pour l'exercer, transmettez une copie de votre billet à l'agence. Votre historique de réservations est disponible dans `
+                    : `If the agency cancels your trip, you are entitled to a refund. Simply send a copy of your ticket to the agency to initiate the process. Your booking history is available in `}
+                  <Text
+                    style={[styles.infoBoxLink, { color: colors.primary }]}
+                    onPress={() => navigation.navigate('ClientMain', { screen: 'history' } as any)}
+                  >
+                    {lang === 'fr' ? 'l\'onglet Historique' : 'the History tab'}
+                  </Text>
+                  {'.'}
+                </Text>
+              </View>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -1117,16 +1078,6 @@ export default function BookingDetails() {
         </View>
       </Modal>
 
-      {/* Cancel modal */}
-      <ConfirmModal
-        visible={cancelModalVisible}
-        title={t.cancelTitle}
-        message={t.cancelMessage}
-        confirmText={cancelling ? '...' : t.confirmCancel}
-        cancelText={t.noCancel}
-        onConfirm={handleCancel}
-        onCancel={() => setCancelModalVisible(false)}
-      />
     </>
   );
 }
@@ -1500,5 +1451,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 4,
     marginTop: spacing.md,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderRadius: 4,
+  },
+  infoBoxText: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    flex: 1,
+    lineHeight: 20,
+  },
+  infoBoxLink: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+    textDecorationLine: 'underline',
   },
 });

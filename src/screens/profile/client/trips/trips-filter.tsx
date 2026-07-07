@@ -115,7 +115,7 @@ export default function TripsFilter() {
       amenities: 'Équipements',
       amenitiesHint: '(au moins un)',
       all: 'Tous',
-      showResults: (n: number) => `Afficher ${n} voyages`,
+      showResults: () => `Afficher les voyages`,
       days: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
       months: [
         'Janvier',
@@ -142,7 +142,7 @@ export default function TripsFilter() {
       amenities: 'Amenities',
       amenitiesHint: '(at least one)',
       all: 'All',
-      showResults: (n: number) => `Show ${n} trips`,
+      showResults: () => `Show trips`,
       days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
       months: [
         'January',
@@ -523,7 +523,7 @@ export default function TripsFilter() {
           style={[styles.applyBtn, { backgroundColor: colors.primary }]}
           onPress={handleApply}
         >
-          <Text style={styles.applyBtnText}>{t.showResults(45)}</Text>
+          <Text style={styles.applyBtnText}>{t.showResults()}</Text>
         </TouchableOpacity>
       </View>
     </View>

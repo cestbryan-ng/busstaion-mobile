@@ -8,11 +8,12 @@ import {
   TextInput,
   ActivityIndicator,
   useColorScheme,
-  Share,
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
 } from 'react-native';
+import RNFS from 'react-native-fs';
+import RNShare from 'react-native-share';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -21,7 +22,6 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
-import ConfirmModal from '../../../../components/confirm-modal';
 import { EmptyState } from '../../../../components/empty-state';
 import { useToast } from '../../../../components/toast';
 import type { RootStackParamList } from '../../../../navigation';
@@ -33,11 +33,21 @@ type Booking = {
     idReservation: string;
     statutReservation: string;
     prixTotal: number;
+    montantPaye?: number;
     dateReservation?: string;
+    dateConfirmation?: string;
+    nbrPassager?: number;
+    statutPayement?: string;
+    transactionCode?: string | null;
   };
-  voyage?: { idVoyage: string; titre?: string };
-  passagers?: { nom: string; siege?: string }[];
-  customerName?: string;
+  voyage?: {
+    idVoyage: string;
+    titre?: string;
+    lieuDepart?: string;
+    lieuArrive?: string;
+    dateDepartPrev?: string;
+  };
+  agence?: { longName?: string; shortName?: string };
 };
 
 type StatusFilter = 'ALL' | 'CONFIRMER' | 'RESERVER' | 'ANNULER' | 'VALIDER';
@@ -87,9 +97,6 @@ export default function AgencyTripBookings() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
-  const [cancelModal, setCancelModal] = useState(false);
-  const [selectedId, setSelectedId] = useState('');
-  const [cancelling, setCancelling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const t = {
@@ -155,7 +162,6 @@ export default function AgencyTripBookings() {
       );
       if (!agencyRes.ok) return;
       const agency = await agencyRes.json();
-
       const res = await fetch(
         `${API_URL}/reservation/agence/${agency.id}?size=100`,
         { headers },
@@ -163,7 +169,6 @@ export default function AgencyTripBookings() {
       if (res.ok) {
         const data = await res.json();
         const all = data.content || data || [];
-        // Filter by tripId if provided
         const filtered = tripId
           ? all.filter((b: Booking) => b.voyage?.idVoyage === tripId)
           : all;
@@ -204,56 +209,22 @@ export default function AgencyTripBookings() {
     .reduce((sum, b) => sum + (b.reservation.prixTotal || 0), 0);
 
   const filtered = bookings.filter(b => {
-    if (
-      statusFilter !== 'ALL' &&
-      b.reservation.statutReservation !== statusFilter
-    )
+    if (statusFilter !== 'ALL' && b.reservation.statutReservation !== statusFilter)
       return false;
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.toLowerCase();
-      const name = b.customerName || b.passagers?.[0]?.nom || '';
+      const route = `${b.voyage?.lieuDepart || ''} ${b.voyage?.lieuArrive || ''}`;
+      const titre = b.voyage?.titre || '';
       const id = b.reservation.idReservation;
-      const seat = b.passagers?.[0]?.siege || '';
       return (
-        name.toLowerCase().includes(q) ||
-        id.toLowerCase().includes(q) ||
-        seat.toLowerCase().includes(q)
+        route.toLowerCase().includes(q) ||
+        titre.toLowerCase().includes(q) ||
+        id.toLowerCase().includes(q)
       );
     }
     return true;
   });
 
-  const handleCancel = async () => {
-    setCancelling(true);
-    try {
-      const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`${API_URL}/reservation/agence/annuler-voyage`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          idReservation: selectedId,
-          motif:
-            'Annulation administrative effectuée depuis le tableau de bord agence.',
-        }),
-      });
-      if (res.ok) {
-        toast.success(t.bookingCancelled);
-        setBookings(prev =>
-          prev.filter(b => b.reservation.idReservation !== selectedId),
-        );
-        setCancelModal(false);
-      } else {
-        toast.error(t.cancelError);
-      }
-    } catch {
-      toast.error(t.cancelError);
-    } finally {
-      setCancelling(false);
-    }
-  };
 
   const handleExport = async () => {
     if (filtered.length === 0) {
@@ -270,49 +241,46 @@ export default function AgencyTripBookings() {
         : ['Booking ID', 'Customer', 'Seats', 'Price (FCFA)', 'Status', 'Booking date'];
 
       const rows = filtered.map(b => {
-        const name = b.customerName || b.passagers?.[0]?.nom || '';
-        const seats = b.passagers?.map(p => p.siege).filter(Boolean).join(', ') || '';
+        const route = b.voyage?.lieuDepart && b.voyage?.lieuArrive
+          ? `${b.voyage.lieuDepart} → ${b.voyage.lieuArrive}`
+          : b.voyage?.titre || '';
         const date = b.reservation.dateReservation
           ? new Date(b.reservation.dateReservation).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB')
           : '';
         return [
           b.reservation.idReservation,
-          name,
-          seats,
+          route,
+          b.reservation.nbrPassager || 1,
           b.reservation.prixTotal || 0,
           statusLabel(b.reservation.statutReservation),
           date,
         ].map(escape).join(',');
       });
 
-      const csv = [headers.map(escape).join(','), ...rows].join('\n');
+      const csv = '﻿' + [headers.map(escape).join(','), ...rows].join('\n');
       const title = tripTitle || (lang === 'fr' ? 'Réservations' : 'Bookings');
-      await Share.share({ message: csv, title });
+      const fileName = `${title.replace(/\s+/g, '_')}_${Date.now()}.csv`;
+      const filePath = `${RNFS.CachesDirectoryPath}/${fileName}`;
+      await RNFS.writeFile(filePath, csv, 'utf8');
+      await RNShare.open({
+        url: `file://${filePath}`,
+        type: 'text/csv',
+        filename: fileName,
+        failOnCancel: false,
+      });
     } catch {
       toast.error(lang === 'fr' ? "Erreur lors de l'export" : 'Export error');
     }
   };
 
   const BookingRow = ({ item, index }: { item: Booking; index: number }) => {
-    const name = item.customerName || item.passagers?.[0]?.nom || '—';
-    const seats = item.passagers?.map(p => p.siege).filter(Boolean) || [];
-    const statusCfg =
-      STATUS_CONFIG[item.reservation.statutReservation] ||
-      STATUS_CONFIG.RESERVER;
-    const initials = name
-      .split(' ')
-      .slice(0, 2)
-      .map(n => n.charAt(0).toUpperCase())
-      .join('');
-    const avatarColors = [
-      '#4f46e5',
-      '#0891b2',
-      '#059669',
-      '#d97706',
-      '#dc2626',
-      '#7c3aed',
-    ];
+    const route = item.voyage?.lieuDepart && item.voyage?.lieuArrive
+      ? `${item.voyage.lieuDepart} → ${item.voyage.lieuArrive}`
+      : item.voyage?.titre || '—';
+    const statusCfg = STATUS_CONFIG[item.reservation.statutReservation] || STATUS_CONFIG.RESERVER;
+    const avatarColors = ['#4f46e5', '#0891b2', '#059669', '#d97706', '#dc2626', '#7c3aed'];
     const avatarColor = avatarColors[index % avatarColors.length];
+    const initials = `R${index + 1}`;
     const date = item.reservation.dateReservation
       ? new Date(item.reservation.dateReservation).toLocaleDateString(
           lang === 'fr' ? 'fr-FR' : 'en-GB',
@@ -327,63 +295,37 @@ export default function AgencyTripBookings() {
       : '';
 
     return (
-      <TouchableOpacity
-        style={[styles.bookingRow, { borderBottomColor: theme.border }]}
-        activeOpacity={0.7}
-      >
-        {/* Avatar */}
+      <View style={[styles.bookingRow, { borderBottomColor: theme.border }]}>
         <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
 
-        {/* Info */}
         <View style={styles.bookingInfo}>
           <View style={styles.bookingTopRow}>
-            <Text style={[styles.customerName, { color: theme.textStrong }]}>
-              {name}
+            <Text style={[styles.customerName, { color: theme.textStrong }]} numberOfLines={1}>
+              {route}
             </Text>
-            {seats.length > 0 && (
-              <View
-                style={[
-                  styles.seatBadge,
-                  { backgroundColor: theme.backgroundAlt },
-                ]}
-              >
-                <Text style={[styles.seatText, { color: theme.text }]}>
-                  {seats[0]}
-                </Text>
-              </View>
-            )}
-            <View
-              style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}
-            >
+            <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
               <Text style={[styles.statusText, { color: statusCfg.color }]}>
                 {lang === 'fr' ? statusCfg.label : statusCfg.labelEn}
               </Text>
             </View>
           </View>
           <Text style={[styles.refText, { color: theme.text }]}>
-            Réf: {item.reservation.idReservation}
+            Réf: {item.reservation.idReservation.slice(0, 8)}…
           </Text>
           <Text style={[styles.dateText, { color: theme.text }]}>
-            {date}
-            {time ? ` · ${time}` : ''}
+            {date}{time ? ` · ${time}` : ''}
+            {item.reservation.nbrPassager
+              ? ` · ${item.reservation.nbrPassager} place${item.reservation.nbrPassager > 1 ? 's' : ''}`
+              : ''}
           </Text>
-          <Text style={[styles.amountText, { color: theme.text }]}>
+          <Text style={[styles.amountText, { color: theme.textStrong }]}>
             {item.reservation.prixTotal?.toLocaleString('fr-FR')} FCFA
           </Text>
         </View>
 
-        {/* Chevron */}
-        <TouchableOpacity
-          onPress={() => {
-            setSelectedId(item.reservation.idReservation);
-            setCancelModal(true);
-          }}
-        >
-          <Ionicons name="chevron-forward" size={18} color={theme.text} />
-        </TouchableOpacity>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -597,15 +539,6 @@ export default function AgencyTripBookings() {
         </ScrollView>
       </View>
 
-      <ConfirmModal
-        visible={cancelModal}
-        title={t.cancelTitle}
-        message={t.cancelMessage}
-        confirmText={cancelling ? '...' : t.confirmCancel}
-        cancelText={t.no}
-        onConfirm={handleCancel}
-        onCancel={() => setCancelModal(false)}
-      />
     </KeyboardAvoidingView>
   );
 }
@@ -751,4 +684,25 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   filterPanelText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
+  dotMenuBtn: { padding: spacing.xs },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  menuSheet: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingVertical: spacing.sm,
+    paddingBottom: spacing.xl,
+  },
+  menuSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  menuSheetText: { ...typography.body, fontSize: typography.sizes.md },
+  menuSheetDivider: { height: 1, marginHorizontal: spacing.lg },
 });

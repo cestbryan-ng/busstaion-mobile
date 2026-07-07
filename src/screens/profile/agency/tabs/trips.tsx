@@ -166,11 +166,8 @@ export default function AgencyTrips({
         `${API_URL}/voyage/agence/${currentAgencyId}?page=${pageNum}&size=20`,
         { headers },
       );
-      console.log('Id agence:', currentAgencyId);
-      console.log('Trips response status:', tripsRes);
       if (tripsRes.ok) {
         const data = await tripsRes.json();
-        console.log('Fetched trips:', data);
         const items: Trip[] = data.content || data || [];
         setTrips(prev => (pageNum === 0 ? items : [...prev, ...items]));
         setTotalPages(data.totalPages ?? 1);

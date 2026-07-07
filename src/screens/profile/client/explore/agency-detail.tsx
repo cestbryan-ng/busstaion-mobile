@@ -372,7 +372,7 @@ export default function AgencyDetail() {
                 >
                   {/* Image + badge */}
                   <View style={[styles.tripImageContainer, { backgroundColor: theme.backgroundAlt }]}>
-                    {trip.smallImage
+                    {trip.smallImage?.startsWith('http')
                       ? <Image source={{ uri: trip.smallImage }} style={styles.tripImage} resizeMode="cover" />
                       : <TripPlaceholder width="100%" height="100%" />}
                     <View style={[styles.classBadge, { backgroundColor: cardClassColor }]}>

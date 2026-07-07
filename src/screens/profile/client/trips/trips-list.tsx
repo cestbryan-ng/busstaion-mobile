@@ -297,7 +297,7 @@ export default function TripsList() {
               { backgroundColor: theme.backgroundAlt },
             ]}
           >
-            {item.smallImage
+            {item.smallImage?.startsWith('http')
               ? <Image source={{ uri: item.smallImage }} style={styles.listCardImageInner} resizeMode="cover" />
               : <TripPlaceholder width="100%" height="100%" />}
           </View>
@@ -401,7 +401,7 @@ export default function TripsList() {
             { backgroundColor: theme.backgroundAlt },
           ]}
         >
-          {item.smallImage
+          {item.smallImage?.startsWith('http')
             ? <Image source={{ uri: item.smallImage }} style={styles.gridCardImageInner} resizeMode="cover" />
             : <TripPlaceholder width="100%" height="100%" />}
           <View

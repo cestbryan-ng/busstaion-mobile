@@ -215,6 +215,7 @@ export default function Bookings() {
 
       if (res.ok) {
         const data = await res.json();
+        console.log('Reservations data:', data);
         const content = data.content || [];
         setReservations(prev => (reset ? content : [...prev, ...content]));
         setTotalPages(data.totalPages || 1);
