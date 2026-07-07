@@ -41,6 +41,12 @@ type Station = {
   localisation?: { latitude: number; longitude: number };
 };
 
+type Agency = {
+  idAgenceVoyage: string;
+  longName: string;
+  location?: string;
+};
+
 const SERVICE_ICONS: Record<string, string> = {
   WIFI: 'wifi-outline',
   PARKING: 'car-outline',
@@ -81,6 +87,7 @@ export default function OrgStationDetail() {
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [station, setStation] = useState<Station | null>(null);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -88,8 +95,18 @@ export default function OrgStationDetail() {
     try {
       const storedLang = await AsyncStorage.getItem('app_lang');
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
-      const res = await fetch(`${API_URL}/gare/${stationId}`);
-      if (res.ok) setStation(await res.json());
+      const [res, agenciesRes] = await Promise.all([
+        fetch(`${API_URL}/gare/${stationId}`),
+        fetch(`${API_URL}/agence/gare-routiere/${stationId}`),
+      ]);
+      if (res.ok) {
+        const data = await res.json();
+        setStation(data);
+      }
+      if (agenciesRes.ok) {
+        const data = await agenciesRes.json();
+        setAgencies(data.content || data || []);
+      }
     } catch {
       // silent
     } finally {
@@ -278,7 +295,7 @@ export default function OrgStationDetail() {
             {lang === 'fr' ? 'Agences affiliées' : 'Affiliated agencies'}
           </Text>
           <Text style={[styles.affiliatedCount, { color: colors.primary }]}>
-            {station.nbreAgence ?? '—'}
+            {agencies.length}
           </Text>
         </View>
 

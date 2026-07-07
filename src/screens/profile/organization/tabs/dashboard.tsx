@@ -102,6 +102,15 @@ type Tax = {
   taxes: { nomTaxe: string; tauxTaxe: number; montantFixe: number; dateEffet?: string }[];
 };
 
+type AgencyData = {
+  stats: Stats | null;
+  evolution: Evolution | null;
+  trips: Trip[];
+  reservations: Reservation[];
+  taxes: Tax | null;
+  alerts: Alert[];
+};
+
 type Alert = {
   idAlerte: string;
   type: 'ALERTE_GENERALE' | 'TAX_REMINDER' | 'SUSPENSION';
@@ -347,14 +356,8 @@ export default function OrgDashboard({
   const [user, setUser] = useState<{ first_name?: string; last_name?: string } | null>(null);
   const [org, setOrg] = useState<Organization | null>(null);
   const [agencies, setAgencies] = useState<Agency[]>([]);
-  const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [evolution, setEvolution] = useState<Evolution | null>(null);
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [taxes, setTaxes] = useState<Tax | null>(null);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [unreadAlerts, setUnreadAlerts] = useState(0); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [selectedAgencyId, setSelectedAgencyId] = useState<string>('ALL');
+  const [agencyDataMap, setAgencyDataMap] = useState<Record<string, AgencyData>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -515,7 +518,6 @@ export default function OrgDashboard({
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      // Fetch organizations for this user
       const orgsRes = await fetch(`${API_URL}/organizations/user/${userId}`, { headers });
       let orgId = '';
       if (orgsRes.ok) {
@@ -529,69 +531,46 @@ export default function OrgDashboard({
       }
       if (!orgId) return;
 
-      // Load agencies
-      const [agenciesRes] = await Promise.allSettled([
-        fetch(`${API_URL}/organizations/agencies/${orgId}`, { headers }),
-      ]);
+      const agenciesRes = await fetch(`${API_URL}/organizations/agencies/${orgId}`, { headers });
+      if (!agenciesRes.ok) return;
+      const agenciesData = await agenciesRes.json();
+      const list: Agency[] = agenciesData.content || agenciesData || [];
+      setAgencies(list);
+      if (list.length === 0) return;
 
-      let agencyId = '';
-      if (agenciesRes.status === 'fulfilled' && agenciesRes.value.ok) {
-        const data = await agenciesRes.value.json();
-        const list: Agency[] = data.content || data || [];
-        setAgencies(list);
-        if (list.length > 0) {
-          const first = list[0];
-          setSelectedAgency(first);
-          agencyId = first.agencyId;
+      // Fetch all agencies data in parallel
+      const results = await Promise.allSettled(
+        list.map(agency =>
+          Promise.allSettled([
+            fetch(`${API_URL}/statistiques/agence/${agency.agencyId}/general`, { headers }),
+            fetch(`${API_URL}/statistiques/agence/${agency.agencyId}/evolution`, { headers }),
+            fetch(`${API_URL}/voyage/agence/${agency.agencyId}?page=0&size=6`, { headers }),
+            fetch(`${API_URL}/reservation/agence/${agency.agencyId}?page=0&size=5`, { headers }),
+            fetch(`${API_URL}/taxe-affiliation/agence/${agency.agencyId}`, { headers }),
+            fetch(`${API_URL}/alerte/agence/${agency.agencyId}`, { headers }),
+          ])
+        )
+      );
+
+      const newMap: Record<string, AgencyData> = {};
+      for (let i = 0; i < list.length; i++) {
+        const agency = list[i];
+        const agencyResults = results[i];
+        if (agencyResults.status !== 'fulfilled') {
+          newMap[agency.agencyId] = { stats: null, evolution: null, trips: [], reservations: [], taxes: null, alerts: [] };
+          continue;
         }
+        const [sR, eR, tR, rR, taxR, alR] = agencyResults.value;
+        newMap[agency.agencyId] = {
+          stats: sR.status === 'fulfilled' && sR.value.ok ? await sR.value.json() : null,
+          evolution: eR.status === 'fulfilled' && eR.value.ok ? await eR.value.json() : null,
+          trips: tR.status === 'fulfilled' && tR.value.ok ? ((await tR.value.json()).content || []) : [],
+          reservations: rR.status === 'fulfilled' && rR.value.ok ? ((await rR.value.json()).content || []) : [],
+          taxes: taxR.status === 'fulfilled' && taxR.value.ok ? await taxR.value.json() : null,
+          alerts: alR.status === 'fulfilled' && alR.value.ok ? await alR.value.json() : [],
+        };
       }
-
-      if (!agencyId) return;
-
-      // Load agency-level data in parallel
-      const [
-        statsRes,
-        evolutionRes,
-        tripsRes,
-        reservationsRes,
-        taxesRes,
-        alertsRes,
-      ] = await Promise.allSettled([
-        fetch(`${API_URL}/statistiques/agence/${agencyId}/general`, {
-          headers,
-        }),
-        fetch(`${API_URL}/statistiques/agence/${agencyId}/evolution`, {
-          headers,
-        }),
-        fetch(`${API_URL}/voyage/agence/${agencyId}?page=0&size=6`, {
-          headers,
-        }),
-        fetch(`${API_URL}/reservation/agence/${agencyId}?page=0&size=5`, {
-          headers,
-        }),
-        fetch(`${API_URL}/taxe-affiliation/agence/${agencyId}`, { headers }),
-        fetch(`${API_URL}/alerte/agence/${agencyId}`, { headers }),
-      ]);
-
-      if (statsRes.status === 'fulfilled' && statsRes.value.ok)
-        setStats(await statsRes.value.json());
-      if (evolutionRes.status === 'fulfilled' && evolutionRes.value.ok)
-        setEvolution(await evolutionRes.value.json());
-      if (tripsRes.status === 'fulfilled' && tripsRes.value.ok) {
-        const data = await tripsRes.value.json();
-        setTrips(data.content || data || []);
-      }
-      if (reservationsRes.status === 'fulfilled' && reservationsRes.value.ok) {
-        const data = await reservationsRes.value.json();
-        setReservations(data.content || []);
-      }
-      if (taxesRes.status === 'fulfilled' && taxesRes.value.ok)
-        setTaxes(await taxesRes.value.json());
-      if (alertsRes.status === 'fulfilled' && alertsRes.value.ok) {
-        const data: Alert[] = await alertsRes.value.json();
-        setAlerts(data);
-        setUnreadAlerts(data.filter(a => !a.lu).length);
-      }
+      setAgencyDataMap(newMap);
     } catch {
       // silent
     } finally {
@@ -616,34 +595,118 @@ export default function OrgDashboard({
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
       });
-      setAlerts(prev =>
-        prev.map(a => (a.idAlerte === alertId ? { ...a, lu: true } : a)),
-      );
-      setUnreadAlerts(prev => Math.max(0, prev - 1));
+      setAgencyDataMap(prev => {
+        const next = { ...prev };
+        for (const id of Object.keys(next)) {
+          next[id] = {
+            ...next[id],
+            alerts: next[id].alerts.map(a => a.idAlerte === alertId ? { ...a, lu: true } : a),
+          };
+        }
+        return next;
+      });
     } catch {
       // silent
     }
   };
 
+  // Aggregation helpers
+  const displayStats = useMemo((): Stats | null => {
+    const entries = selectedAgencyId === 'ALL'
+      ? Object.values(agencyDataMap)
+      : [agencyDataMap[selectedAgencyId]].filter(Boolean);
+    const valid = entries.filter(d => d?.stats).map(d => d.stats!);
+    if (valid.length === 0) return null;
+    const result: Stats = { nombreEmployes: 0, nombreChauffeurs: 0, nombreVoyages: 0, voyagesParStatut: {}, nombreReservations: 0, reservationsParStatut: {}, revenus: 0, nouveauxUtilisateurs: 0, tauxOccupation: 0 };
+    for (const s of valid) {
+      result.nombreEmployes += s.nombreEmployes;
+      result.nombreChauffeurs += s.nombreChauffeurs;
+      result.nombreVoyages += s.nombreVoyages;
+      result.nombreReservations += s.nombreReservations;
+      result.revenus += s.revenus;
+      result.nouveauxUtilisateurs += s.nouveauxUtilisateurs;
+      result.tauxOccupation += s.tauxOccupation;
+      for (const [k, v] of Object.entries(s.voyagesParStatut)) { result.voyagesParStatut[k] = (result.voyagesParStatut[k] || 0) + v; }
+      for (const [k, v] of Object.entries(s.reservationsParStatut)) { result.reservationsParStatut[k] = (result.reservationsParStatut[k] || 0) + v; }
+    }
+    result.tauxOccupation = result.tauxOccupation / valid.length;
+    return result;
+  }, [selectedAgencyId, agencyDataMap]);
+
+  const displayEvolution = useMemo((): Evolution | null => {
+    const entries = selectedAgencyId === 'ALL'
+      ? Object.values(agencyDataMap)
+      : [agencyDataMap[selectedAgencyId]].filter(Boolean);
+    const valid = entries.filter(d => d?.evolution).map(d => d.evolution!);
+    if (valid.length === 0) return null;
+    const mergeByDate = (key: keyof Evolution, valField: 'valeur' | 'montant'): EvolutionData[] => {
+      const map: Record<string, EvolutionData> = {};
+      for (const ev of valid) {
+        for (const item of (ev[key] as EvolutionData[])) {
+          if (!map[item.date]) { map[item.date] = { date: item.date, valeur: 0, montant: 0 }; }
+          map[item.date][valField] += item[valField];
+        }
+      }
+      return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+    };
+    return {
+      evolutionReservations: mergeByDate('evolutionReservations', 'valeur'),
+      evolutionVoyages: mergeByDate('evolutionVoyages', 'valeur'),
+      evolutionRevenus: mergeByDate('evolutionRevenus', 'montant'),
+      evolutionUtilisateurs: mergeByDate('evolutionUtilisateurs', 'valeur'),
+    };
+  }, [selectedAgencyId, agencyDataMap]);
+
+  const displayTrips = useMemo((): Trip[] => {
+    const entries = selectedAgencyId === 'ALL'
+      ? Object.values(agencyDataMap).flatMap(d => d.trips)
+      : agencyDataMap[selectedAgencyId]?.trips || [];
+    return [...entries].sort((a, b) => new Date(b.dateDepartPrev).getTime() - new Date(a.dateDepartPrev).getTime()).slice(0, 6);
+  }, [selectedAgencyId, agencyDataMap]);
+
+  const displayReservations = useMemo((): Reservation[] => {
+    const entries = selectedAgencyId === 'ALL'
+      ? Object.values(agencyDataMap).flatMap(d => d.reservations)
+      : agencyDataMap[selectedAgencyId]?.reservations || [];
+    return [...entries].sort((a, b) => new Date(b.reservation.dateReservation).getTime() - new Date(a.reservation.dateReservation).getTime()).slice(0, 5);
+  }, [selectedAgencyId, agencyDataMap]);
+
+  const displayTaxes = useMemo((): Tax | null => {
+    const entries = selectedAgencyId === 'ALL'
+      ? Object.values(agencyDataMap)
+      : [agencyDataMap[selectedAgencyId]].filter(Boolean);
+    const valid = entries.filter(d => d?.taxes).map(d => d.taxes!);
+    if (valid.length === 0) return null;
+    if (valid.length === 1) return valid[0];
+    return { montantTotalDu: valid.reduce((s, t) => s + t.montantTotalDu, 0), taxes: valid[0].taxes };
+  }, [selectedAgencyId, agencyDataMap]);
+
+  const displayAlerts = useMemo((): Alert[] => {
+    const entries = selectedAgencyId === 'ALL'
+      ? Object.values(agencyDataMap).flatMap(d => d.alerts)
+      : agencyDataMap[selectedAgencyId]?.alerts || [];
+    return [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [selectedAgencyId, agencyDataMap]);
+
   const sparkReservations = useMemo(
-    () => evolution?.evolutionReservations?.map(d => d.valeur) || [],
-    [evolution],
+    () => displayEvolution?.evolutionReservations?.map(d => d.valeur) || [],
+    [displayEvolution],
   );
   const sparkRevenues = useMemo(
-    () => evolution?.evolutionRevenus?.map(d => d.montant) || [],
-    [evolution],
+    () => displayEvolution?.evolutionRevenus?.map(d => d.montant) || [],
+    [displayEvolution],
   );
   const sparkVoyages = useMemo(
-    () => evolution?.evolutionVoyages?.map(d => d.valeur) || [],
-    [evolution],
+    () => displayEvolution?.evolutionVoyages?.map(d => d.valeur) || [],
+    [displayEvolution],
   );
   const sparkUsers = useMemo(
-    () => evolution?.evolutionUtilisateurs?.map(d => d.valeur) || [],
-    [evolution],
+    () => displayEvolution?.evolutionUtilisateurs?.map(d => d.valeur) || [],
+    [displayEvolution],
   );
 
   const revenuePoints = useMemo(() => {
-    const data = evolution?.evolutionRevenus || [];
+    const data = displayEvolution?.evolutionRevenus || [];
     if (data.length < 2) return [];
     const values = data.map(d => d.montant);
     const min = Math.min(...values);
@@ -658,41 +721,20 @@ export default function OrgDashboard({
       montant: d.montant,
       date: d.date,
     }));
-  }, [evolution]);
+  }, [displayEvolution]);
 
   if (loading) return <SkeletonOrgDashboard />;
 
   const userName = user?.first_name || org?.short_name?.split(' ')[0] || '—';
 
-  // Donut segments
   const tripSegments = [
-    {
-      color: colors.primary,
-      value: stats?.voyagesParStatut?.PUBLIE || 0,
-      label: t.published,
-    },
-    {
-      color: '#d97706',
-      value: stats?.voyagesParStatut?.EN_COURS || 0,
-      label: t.ongoing,
-    },
-    {
-      color: colors.success,
-      value: stats?.voyagesParStatut?.TERMINE || 0,
-      label: t.completed,
-    },
+    { color: colors.primary, value: displayStats?.voyagesParStatut?.PUBLIE || 0, label: t.published },
+    { color: '#d97706', value: displayStats?.voyagesParStatut?.EN_COURS || 0, label: t.ongoing },
+    { color: colors.success, value: displayStats?.voyagesParStatut?.TERMINE || 0, label: t.completed },
   ];
   const reservationSegments = [
-    {
-      color: colors.success,
-      value: stats?.reservationsParStatut?.CONFIRMER || 0,
-      label: t.confirmed,
-    },
-    {
-      color: colors.error,
-      value: stats?.reservationsParStatut?.ANNULER || 0,
-      label: t.cancelled,
-    },
+    { color: colors.success, value: displayStats?.reservationsParStatut?.CONFIRMER || 0, label: t.confirmed },
+    { color: colors.error, value: displayStats?.reservationsParStatut?.ANNULER || 0, label: t.cancelled },
   ];
 
   return (
@@ -775,19 +817,12 @@ export default function OrgDashboard({
           </View>
           <View style={styles.orgInfo}>
             <Text style={styles.orgName}>
-              {org?.long_name || selectedAgency?.longName || '—'}
+              {org?.long_name || '—'}
             </Text>
-            {(org as any)?.location || selectedAgency?.location ? (
+            {(org as any)?.location ? (
               <View style={styles.orgLocationRow}>
-                <Ionicons
-                  name="location-outline"
-                  size={12}
-                  color="rgba(255,255,255,0.8)"
-                />
-                <Text style={styles.orgLocation}>
-                  {' '}
-                  {(org as any)?.location || selectedAgency?.location}
-                </Text>
+                <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.8)" />
+                <Text style={styles.orgLocation}>{' '}{(org as any).location}</Text>
               </View>
             ) : null}
           </View>
@@ -797,6 +832,33 @@ export default function OrgDashboard({
             </Text>
           </View>
         </TouchableOpacity>
+
+        {/* Agency selector chips */}
+        {agencies.length > 1 && (
+          <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>
+            <Text style={[styles.chipsLabel, { color: theme.textStrong }]}>
+              {lang === 'fr' ? 'Statistiques par agence' : 'Statistics by agency'}
+            </Text>
+          </View>
+        )}
+        {agencies.length > 1 && (
+          <View style={styles.chipsRow}>
+            {[{ agencyId: 'ALL', longName: lang === 'fr' ? 'Toutes' : 'All' }, ...agencies].map(a => {
+              const active = selectedAgencyId === a.agencyId;
+              return (
+                <TouchableOpacity
+                  key={a.agencyId}
+                  style={[styles.chip, { backgroundColor: active ? colors.primary : theme.background, borderColor: active ? colors.primary : theme.border }]}
+                  onPress={() => setSelectedAgencyId(a.agencyId)}
+                >
+                  <Text style={[styles.chipText, { color: active ? '#fff' : theme.text }]}>
+                    {a.longName}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {/* Stats grid 6 cells */}
         <View
@@ -810,7 +872,7 @@ export default function OrgDashboard({
               icon: 'people-outline',
               iconColor: '#7c3aed',
               iconBg: '#fef3c715',
-              value: String(stats?.nombreEmployes || 0),
+              value: String(displayStats?.nombreEmployes || 0),
               label: t.employees,
               sub: t.total,
             },
@@ -818,7 +880,7 @@ export default function OrgDashboard({
               icon: 'car-outline',
               iconColor: colors.success,
               iconBg: `${colors.success}15`,
-              value: String(stats?.nombreChauffeurs || 0),
+              value: String(displayStats?.nombreChauffeurs || 0),
               label: t.drivers,
               sub: t.total,
             },
@@ -826,7 +888,7 @@ export default function OrgDashboard({
               icon: 'bus-outline',
               iconColor: colors.primary,
               iconBg: `${colors.primary}15`,
-              value: String(stats?.nombreVoyages || 0),
+              value: String(displayStats?.nombreVoyages || 0),
               label: t.trips,
               sub: t.total,
             },
@@ -834,7 +896,7 @@ export default function OrgDashboard({
               icon: 'calendar-outline',
               iconColor: '#d97706',
               iconBg: '#fef3c715',
-              value: String(stats?.nombreReservations || 0),
+              value: String(displayStats?.nombreReservations || 0),
               label: t.reservations,
               sub: t.total,
             },
@@ -842,7 +904,7 @@ export default function OrgDashboard({
               icon: 'cash-outline',
               iconColor: colors.success,
               iconBg: `${colors.success}15`,
-              value: formatPrice(stats?.revenus || 0),
+              value: formatPrice(displayStats?.revenus || 0),
               label: t.revenue,
               sub: '',
             },
@@ -850,7 +912,7 @@ export default function OrgDashboard({
               icon: 'pie-chart-outline',
               iconColor: '#7c3aed',
               iconBg: '#fef3c715',
-              value: `${Math.round((stats?.tauxOccupation || 0) * 100)}%`,
+              value: `${Math.round((displayStats?.tauxOccupation || 0) * 100)}%`,
               label: t.occupation,
               sub: t.rate,
             },
@@ -890,7 +952,7 @@ export default function OrgDashboard({
         </View>
 
         {/* Trip breakdown */}
-        {stats && (
+        {displayStats && (
           <View
             style={[
               styles.card,
@@ -924,7 +986,7 @@ export default function OrgDashboard({
         )}
 
         {/* Reservation breakdown */}
-        {stats && (
+        {displayStats && (
           <View
             style={[
               styles.card,
@@ -958,7 +1020,7 @@ export default function OrgDashboard({
         )}
 
         {/* Evolution mini sparklines */}
-        {evolution && (
+        {displayEvolution && (
           <View
             style={[
               styles.card,
@@ -972,25 +1034,25 @@ export default function OrgDashboard({
               {[
                 {
                   label: t.reservations,
-                  value: String(stats?.nombreReservations || 0),
+                  value: String(displayStats?.nombreReservations || 0),
                   data: sparkReservations,
                   color: colors.primary,
                 },
                 {
                   label: t.revenue,
-                  value: formatPrice(stats?.revenus || 0),
+                  value: formatPrice(displayStats?.revenus || 0),
                   data: sparkRevenues,
                   color: colors.success,
                 },
                 {
                   label: t.trips,
-                  value: String(stats?.nombreVoyages || 0),
+                  value: String(displayStats?.nombreVoyages || 0),
                   data: sparkVoyages,
                   color: '#7c3aed',
                 },
                 {
                   label: t.newUsers,
-                  value: String(stats?.nouveauxUtilisateurs || 0),
+                  value: String(displayStats?.nouveauxUtilisateurs || 0),
                   data: sparkUsers,
                   color: '#d97706',
                 },
@@ -1026,7 +1088,7 @@ export default function OrgDashboard({
           <Text style={[styles.cardTitle, { color: theme.textStrong, paddingRight: spacing.lg }]}>
             {t.recentTrips}
           </Text>
-          {trips.length === 0 ? (
+          {displayTrips.length === 0 ? (
             <EmptyState type="result" message={lang === 'fr' ? 'Aucun voyage récent' : 'No recent trips'} textColor={theme.text} />
           ) : (
             <ScrollView
@@ -1034,7 +1096,7 @@ export default function OrgDashboard({
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}
             >
-              {trips.map(trip => {
+              {displayTrips.map(trip => {
                 const statusCfg =
                   TRIP_STATUS[trip.statusVoyage] || TRIP_STATUS.PUBLIE;
                 return (
@@ -1055,7 +1117,7 @@ export default function OrgDashboard({
                         { backgroundColor: theme.backgroundAlt },
                       ]}
                     >
-                      {trip.smallImage ? (
+                      {trip.smallImage?.startsWith('http') ? (
                         <Image
                           source={{ uri: trip.smallImage }}
                           style={styles.tripImageInner}
@@ -1130,9 +1192,9 @@ export default function OrgDashboard({
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
             {t.recentReservations}
           </Text>
-          {reservations.length === 0 ? (
+          {displayReservations.length === 0 ? (
             <EmptyState type="result" message={lang === 'fr' ? 'Aucune réservation récente' : 'No recent reservations'} textColor={theme.text} />
-          ) : reservations.map((item, i) => {
+          ) : displayReservations.map((item, i) => {
               const statusCfg =
                 RESERVATION_STATUS[item.reservation.statutReservation] ||
                 RESERVATION_STATUS.RESERVER;
@@ -1145,7 +1207,7 @@ export default function OrgDashboard({
                     styles.reservRow,
                     {
                       borderBottomColor: theme.border,
-                      borderBottomWidth: i < reservations.length - 1 ? 1 : 0,
+                      borderBottomWidth: i < displayReservations.length - 1 ? 1 : 0,
                     },
                   ]}
                 >
@@ -1297,8 +1359,8 @@ export default function OrgDashboard({
                   >
                     <Text style={styles.chartTooltipDate}>
                       {new Date(
-                        evolution?.evolutionRevenus?.[
-                          evolution.evolutionRevenus.length - 1
+                        displayEvolution?.evolutionRevenus?.[
+                          displayEvolution.evolutionRevenus.length - 1
                         ]?.date || '',
                       ).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', {
                         month: 'short',
@@ -1315,7 +1377,7 @@ export default function OrgDashboard({
               </View>
               {/* X labels */}
               <View style={[styles.chartXRow, { marginLeft: 40 }]}>
-                {(evolution?.evolutionRevenus || []).map((d, i) => (
+                {(displayEvolution?.evolutionRevenus || []).map((d, i) => (
                   <Text
                     key={i}
                     style={[styles.chartXLabel, { color: theme.text }]}
@@ -1332,7 +1394,7 @@ export default function OrgDashboard({
         )}
 
         {/* Affiliation taxes */}
-        {taxes && (
+        {displayTaxes && (
           <View
             style={[
               styles.card,
@@ -1363,11 +1425,20 @@ export default function OrgDashboard({
                 {t.totalDue}
               </Text>
               <Text style={[styles.taxTotalValue, { color: colors.error }]}>
-                {formatPrice(taxes.montantTotalDu)}
+                {formatPrice(displayTaxes.montantTotalDu)}
               </Text>
             </View>
 
-            {taxes.taxes.map((tax, i) => (
+            <View style={styles.taxNote}>
+              <Ionicons name="information-circle-outline" size={14} color={theme.text} />
+              <Text style={[styles.taxNoteText, { color: theme.text }]}>
+                {lang === 'fr'
+                  ? 'Cette taxe est appliquée sur chaque réservation effectuée via la plateforme.'
+                  : 'This tax applies to each booking made through the platform.'}
+              </Text>
+            </View>
+
+            {displayTaxes.taxes.map((tax, i) => (
               <View
                 key={tax.nomTaxe}
                 style={[
@@ -1433,9 +1504,9 @@ export default function OrgDashboard({
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
             {t.recentAlerts}
           </Text>
-          {alerts.length === 0 ? (
+          {displayAlerts.length === 0 ? (
             <EmptyState type="result" message={lang === 'fr' ? 'Aucune alerte' : 'No alerts'} textColor={theme.text} />
-          ) : alerts.slice(0, 3).map((alert, i) => {
+          ) : displayAlerts.slice(0, 3).map((alert, i) => {
             const cfg = ALERT_ICONS[alert.type] || ALERT_ICONS.ALERTE_GENERALE;
             return (
               <TouchableOpacity
@@ -1800,6 +1871,13 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   taxAmount: { ...typography.bodyBold, fontSize: typography.sizes.sm },
+  taxNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+  },
+  taxNoteText: { ...typography.body, fontSize: typography.sizes.xs, flex: 1, lineHeight: 18 },
   taxLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1836,4 +1914,19 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   unreadDot: { width: 8, height: 8, borderRadius: 4 },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  chipText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
+  chipsLabel: { ...typography.bodyBold, fontSize: typography.sizes.md },
 });
