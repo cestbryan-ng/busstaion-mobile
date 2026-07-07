@@ -10,6 +10,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import TripPlaceholder from '../../../../assets/placeholders/product.svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -339,14 +340,14 @@ export default function SeatSelectionModal({
             <View
               style={[styles.summaryImage, { backgroundColor: theme.border }]}
             >
-              {trip.smallImage ? (
+              {trip.smallImage?.startsWith('http') ? (
                 <Image
                   source={{ uri: trip.smallImage }}
                   style={styles.summaryImageInner}
                   resizeMode="cover"
                 />
               ) : (
-                <Ionicons name="bus-outline" size={24} color={theme.text} />
+                <TripPlaceholder width="90%" height="90%" />
               )}
             </View>
             <View style={styles.summaryInfo}>

@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
   useColorScheme,
   RefreshControl,
+  Share,
 } from 'react-native';
+import ImagePlaceholder from '../../../../assets/placeholders/image.svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -25,6 +27,7 @@ import type { RootStackParamList } from '../../../../navigation';
 type TripDetail = {
   idVoyage: string;
   titre?: string;
+  nomAgence?: string;
   lieuDepart: string;
   lieuArrive: string;
   pointDeDepart?: string;
@@ -39,8 +42,8 @@ type TripDetail = {
   nbrPlaceReservable: number;
   nbrPlaceRestante: number;
   smallImage?: string;
-  vehicule?: { nom?: string; modele?: string; nbrPlaces?: number };
-  chauffeur?: { nom?: string; prenom?: string };
+  vehicule?: { nom?: string; modele?: string; nbrPlaces?: number; plaqueMatricule?: string };
+  chauffeur?: { first_name?: string; last_name?: string; phone_number?: string };
   nombreReservations?: number;
 };
 
@@ -119,6 +122,38 @@ export default function AgencyTripDetail() {
     },
   }[lang];
 
+  const formatTime = (iso?: string) => {
+    if (!iso) return '';
+    const t = iso.includes('T') ? iso.split('T')[1] : iso;
+    return t.slice(0, 5);
+  };
+
+  const formatDuration = (pt?: string) => {
+    if (!pt) return '—';
+    const h = pt.match(/(\d+)H/);
+    const m = pt.match(/(\d+)M/);
+    if (h && m) return `${h[1]}h${m[1]}`;
+    if (h) return `${h[1]}h`;
+    if (m) return `${m[1]}min`;
+    return pt;
+  };
+
+  const handleShare = useCallback(async () => {
+    if (!trip) return;
+    const date = new Date(trip.dateDepartPrev).toLocaleDateString(
+      lang === 'fr' ? 'fr-FR' : 'en-GB',
+      { day: 'numeric', month: 'long', year: 'numeric' },
+    );
+    const time = formatTime(trip.heureDepartEffectif);
+    const message =
+      lang === 'fr'
+        ? `🚌 De ${trip.lieuDepart} vers ${trip.lieuArrive}\n📅 Départ : ${date} à ${time}\n🏢 Agence : ${trip.nomAgence || ''}\n\n📲 Réservez via BusStation`
+        : `🚌 From ${trip.lieuDepart} to ${trip.lieuArrive}\n📅 Departure: ${date} at ${time}\n🏢 Agency: ${trip.nomAgence || ''}\n\n📲 Book via BusStation`;
+    try {
+      await Share.share({ message });
+    } catch {}
+  }, [trip, lang]);
+
   const loadData = useCallback(async () => {
     try {
       const [token, storedLang] = await Promise.all([
@@ -130,7 +165,11 @@ export default function AgencyTripDetail() {
       const res = await fetch(`${API_URL}/voyage/${tripId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setTrip(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        console.log('Trip data:', data);
+        setTrip(data);
+      }
     } catch {
       // silent
     } finally {
@@ -171,7 +210,7 @@ export default function AgencyTripDetail() {
 
   if (!trip) return null;
 
-  const sold = trip.nbrPlaceReservable - trip.nbrPlaceRestante;
+  const sold = Math.max(0, trip.nbrPlaceRestante - trip.nbrPlaceReservable);
   const statusCfg = STATUS_CONFIG[trip.statusVoyage] || STATUS_CONFIG.PUBLIE;
   const classColor =
     { VIP: '#1e3a8a', PREMIUM: '#7c3aed', STANDARD: '#16a34a' }[
@@ -200,7 +239,7 @@ export default function AgencyTripDetail() {
       icon: 'copy-outline',
       label: t.duplicateTrip,
       danger: false,
-      onPress: () => {},
+      onPress: () => navigation.navigate('AgencyNewTrip', { duplicateTripId: tripId }),
     },
     {
       icon: 'trash-outline',
@@ -231,9 +270,9 @@ export default function AgencyTripDetail() {
           <Text style={[styles.title, { color: theme.textStrong }]}>
             {t.title}
           </Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={handleShare}>
             <Ionicons
-              name="ellipsis-horizontal"
+              name="share-outline"
               size={22}
               color={theme.textStrong}
             />
@@ -248,7 +287,7 @@ export default function AgencyTripDetail() {
               { backgroundColor: theme.backgroundAlt },
             ]}
           >
-            {trip.smallImage ? (
+            {trip.smallImage?.startsWith('http') ? (
               <Image
                 source={{ uri: trip.smallImage }}
                 style={styles.tripImage}
@@ -261,7 +300,7 @@ export default function AgencyTripDetail() {
                   { backgroundColor: theme.backgroundAlt },
                 ]}
               >
-                <Ionicons name="bus-outline" size={56} color={theme.text} />
+                <ImagePlaceholder width="90%" height="90%" />
               </View>
             )}
             <View
@@ -309,7 +348,7 @@ export default function AgencyTripDetail() {
                     year: 'numeric',
                   },
                 )}{' '}
-                · {trip.heureDepartEffectif || ''} · Voyage ID: TRP-{tripId.slice(-3)}
+                · {formatTime(trip.heureDepartEffectif)} · Voyage ID: TRP-{tripId.slice(-3)}
               </Text>
             </View>
 
@@ -360,18 +399,18 @@ export default function AgencyTripDetail() {
                 icon: 'location-outline',
                 label: t.departure,
                 value: `${trip.pointDeDepart || trip.lieuDepart}`,
-                time: trip.heureDepartEffectif,
+                time: formatTime(trip.heureDepartEffectif),
               },
               {
                 icon: 'location-outline',
                 label: t.arrival,
                 value: `${trip.pointArrivee || trip.lieuArrive}`,
-                time: trip.heureArrive,
+                time: formatTime(trip.heureArrive),
               },
               {
                 icon: 'time-outline',
                 label: t.duration,
-                value: trip.dureeVoyage || '—',
+                value: formatDuration(trip.dureeVoyage),
               },
               {
                 icon: 'bus-outline',
@@ -386,8 +425,8 @@ export default function AgencyTripDetail() {
                 icon: 'person-outline',
                 label: t.driver,
                 value: trip.chauffeur
-                  ? `${trip.chauffeur.prenom || ''} ${
-                      trip.chauffeur.nom || ''
+                  ? `${trip.chauffeur.first_name || ''} ${
+                      trip.chauffeur.last_name || ''
                     }`.trim() || '—'
                   : '—',
               },

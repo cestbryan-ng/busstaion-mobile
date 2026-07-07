@@ -10,6 +10,8 @@ import {
   useColorScheme,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  FlatList,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,8 +23,10 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
+import { DatePickerModal, formatDateDisplay } from '../../../../components/date-picker-modal';
+import TimePickerModal from '../../../../components/time-picker-modal';
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 1 | 2 | 3 | 4;
 
 type Vehicle = {
   idVehicule: string;
@@ -31,14 +35,16 @@ type Vehicle = {
   modele?: string;
   nom?: string;
 };
-type Driver = { userId: string; nom?: string; prenom?: string };
-type TClass = { idClassVoyage: string; nom: string };
+type Driver = { userId: string; first_name?: string; last_name?: string };
+type TClass = { id: string; nom: string };
 
 type FormData = {
   titre: string;
   description: string;
   lieuDepart: string;
+  pointDeDepart: string;
   lieuArrive: string;
+  pointArrivee: string;
   dateDepartPrev: string;
   heureDepartEffectif: string;
   heureArrive: string;
@@ -46,46 +52,172 @@ type FormData = {
   chauffeurId: string;
   classVoyageId: string;
   nbrPlaceReservable: string;
-  amenities: string[];
-  prix: string;
   statusVoyage: 'EN_ATTENTE' | 'PUBLIE';
 };
 
 const CITIES = [
-  'Douala',
-  'Yaoundé',
-  'Bafoussam',
-  'Kribi',
-  'Buea',
-  'Garoua',
-  'Bertoua',
-  'Maroua',
-  'Ngaoundéré',
-  'Bamenda',
+  'Douala', 'Yaoundé', 'Bafoussam', 'Kribi', 'Buea',
+  'Garoua', 'Bertoua', 'Maroua', 'Ngaoundéré', 'Bamenda',
 ];
 
-const STEP_LABELS_FR = [
-  'Itinéraire',
-  'Ressources',
-  'Détails',
-  'Tarifs',
-  'Confirmation',
-];
-const STEP_LABELS_EN = [
-  'Itinerary',
-  'Resources',
-  'Details',
-  'Pricing',
-  'Confirmation',
-];
+const STEP_LABELS_FR = ['Itinéraire', 'Ressources', 'Détails', 'Confirmation'];
+const STEP_LABELS_EN = ['Itinerary', 'Resources', 'Details', 'Confirmation'];
+
+// ─── Field ────────────────────────────────────────────────────────────────────
+
+function Field({
+  label, value, onChangeText, placeholder, keyboardType, multiline, error, theme,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder?: string;
+  keyboardType?: any;
+  multiline?: boolean;
+  error?: string;
+  theme: any;
+}) {
+  return (
+    <View style={styles.field}>
+      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{label}</Text>
+      <TextInput
+        style={[
+          styles.fieldInput,
+          { borderColor: error ? colors.error : theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong },
+          multiline && { height: 80, textAlignVertical: 'top', paddingTop: spacing.sm },
+        ]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={theme.text}
+        keyboardType={keyboardType}
+        multiline={multiline}
+      />
+      {error && <Text style={[styles.fieldError, { color: colors.error }]}>{error}</Text>}
+    </View>
+  );
+}
+
+// ─── CityPicker ───────────────────────────────────────────────────────────────
+
+function CityPicker({
+  label, value, onSelect, error, theme,
+}: {
+  label: string;
+  value: string;
+  onSelect: (v: string) => void;
+  error?: string;
+  theme: any;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={[styles.field, { flex: 1 }]}>
+      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{label}</Text>
+      <TouchableOpacity
+        style={[
+          styles.pickerBtn,
+          { borderColor: error ? colors.error : theme.border, backgroundColor: theme.backgroundAlt },
+        ]}
+        onPress={() => setOpen(true)}
+      >
+        <Ionicons name="location-outline" size={18} color={theme.text} />
+        <Text style={[styles.pickerBtnText, { color: value ? theme.textStrong : theme.text }]} numberOfLines={1}>
+          {value || '—'}
+        </Text>
+        <Ionicons name="chevron-down" size={16} color={theme.text} />
+      </TouchableOpacity>
+      {error && <Text style={[styles.fieldError, { color: colors.error }]}>{error}</Text>}
+
+      <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
+        <View style={[styles.cityModalContainer, { backgroundColor: theme.background }]}>
+          <View style={[styles.cityModalHeader, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.cityModalTitle, { color: theme.textStrong }]}>{label}</Text>
+            <TouchableOpacity onPress={() => setOpen(false)}>
+              <Ionicons name="close" size={24} color={theme.textStrong} />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={CITIES}
+            keyExtractor={item => item}
+            renderItem={({ item: city }) => (
+              <TouchableOpacity
+                style={[
+                  styles.cityModalItem,
+                  { borderBottomColor: theme.border },
+                  value === city && { backgroundColor: `${colors.primary}12` },
+                ]}
+                onPress={() => { onSelect(city); setOpen(false); }}
+              >
+                <Text style={[styles.cityModalItemText, { color: value === city ? colors.primary : theme.textStrong }]}>
+                  {city}
+                </Text>
+                {value === city && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+// ─── SelectPicker ─────────────────────────────────────────────────────────────
+
+function SelectPicker({
+  label, value, onSelect, options, placeholder, error, theme,
+}: {
+  label: string;
+  value: string;
+  onSelect: (v: string) => void;
+  options: { id: string; label: string }[];
+  placeholder: string;
+  error?: string;
+  theme: any;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find(o => o.id === value);
+  return (
+    <View style={styles.field}>
+      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{label}</Text>
+      <TouchableOpacity
+        style={[styles.selectBtn, { borderColor: error ? colors.error : theme.border, backgroundColor: theme.backgroundAlt }]}
+        onPress={() => setOpen(!open)}
+      >
+        <Text style={[styles.selectBtnText, { color: selected ? theme.textStrong : theme.text }]}>
+          {selected?.label || placeholder}
+        </Text>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={theme.text} />
+      </TouchableOpacity>
+      {open && (
+        <View style={[styles.dropdown, { backgroundColor: theme.background, borderColor: theme.border }]}>
+          {options.map(opt => (
+            <TouchableOpacity
+              key={opt.id}
+              style={[styles.dropdownItem, { borderBottomColor: theme.border }]}
+              onPress={() => { onSelect(opt.id); setOpen(false); }}
+            >
+              <Text style={[styles.dropdownText, { color: value === opt.id ? colors.primary : theme.textStrong }]}>
+                {opt.label}
+              </Text>
+              {value === opt.id && <Ionicons name="checkmark" size={14} color={colors.primary} />}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+      {error && <Text style={[styles.fieldError, { color: colors.error }]}>{error}</Text>}
+    </View>
+  );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function AgencyNewTrip() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AgencyNewTrip'>>();
   const editTripId = route.params?.editTripId;
+  const duplicateTripId = route.params?.duplicateTripId;
   const isEdit = !!editTripId;
   const toast = useToast();
 
@@ -97,15 +229,19 @@ export default function AgencyNewTrip() {
   const [classes, setClasses] = useState<TClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>(
-    {},
-  );
+  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [timePickerTarget, setTimePickerTarget] = useState<'dep' | 'arr'>('dep');
 
   const [form, setForm] = useState<FormData>({
     titre: '',
     description: '',
     lieuDepart: '',
+    pointDeDepart: '',
     lieuArrive: '',
+    pointArrivee: '',
     dateDepartPrev: '',
     heureDepartEffectif: '08:00',
     heureArrive: '12:30',
@@ -113,8 +249,6 @@ export default function AgencyNewTrip() {
     chauffeurId: '',
     classVoyageId: '',
     nbrPlaceReservable: '40',
-    amenities: [],
-    prix: '',
     statusVoyage: 'EN_ATTENTE',
   });
 
@@ -122,18 +256,22 @@ export default function AgencyNewTrip() {
     fr: {
       titleNew: 'Nouveau voyage',
       titleEdit: 'Modifier le voyage',
+      titleDuplicate: 'Dupliquer le voyage',
       stepLabels: STEP_LABELS_FR,
       baseInfo: 'Informations de base',
       tripTitle: 'Titre du voyage *',
       titlePlaceholder: 'Douala → Kribi Premium',
       description: 'Description',
       descPlaceholder: 'Voyage confortable avec pause déjeuner incluse.',
-      departure: 'Lieu de départ *',
-      arrival: "Lieu d'arrivée *",
+      departure: 'Ville de départ *',
+      depPoint: 'Point de départ *',
+      depPointPlaceholder: 'Ex: Gare de Bonanjo',
+      arrival: "Ville d'arrivée *",
+      arrPoint: "Point d'arrivée *",
+      arrPointPlaceholder: 'Ex: Terminal de Mfoundi',
       depDate: 'Date de départ prévue *',
-      depHour: 'Heure de départ prévue *',
-      arrHour: "Heure d'arrivée prévue *",
-      additionalInfo: 'Informations complémentaires',
+      depHour: 'Heure de départ *',
+      arrHour: "Heure d'arrivée *",
       seatsAvailable: 'Places disponibles *',
       travelClass: 'Classe de voyage *',
       status: 'Statut *',
@@ -144,8 +282,6 @@ export default function AgencyNewTrip() {
       selectVehicle: 'Sélectionner un véhicule',
       selectDriver: 'Sélectionner un chauffeur',
       selectClass: 'Sélectionner une classe',
-      price: 'Prix par personne (FCFA) *',
-      pricePlaceholder: '15000',
       next: 'Suivant',
       saveDraft: 'Enregistrer en brouillon',
       publish: 'Publier le voyage',
@@ -154,22 +290,28 @@ export default function AgencyNewTrip() {
       summary: 'Récapitulatif',
       tripSaved: 'Voyage enregistré',
       saveError: "Erreur lors de l'enregistrement",
+      chooseDate: 'Choisir une date',
+      chooseTime: 'Choisir une heure',
     },
     en: {
       titleNew: 'New trip',
       titleEdit: 'Edit trip',
+      titleDuplicate: 'Duplicate trip',
       stepLabels: STEP_LABELS_EN,
       baseInfo: 'Basic information',
       tripTitle: 'Trip title *',
       titlePlaceholder: 'Douala → Kribi Premium',
       description: 'Description',
       descPlaceholder: 'Comfortable trip with lunch break included.',
-      departure: 'Departure *',
-      arrival: 'Arrival *',
+      departure: 'Departure city *',
+      depPoint: 'Boarding point *',
+      depPointPlaceholder: 'e.g. Bonanjo Station',
+      arrival: 'Arrival city *',
+      arrPoint: 'Alighting point *',
+      arrPointPlaceholder: 'e.g. Mfoundi Terminal',
       depDate: 'Departure date *',
       depHour: 'Departure time *',
       arrHour: 'Arrival time *',
-      additionalInfo: 'Additional information',
       seatsAvailable: 'Available seats *',
       travelClass: 'Travel class *',
       status: 'Status *',
@@ -180,8 +322,6 @@ export default function AgencyNewTrip() {
       selectVehicle: 'Select a vehicle',
       selectDriver: 'Select a driver',
       selectClass: 'Select a class',
-      price: 'Price per person (FCFA) *',
-      pricePlaceholder: '15000',
       next: 'Next',
       saveDraft: 'Save as draft',
       publish: 'Publish trip',
@@ -190,6 +330,8 @@ export default function AgencyNewTrip() {
       summary: 'Summary',
       tripSaved: 'Trip saved',
       saveError: 'Save error',
+      chooseDate: 'Choose a date',
+      chooseTime: 'Choose a time',
     },
   }[lang];
 
@@ -208,38 +350,33 @@ export default function AgencyNewTrip() {
         if (!chefId) return;
 
         const headers = { Authorization: `Bearer ${token}` };
-        const agencyRes = await fetch(
-          `${API_URL}/agence/chef-agence/${chefId}`,
-          { headers },
-        );
+        const agencyRes = await fetch(`${API_URL}/agence/chef-agence/${chefId}`, { headers });
         if (!agencyRes.ok) return;
         const agencyData = await agencyRes.json();
-        setAgencyId(agencyData.agencyId);
+        setAgencyId(agencyData.id);
 
         const [vRes, dRes, cRes] = await Promise.allSettled([
-          fetch(`${API_URL}/vehicule/agence/${agencyData.agencyId}`, {
-            headers,
-          }),
-          fetch(`${API_URL}/chauffeur/agence/${agencyData.agencyId}`, {
-            headers,
-          }),
-          fetch(`${API_URL}/class-voyage/agence/${agencyData.agencyId}`, {
-            headers,
-          }),
+          fetch(`${API_URL}/vehicule/agence/${agencyData.id}`, { headers }),
+          fetch(`${API_URL}/utilisateur/chauffeurs/${agencyData.id}`, { headers }),
+          fetch(`${API_URL}/class-voyage/agence/${agencyData.id}`, { headers }),
         ]);
 
-        if (vRes.status === 'fulfilled' && vRes.value.ok)
-          setVehicles(await vRes.value.json());
-        if (dRes.status === 'fulfilled' && dRes.value.ok)
-          setDrivers(await dRes.value.json());
-        if (cRes.status === 'fulfilled' && cRes.value.ok)
-          setClasses(await cRes.value.json());
+        if (vRes.status === 'fulfilled' && vRes.value.ok) {
+          const d = await vRes.value.json();
+          setVehicles(d.content || d || []);
+        }
+        if (dRes.status === 'fulfilled' && dRes.value.ok) {
+          const d = await dRes.value.json();
+          setDrivers(d.content || d || []);
+        }
+        if (cRes.status === 'fulfilled' && cRes.value.ok) {
+          const d = await cRes.value.json();
+          setClasses(d.content || d || []);
+        }
 
-        // Edit mode: load existing trip
-        if (editTripId) {
-          const tripRes = await fetch(`${API_URL}/voyage/${editTripId}`, {
-            headers,
-          });
+        const prefillId = editTripId || duplicateTripId;
+        if (prefillId) {
+          const tripRes = await fetch(`${API_URL}/voyage/${prefillId}`, { headers });
           if (tripRes.ok) {
             const trip = await tripRes.json();
             setForm(prev => ({
@@ -249,12 +386,19 @@ export default function AgencyNewTrip() {
               lieuDepart: trip.lieuDepart || '',
               lieuArrive: trip.lieuArrive || '',
               dateDepartPrev: trip.dateDepartPrev?.split('T')[0] || '',
-              heureDepartEffectif: trip.heureDepartEffectif || '08:00',
-              heureArrive: trip.heureArrive || '12:30',
+              heureDepartEffectif: trip.heureDepartEffectif?.includes('T')
+                ? trip.heureDepartEffectif.split('T')[1]?.slice(0, 5) || '08:00'
+                : trip.heureDepartEffectif || '08:00',
+              heureArrive: trip.heureArrive?.includes('T')
+                ? trip.heureArrive.split('T')[1]?.slice(0, 5) || '12:30'
+                : trip.heureArrive || '12:30',
+              pointDeDepart: trip.pointDeDepart || '',
+              pointArrivee: trip.pointArrivee || '',
               nbrPlaceReservable: String(trip.nbrPlaceReservable || 40),
-              prix: String(trip.prix || ''),
-              statusVoyage:
-                trip.statusVoyage === 'PUBLIE' ? 'PUBLIE' : 'EN_ATTENTE',
+              vehiculeId: trip.vehicule?.idVehicule || trip.vehiculeId || '',
+              chauffeurId: trip.chauffeur?.userId || trip.chauffeurId || '',
+              classVoyageId: trip.classeVoyage?.id || trip.classVoyageId || '',
+              statusVoyage: 'EN_ATTENTE',
             }));
           }
         }
@@ -277,15 +421,15 @@ export default function AgencyNewTrip() {
     if (step === 1) {
       if (!form.titre.trim()) e.titre = t.required;
       if (!form.lieuDepart) e.lieuDepart = t.required;
+      if (!form.pointDeDepart.trim()) e.pointDeDepart = t.required;
       if (!form.lieuArrive) e.lieuArrive = t.required;
+      if (!form.pointArrivee.trim()) e.pointArrivee = t.required;
       if (!form.dateDepartPrev) e.dateDepartPrev = t.required;
     }
     if (step === 2) {
       if (!form.vehiculeId) e.vehiculeId = t.required;
+      if (!form.chauffeurId) e.chauffeurId = t.required;
       if (!form.classVoyageId) e.classVoyageId = t.required;
-    }
-    if (step === 4) {
-      if (!form.prix.trim()) e.prix = t.required;
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -293,45 +437,42 @@ export default function AgencyNewTrip() {
 
   const handleNext = () => {
     if (!validateStep()) return;
-    if (step < 5) setStep((step + 1) as Step);
+    if (step < 4) setStep((step + 1) as Step);
   };
 
   const handleSubmit = async (status: 'EN_ATTENTE' | 'PUBLIE') => {
     setSubmitting(true);
     try {
       const token = await AsyncStorage.getItem('token');
+      const departDateTime = `${form.dateDepartPrev}T${form.heureDepartEffectif}:00`;
+      const arriveDateTime = `${form.dateDepartPrev}T${form.heureArrive}:00`;
       const body = {
         titre: form.titre,
         description: form.description,
         lieuDepart: form.lieuDepart,
         lieuArrive: form.lieuArrive,
-        dateDepartPrev: form.dateDepartPrev,
-        heureDepartEffectif: form.heureDepartEffectif,
-        heureArrive: form.heureArrive,
+        pointDeDepart: form.pointDeDepart,
+        pointArrivee: form.pointArrivee,
+        dateDepartPrev: departDateTime,
+        heureDepartEffectif: departDateTime,
+        heureArrive: arriveDateTime,
+        dateLimiteReservation: departDateTime,
+        dateLimiteConfirmation: departDateTime,
         nbrPlaceReservable: Number(form.nbrPlaceReservable),
         nbrPlaceRestante: Number(form.nbrPlaceReservable),
         statusVoyage: status,
         vehiculeId: form.vehiculeId,
-        chauffeurId: form.chauffeurId || undefined,
+        chauffeurId: form.chauffeurId,
         classVoyageId: form.classVoyageId,
-        prix: Number(form.prix),
         agenceVoyageId: agencyId,
       };
-
-      const url = isEdit
-        ? `${API_URL}/voyage/${editTripId}`
-        : `${API_URL}/voyage`;
+      const url = isEdit ? `${API_URL}/voyage/${editTripId}` : `${API_URL}/voyage`;
       const method = isEdit ? 'PUT' : 'POST';
-
       const res = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
       });
-
       if (res.ok) {
         toast.success(t.tripSaved);
         navigation.goBack();
@@ -345,210 +486,11 @@ export default function AgencyNewTrip() {
     }
   };
 
-  const Field = ({
-    label,
-    value,
-    onChangeText,
-    placeholder,
-    keyboardType,
-    multiline,
-    error,
-  }: {
-    label: string;
-    value: string;
-    onChangeText: (v: string) => void;
-    placeholder?: string;
-    keyboardType?: any;
-    multiline?: boolean;
-    error?: string;
-  }) => (
-    <View style={styles.field}>
-      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
-        {label}
-      </Text>
-      <TextInput
-        style={[
-          styles.fieldInput,
-          {
-            borderColor: error ? colors.error : theme.border,
-            backgroundColor: theme.backgroundAlt,
-            color: theme.textStrong,
-          },
-          multiline && {
-            height: 80,
-            textAlignVertical: 'top',
-            paddingTop: spacing.sm,
-          },
-        ]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={theme.text}
-        keyboardType={keyboardType}
-        multiline={multiline}
-      />
-      {error && (
-        <Text style={[styles.fieldError, { color: colors.error }]}>
-          {error}
-        </Text>
-      )}
-    </View>
-  );
+  // ── Step content (inline JSX, not inner components) ──────────────────────
 
-  const CityPicker = ({
-    label,
-    value,
-    onSelect,
-    error,
-  }: {
-    label: string;
-    value: string;
-    onSelect: (v: string) => void;
-    error?: string;
-  }) => (
-    <View style={[styles.field, { flex: 1 }]}>
-      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
-        {label}
-      </Text>
-      <View
-        style={[
-          styles.picker,
-          {
-            borderColor: error ? colors.error : theme.border,
-            backgroundColor: theme.backgroundAlt,
-          },
-        ]}
-      >
-        <ScrollView style={{ maxHeight: 120 }}>
-          {CITIES.map(city => (
-            <TouchableOpacity
-              key={city}
-              style={[
-                styles.pickerOption,
-                value === city && { backgroundColor: `${colors.primary}10` },
-              ]}
-              onPress={() => onSelect(city)}
-            >
-              <Text
-                style={[
-                  styles.pickerOptionText,
-                  { color: value === city ? colors.primary : theme.textStrong },
-                ]}
-              >
-                {city}
-              </Text>
-              {value === city && (
-                <Ionicons name="checkmark" size={14} color={colors.primary} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-      {error && (
-        <Text style={[styles.fieldError, { color: colors.error }]}>
-          {error}
-        </Text>
-      )}
-    </View>
-  );
-
-  const SelectPicker = ({
-    label,
-    value,
-    onSelect,
-    options,
-    placeholder,
-    error,
-  }: {
-    label: string;
-    value: string;
-    onSelect: (v: string) => void;
-    options: { id: string; label: string }[];
-    placeholder: string;
-    error?: string;
-  }) => {
-    const [open, setOpen] = useState(false);
-    const selected = options.find(o => o.id === value);
-    return (
-      <View style={styles.field}>
-        <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
-          {label}
-        </Text>
-        <TouchableOpacity
-          style={[
-            styles.selectBtn,
-            {
-              borderColor: error ? colors.error : theme.border,
-              backgroundColor: theme.backgroundAlt,
-            },
-          ]}
-          onPress={() => setOpen(!open)}
-        >
-          <Text
-            style={[
-              styles.selectBtnText,
-              { color: selected ? theme.textStrong : theme.text },
-            ]}
-          >
-            {selected?.label || placeholder}
-          </Text>
-          <Ionicons
-            name={open ? 'chevron-up' : 'chevron-down'}
-            size={16}
-            color={theme.text}
-          />
-        </TouchableOpacity>
-        {open && (
-          <View
-            style={[
-              styles.dropdown,
-              { backgroundColor: theme.background, borderColor: theme.border },
-            ]}
-          >
-            {options.map(opt => (
-              <TouchableOpacity
-                key={opt.id}
-                style={[
-                  styles.dropdownItem,
-                  { borderBottomColor: theme.border },
-                ]}
-                onPress={() => {
-                  onSelect(opt.id);
-                  setOpen(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.dropdownText,
-                    {
-                      color:
-                        value === opt.id ? colors.primary : theme.textStrong,
-                    },
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-                {value === opt.id && (
-                  <Ionicons name="checkmark" size={14} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-        {error && (
-          <Text style={[styles.fieldError, { color: colors.error }]}>
-            {error}
-          </Text>
-        )}
-      </View>
-    );
-  };
-
-  const Step1 = () => (
+  const step1 = (
     <View style={styles.stepContent}>
-      <Text style={[styles.stepSectionTitle, { color: theme.textStrong }]}>
-        {t.baseInfo}
-      </Text>
+      <Text style={[styles.stepSectionTitle, { color: theme.textStrong }]}>{t.baseInfo}</Text>
 
       <Field
         label={t.tripTitle}
@@ -556,6 +498,7 @@ export default function AgencyNewTrip() {
         onChangeText={v => update('titre', v)}
         placeholder={t.titlePlaceholder}
         error={errors.titre}
+        theme={theme}
       />
       <Field
         label={t.description}
@@ -564,6 +507,7 @@ export default function AgencyNewTrip() {
         placeholder={t.descPlaceholder}
         multiline
         error={errors.description}
+        theme={theme}
       />
 
       <View style={styles.twoCol}>
@@ -572,67 +516,91 @@ export default function AgencyNewTrip() {
           value={form.lieuDepart}
           onSelect={v => update('lieuDepart', v)}
           error={errors.lieuDepart}
+          theme={theme}
         />
         <CityPicker
           label={t.arrival}
           value={form.lieuArrive}
           onSelect={v => update('lieuArrive', v)}
           error={errors.lieuArrive}
+          theme={theme}
         />
       </View>
 
-      <Field
-        label={t.depDate}
-        value={form.dateDepartPrev}
-        onChangeText={v => update('dateDepartPrev', v)}
-        placeholder="2026-06-25"
-        error={errors.dateDepartPrev}
-      />
-
       <View style={styles.twoCol}>
-        <View style={[styles.field, { flex: 1 }]}>
-          <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
-            {t.depHour}
-          </Text>
-          <TextInput
-            style={[
-              styles.fieldInput,
-              {
-                borderColor: theme.border,
-                backgroundColor: theme.backgroundAlt,
-                color: theme.textStrong,
-              },
-            ]}
-            value={form.heureDepartEffectif}
-            onChangeText={v => update('heureDepartEffectif', v)}
-            placeholder="08:00"
-            placeholderTextColor={theme.text}
+        <View style={{ flex: 1 }}>
+          <Field
+            label={t.depPoint}
+            value={form.pointDeDepart}
+            onChangeText={v => update('pointDeDepart', v)}
+            placeholder={t.depPointPlaceholder}
+            error={errors.pointDeDepart}
+            theme={theme}
           />
         </View>
-        <View style={[styles.field, { flex: 1 }]}>
-          <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
-            {t.arrHour}
-          </Text>
-          <TextInput
-            style={[
-              styles.fieldInput,
-              {
-                borderColor: theme.border,
-                backgroundColor: theme.backgroundAlt,
-                color: theme.textStrong,
-              },
-            ]}
-            value={form.heureArrive}
-            onChangeText={v => update('heureArrive', v)}
-            placeholder="12:30"
-            placeholderTextColor={theme.text}
+        <View style={{ flex: 1 }}>
+          <Field
+            label={t.arrPoint}
+            value={form.pointArrivee}
+            onChangeText={v => update('pointArrivee', v)}
+            placeholder={t.arrPointPlaceholder}
+            error={errors.pointArrivee}
+            theme={theme}
           />
+        </View>
+      </View>
+
+      {/* Date picker */}
+      <View style={styles.field}>
+        <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.depDate}</Text>
+        <TouchableOpacity
+          style={[
+            styles.pickerBtn,
+            { borderColor: errors.dateDepartPrev ? colors.error : theme.border, backgroundColor: theme.backgroundAlt },
+          ]}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <Ionicons name="calendar-outline" size={18} color={theme.text} />
+          <Text style={[styles.pickerBtnText, { color: form.dateDepartPrev ? theme.textStrong : theme.text }]}>
+            {form.dateDepartPrev ? formatDateDisplay(form.dateDepartPrev, lang) : t.chooseDate}
+          </Text>
+        </TouchableOpacity>
+        {errors.dateDepartPrev && (
+          <Text style={[styles.fieldError, { color: colors.error }]}>{errors.dateDepartPrev}</Text>
+        )}
+      </View>
+
+      {/* Time pickers */}
+      <View style={styles.twoCol}>
+        <View style={[styles.field, { flex: 1 }]}>
+          <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.depHour}</Text>
+          <TouchableOpacity
+            style={[styles.pickerBtn, { borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}
+            onPress={() => { setTimePickerTarget('dep'); setShowTimePicker(true); }}
+          >
+            <Ionicons name="time-outline" size={18} color={theme.text} />
+            <Text style={[styles.pickerBtnText, { color: theme.textStrong }]}>
+              {form.heureDepartEffectif || t.chooseTime}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.field, { flex: 1 }]}>
+          <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.arrHour}</Text>
+          <TouchableOpacity
+            style={[styles.pickerBtn, { borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}
+            onPress={() => { setTimePickerTarget('arr'); setShowTimePicker(true); }}
+          >
+            <Ionicons name="time-outline" size={18} color={theme.text} />
+            <Text style={[styles.pickerBtnText, { color: theme.textStrong }]}>
+              {form.heureArrive || t.chooseTime}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
   );
 
-  const Step2 = () => (
+  const step2 = (
     <View style={styles.stepContent}>
       <SelectPicker
         label={t.vehicle}
@@ -641,11 +609,10 @@ export default function AgencyNewTrip() {
         placeholder={t.selectVehicle}
         options={vehicles.map(v => ({
           id: v.idVehicule,
-          label: `${v.nom || v.modele || v.plaqueMatricule} (${
-            v.nbrPlaces || '—'
-          } places)`,
+          label: `${v.nom || v.modele || v.plaqueMatricule} (${v.nbrPlaces || '—'} places)`,
         }))}
         error={errors.vehiculeId}
+        theme={theme}
       />
       <SelectPicker
         label={t.driver}
@@ -654,21 +621,24 @@ export default function AgencyNewTrip() {
         placeholder={t.selectDriver}
         options={drivers.map(d => ({
           id: d.userId,
-          label: `${d.prenom || ''} ${d.nom || ''}`.trim(),
+          label: `${d.first_name || ''} ${d.last_name || ''}`.trim(),
         }))}
+        error={errors.chauffeurId}
+        theme={theme}
       />
       <SelectPicker
         label={t.travelClass}
         value={form.classVoyageId}
         onSelect={v => update('classVoyageId', v)}
         placeholder={t.selectClass}
-        options={classes.map(c => ({ id: c.idClassVoyage, label: c.nom }))}
+        options={classes.map(c => ({ id: c.id, label: c.nom }))}
         error={errors.classVoyageId}
+        theme={theme}
       />
     </View>
   );
 
-  const Step3 = () => (
+  const step3 = (
     <View style={styles.stepContent}>
       <Field
         label={t.seatsAvailable}
@@ -676,19 +646,7 @@ export default function AgencyNewTrip() {
         onChangeText={v => update('nbrPlaceReservable', v)}
         keyboardType="numeric"
         error={errors.nbrPlaceReservable}
-      />
-    </View>
-  );
-
-  const Step4 = () => (
-    <View style={styles.stepContent}>
-      <Field
-        label={t.price}
-        value={form.prix}
-        onChangeText={v => update('prix', v)}
-        placeholder={t.pricePlaceholder}
-        keyboardType="numeric"
-        error={errors.prix}
+        theme={theme}
       />
       <SelectPicker
         label={t.status}
@@ -699,85 +657,43 @@ export default function AgencyNewTrip() {
           { id: 'EN_ATTENTE', label: t.draft },
           { id: 'PUBLIE', label: t.published },
         ]}
+        theme={theme}
       />
     </View>
   );
 
-  const Step5 = () => {
-    const selectedVehicle = vehicles.find(
-      v => v.idVehicule === form.vehiculeId,
-    );
-    const selectedClass = classes.find(
-      c => c.idClassVoyage === form.classVoyageId,
-    );
-    const rows = [
-      { label: lang === 'fr' ? 'Titre' : 'Title', value: form.titre },
-      {
-        label: lang === 'fr' ? 'Itinéraire' : 'Route',
-        value: `${form.lieuDepart} → ${form.lieuArrive}`,
-      },
-      { label: lang === 'fr' ? 'Date' : 'Date', value: form.dateDepartPrev },
-      {
-        label: lang === 'fr' ? 'Départ' : 'Departure',
-        value: form.heureDepartEffectif,
-      },
-      { label: lang === 'fr' ? 'Arrivée' : 'Arrival', value: form.heureArrive },
-      {
-        label: lang === 'fr' ? 'Véhicule' : 'Vehicle',
-        value: selectedVehicle?.modele || selectedVehicle?.nom || '—',
-      },
-      {
-        label: lang === 'fr' ? 'Classe' : 'Class',
-        value: selectedClass?.nom || '—',
-      },
-      {
-        label: lang === 'fr' ? 'Places' : 'Seats',
-        value: form.nbrPlaceReservable,
-      },
-      {
-        label: lang === 'fr' ? 'Prix' : 'Price',
-        value: `${Number(form.prix).toLocaleString('fr-FR')} FCFA`,
-      },
-      {
-        label: lang === 'fr' ? 'Statut' : 'Status',
-        value: form.statusVoyage === 'PUBLIE' ? t.published : t.draft,
-      },
-    ];
+  const selectedVehicle = vehicles.find(v => v.idVehicule === form.vehiculeId);
+  const selectedClass = classes.find(c => c.id === form.classVoyageId);
+  const summaryRows = [
+    { label: lang === 'fr' ? 'Titre' : 'Title', value: form.titre },
+    { label: lang === 'fr' ? 'Itinéraire' : 'Route', value: `${form.lieuDepart} → ${form.lieuArrive}` },
+    { label: lang === 'fr' ? 'Point de départ' : 'Boarding point', value: form.pointDeDepart },
+    { label: lang === 'fr' ? "Point d'arrivée" : 'Alighting point', value: form.pointArrivee },
+    { label: lang === 'fr' ? 'Date' : 'Date', value: form.dateDepartPrev ? formatDateDisplay(form.dateDepartPrev, lang) : '—' },
+    { label: lang === 'fr' ? 'Départ' : 'Departure', value: form.heureDepartEffectif },
+    { label: lang === 'fr' ? 'Arrivée' : 'Arrival', value: form.heureArrive },
+    { label: lang === 'fr' ? 'Véhicule' : 'Vehicle', value: selectedVehicle?.modele || selectedVehicle?.nom || '—' },
+    { label: lang === 'fr' ? 'Classe' : 'Class', value: selectedClass?.nom || '—' },
+    { label: lang === 'fr' ? 'Places' : 'Seats', value: form.nbrPlaceReservable },
+    { label: lang === 'fr' ? 'Statut' : 'Status', value: form.statusVoyage === 'PUBLIE' ? t.published : t.draft },
+  ];
 
-    return (
-      <View style={styles.stepContent}>
-        <Text style={[styles.stepSectionTitle, { color: theme.textStrong }]}>
-          {t.summary}
-        </Text>
-        <View
-          style={[
-            styles.summaryCard,
-            { backgroundColor: theme.background, borderColor: theme.border },
-          ]}
-        >
-          {rows.map((row, i) => (
-            <View
-              key={row.label}
-              style={[
-                styles.summaryRow,
-                {
-                  borderTopColor: theme.border,
-                  borderTopWidth: i === 0 ? 0 : 1,
-                },
-              ]}
-            >
-              <Text style={[styles.summaryLabel, { color: theme.text }]}>
-                {row.label}
-              </Text>
-              <Text style={[styles.summaryValue, { color: theme.textStrong }]}>
-                {row.value || '—'}
-              </Text>
-            </View>
-          ))}
-        </View>
+  const step4 = (
+    <View style={styles.stepContent}>
+      <Text style={[styles.stepSectionTitle, { color: theme.textStrong }]}>{t.summary}</Text>
+      <View style={[styles.summaryCard, { backgroundColor: theme.background, borderColor: theme.border }]}>
+        {summaryRows.map((row, i) => (
+          <View
+            key={row.label}
+            style={[styles.summaryRow, { borderTopColor: theme.border, borderTopWidth: i === 0 ? 0 : 1 }]}
+          >
+            <Text style={[styles.summaryLabel, { color: theme.text }]}>{row.label}</Text>
+            <Text style={[styles.summaryValue, { color: theme.textStrong }]}>{row.value || '—'}</Text>
+          </View>
+        ))}
       </View>
-    );
-  };
+    </View>
+  );
 
   if (loading) {
     return (
@@ -788,152 +704,100 @@ export default function AgencyNewTrip() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-    <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          onPress={() =>
-            step === 1 ? navigation.goBack() : setStep((step - 1) as Step)
-          }
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.textStrong }]}>
-          {isEdit ? t.titleEdit : t.titleNew}
-        </Text>
-        <View style={{ width: 24 }} />
-      </View>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: theme.background, borderBottomColor: theme.border }]}>
+          <TouchableOpacity onPress={() => step === 1 ? navigation.goBack() : setStep((step - 1) as Step)}>
+            <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.textStrong }]}>
+            {isEdit ? t.titleEdit : duplicateTripId ? t.titleDuplicate : t.titleNew}
+          </Text>
+          <View style={{ width: 24 }} />
+        </View>
 
-      {/* Step indicators */}
-      <View
-        style={[
-          styles.stepIndicators,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
-        ]}
-      >
-        {t.stepLabels.map((label, i) => {
-          const s = (i + 1) as Step;
-          const isActive = s === step;
-          const isDone = s < step;
-          return (
-            <TouchableOpacity
-              key={label}
-              style={styles.stepIndicator}
-              onPress={() => isDone && setStep(s)}
-            >
-              <View
-                style={[
+        {/* Step indicators */}
+        <View style={[styles.stepIndicators, { backgroundColor: theme.background, borderBottomColor: theme.border }]}>
+          {t.stepLabels.map((label, i) => {
+            const s = (i + 1) as Step;
+            const isActive = s === step;
+            const isDone = s < step;
+            return (
+              <TouchableOpacity key={label} style={styles.stepIndicator} onPress={() => isDone && setStep(s)}>
+                <View style={[
                   styles.stepDot,
                   isActive && { backgroundColor: colors.primary },
                   isDone && { backgroundColor: colors.primary },
                   !isActive && !isDone && { backgroundColor: theme.border },
-                ]}
-              >
-                {isDone ? (
-                  <Ionicons name="checkmark" size={12} color="#fff" />
-                ) : (
-                  <Text
-                    style={[
-                      styles.stepDotText,
-                      { color: isActive ? '#fff' : theme.text },
-                    ]}
-                  >
-                    {s}
-                  </Text>
-                )}
-              </View>
-              <Text
-                style={[
-                  styles.stepLabel,
-                  { color: isActive ? colors.primary : theme.text },
-                ]}
-              >
-                {label}
-              </Text>
+                ]}>
+                  {isDone
+                    ? <Ionicons name="checkmark" size={12} color="#fff" />
+                    : <Text style={[styles.stepDotText, { color: isActive ? '#fff' : theme.text }]}>{s}</Text>
+                  }
+                </View>
+                <Text style={[styles.stepLabel, { color: isActive ? colors.primary : theme.text }]}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {step === 1 && step1}
+          {step === 2 && step2}
+          {step === 3 && step3}
+          {step === 4 && step4}
+          <View style={{ height: 120 }} />
+        </ScrollView>
+
+        {/* Footer */}
+        <View style={[styles.footer, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+          {step < 4 ? (
+            <TouchableOpacity style={[styles.nextBtn, { backgroundColor: colors.primary }]} onPress={handleNext}>
+              <Text style={styles.nextBtnText}>{t.next}</Text>
             </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {step === 1 && <Step1 />}
-        {step === 2 && <Step2 />}
-        {step === 3 && <Step3 />}
-        {step === 4 && <Step4 />}
-        {step === 5 && <Step5 />}
-        <View style={{ height: 120 }} />
-      </ScrollView>
-
-      {/* Footer buttons */}
-      <View
-        style={[
-          styles.footer,
-          { backgroundColor: theme.background, borderTopColor: theme.border },
-        ]}
-      >
-        {step < 5 ? (
-          <TouchableOpacity
-            style={[styles.nextBtn, { backgroundColor: colors.primary }]}
-            onPress={handleNext}
-          >
-            <Text style={styles.nextBtnText}>{t.next}</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.finalButtons}>
-            {!isEdit && (
+          ) : (
+            <View style={styles.finalButtons}>
+              {!isEdit && (
+                <TouchableOpacity
+                  style={[styles.draftBtn, { borderColor: colors.primary }]}
+                  onPress={() => handleSubmit('EN_ATTENTE')}
+                  disabled={submitting}
+                >
+                  <Text style={[styles.draftBtnText, { color: colors.primary }]}>{t.saveDraft}</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
-                style={[styles.draftBtn, { borderColor: colors.primary }]}
-                onPress={() => handleSubmit('EN_ATTENTE')}
+                style={[styles.publishBtn, { backgroundColor: colors.primary, opacity: submitting ? 0.7 : 1 }]}
+                onPress={() => handleSubmit(isEdit ? form.statusVoyage : 'PUBLIE')}
                 disabled={submitting}
               >
-                <Text style={[styles.draftBtnText, { color: colors.primary }]}>
-                  {t.saveDraft}
-                </Text>
+                {submitting
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={styles.publishBtnText}>{isEdit ? t.edit : t.publish}</Text>
+                }
               </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={[
-                styles.publishBtn,
-                {
-                  backgroundColor: colors.primary,
-                  opacity: submitting ? 0.7 : 1,
-                },
-              ]}
-              onPress={() =>
-                handleSubmit(isEdit ? form.statusVoyage : 'PUBLIE')
-              }
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.publishBtnText}>
-                  {isEdit ? t.edit : t.publish}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+            </View>
+          )}
+        </View>
       </View>
-    </View>
+
+      <DatePickerModal
+        visible={showDatePicker}
+        lang={lang}
+        selectedDate={form.dateDepartPrev || null}
+        onApply={d => { if (d) update('dateDepartPrev', d); }}
+        onClose={() => setShowDatePicker(false)}
+      />
+
+      <TimePickerModal
+        visible={showTimePicker}
+        lang={lang}
+        title={timePickerTarget === 'dep' ? t.depHour : t.arrHour}
+        value={timePickerTarget === 'dep' ? form.heureDepartEffectif : form.heureArrive}
+        onApply={v => update(timePickerTarget === 'dep' ? 'heureDepartEffectif' : 'heureArrive', v)}
+        onClose={() => setShowTimePicker(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -958,13 +822,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   stepIndicator: { flex: 1, alignItems: 'center', gap: 4 },
-  stepDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  stepDot: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   stepDotText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   stepLabel: { ...typography.body, fontSize: 9, textAlign: 'center' },
   stepContent: { padding: spacing.lg, gap: spacing.md },
@@ -980,13 +838,18 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
   },
   fieldError: { ...typography.body, fontSize: typography.sizes.xs },
-  twoCol: { flexDirection: 'row', gap: spacing.md },
-  picker: {
+  pickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     borderWidth: 1,
     borderRadius: 4,
-    overflow: 'hidden',
-    maxHeight: 120,
+    paddingHorizontal: spacing.md,
+    height: 48,
   },
+  pickerBtnText: { ...typography.body, fontSize: typography.sizes.sm, flex: 1 },
+  twoCol: { flexDirection: 'row', gap: spacing.md },
+  picker: { borderWidth: 1, borderRadius: 4, overflow: 'hidden', maxHeight: 120 },
   pickerOption: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1005,13 +868,7 @@ const styles = StyleSheet.create({
     height: 48,
   },
   selectBtnText: { ...typography.body, fontSize: typography.sizes.sm },
-  dropdown: {
-    borderWidth: 1,
-    borderRadius: 4,
-    marginTop: 4,
-    overflow: 'hidden',
-    zIndex: 10,
-  },
+  dropdown: { borderWidth: 1, borderRadius: 4, marginTop: 4, overflow: 'hidden', zIndex: 10 },
   dropdownItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1030,47 +887,33 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   summaryLabel: { ...typography.body, fontSize: typography.sizes.sm },
-  summaryValue: {
-    ...typography.bodyBold,
-    fontSize: typography.sizes.sm,
-    flex: 1,
-    textAlign: 'right',
+  summaryValue: { ...typography.bodyBold, fontSize: typography.sizes.sm, flex: 1, textAlign: 'right' },
+  footer: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderTopWidth: 1 },
+  nextBtn: { height: 52, borderRadius: 4, justifyContent: 'center', alignItems: 'center' },
+  nextBtnText: { ...typography.bodyBold, fontSize: typography.sizes.md, color: '#fff', letterSpacing: 0.3 },
+  finalButtons: { gap: spacing.sm },
+  draftBtn: { height: 52, borderRadius: 4, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
+  draftBtnText: { ...typography.bodyBold, fontSize: typography.sizes.md },
+  publishBtn: { height: 52, borderRadius: 4, justifyContent: 'center', alignItems: 'center' },
+  publishBtnText: { ...typography.bodyBold, fontSize: typography.sizes.md, color: '#fff' },
+  cityModalContainer: { flex: 1 },
+  cityModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
   },
-  footer: {
+  cityModalTitle: { ...typography.heading, fontSize: typography.sizes.md },
+  cityModalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    borderTopWidth: 1,
+    borderBottomWidth: 1,
   },
-  nextBtn: {
-    height: 52,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  nextBtnText: {
-    ...typography.bodyBold,
-    fontSize: typography.sizes.md,
-    color: '#fff',
-    letterSpacing: 0.3,
-  },
-  finalButtons: { gap: spacing.sm },
-  draftBtn: {
-    height: 52,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  draftBtnText: { ...typography.bodyBold, fontSize: typography.sizes.md },
-  publishBtn: {
-    height: 52,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  publishBtnText: {
-    ...typography.bodyBold,
-    fontSize: typography.sizes.md,
-    color: '#fff',
-  },
+  cityModalItemText: { ...typography.body, fontSize: typography.sizes.md },
 });

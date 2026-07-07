@@ -425,7 +425,7 @@ export default function Home({
             { backgroundColor: classColor + '18' },
           ]}
         >
-          {item.smallImage
+          {item.smallImage?.startsWith('http')
             ? <Image source={{ uri: item.smallImage }} style={styles.tripImage} resizeMode="cover" />
             : <TripPlaceholder width="100%" height="100%" />}
           <View style={[styles.classBadge, { backgroundColor: classColor }]}>

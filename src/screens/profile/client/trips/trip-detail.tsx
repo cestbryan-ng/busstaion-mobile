@@ -256,6 +256,7 @@ export default function TripDetailScreen() {
       });
       if (res.ok) {
         const data = await res.json();
+        console.log('Trip data:', data);
         setTrip(data);
       }
     } catch {
@@ -410,7 +411,7 @@ export default function TripDetailScreen() {
                     { backgroundColor: theme.backgroundAlt },
                   ]}
                 >
-                  {item !== 'placeholder' ? (
+                  {item !== 'placeholder' && item.startsWith('http') ? (
                     <Image
                       source={{ uri: item }}
                       style={styles.carouselImage}

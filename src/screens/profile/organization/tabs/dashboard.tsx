@@ -80,6 +80,7 @@ type Trip = {
   dateDepartPrev: string;
   nomClasseVoyage?: string;
   nbrPlaceRestante?: number;
+  nbrPlaceReservable?: number;
   prix: number;
   smallImage?: string;
   statusVoyage: string;
@@ -450,7 +451,7 @@ export default function OrgDashboard({
       evolution: 'Évolution (6 derniers mois)',
       seeAll: 'Voir tout',
       recentTrips: 'Voyages récents',
-      seatsLeft: 'places restantes',
+      seatsLeft: 'places réservées',
       recentReservations: 'Réservations récentes',
       seeAll2: 'Voir toutes',
       revenueEvolution: 'Évolution des revenus',
@@ -485,7 +486,7 @@ export default function OrgDashboard({
       evolution: 'Evolution (last 6 months)',
       seeAll: 'See all',
       recentTrips: 'Recent trips',
-      seatsLeft: 'seats left',
+      seatsLeft: 'seats booked',
       recentReservations: 'Recent reservations',
       seeAll2: 'See all',
       revenueEvolution: 'Revenue evolution',
@@ -648,7 +649,7 @@ export default function OrgDashboard({
     const min = Math.min(...values);
     const max = Math.max(...values) || 1;
     const range = max - min || 1;
-    const chartW = width - spacing.lg * 4 - spacing.md * 2;
+    const chartW = width - spacing.lg * 4 - spacing.md * 2 - 40;
     const chartH = 120;
     const stepX = chartW / (data.length - 1);
     return data.map((d, i) => ({
@@ -1099,11 +1100,11 @@ export default function OrgDashboard({
                           {trip.nomClasseVoyage}
                         </Text>
                       )}
-                      {trip.nbrPlaceRestante !== undefined && (
+                      {trip.nbrPlaceRestante !== undefined && trip.nbrPlaceReservable !== undefined && (
                         <Text
                           style={[styles.tripSeats, { color: colors.success }]}
                         >
-                          {trip.nbrPlaceRestante} {t.seatsLeft}
+                          {Math.max(0, trip.nbrPlaceRestante - trip.nbrPlaceReservable)} {t.seatsLeft}
                         </Text>
                       )}
                       <Text
@@ -1262,6 +1263,7 @@ export default function OrgDashboard({
                         height: 2,
                         backgroundColor: colors.success,
                         transform: [{ rotate: `${angle}deg` }],
+                        transformOrigin: 'left center',
                       }}
                     />
                   );

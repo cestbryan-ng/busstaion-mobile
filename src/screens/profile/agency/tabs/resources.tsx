@@ -16,15 +16,18 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useScrollToTop } from '@react-navigation/native';
+import { useScrollToTop } from '@react-navigation/native';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import ConfirmModal from '../../../../components/confirm-modal';
 import { SkeletonResourcesScreen } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
 import { useToast } from '../../../../components/toast';
 import { useDebounce } from '../../../../hooks/useDebounce';
+import ImagePlaceholder from '../../../../assets/placeholders/image.svg';
+import AvatarPlaceholder from '../../../../assets/placeholders/avatar-2.svg';
 
 type Vehicle = {
   idVehicule: string;
@@ -51,13 +54,19 @@ type Driver = {
 
 type Employee = {
   employeId: string;
+  userId?: string;
   firstName?: string;
   lastName?: string;
   username?: string;
   email?: string;
+  phoneNumber?: string;
   poste?: string;
   departement?: string;
+  dateEmbauche?: string;
   statutEmploye?: string;
+  nomManager?: string;
+  agenceVoyageId?: string;
+  nomAgence?: string;
 };
 
 type TravelClass = {
@@ -158,21 +167,6 @@ const CLASS_ICON_COLORS: Record<string, string> = {
   ECONOMY: '#6b7280',
 };
 
-function getInitials(firstName?: string, lastName?: string): string {
-  return `${(firstName || '').charAt(0)}${(lastName || '').charAt(
-    0,
-  )}`.toUpperCase();
-}
-
-const AVATAR_COLORS = [
-  '#4f46e5',
-  '#0891b2',
-  '#059669',
-  '#d97706',
-  '#dc2626',
-  '#7c3aed',
-  '#db2777',
-];
 
 function Field({
   label,
@@ -251,10 +245,13 @@ export default function AgencyResources() {
   useScrollToTop(scrollRef);
   const [agencyId, setAgencyId] = useState('');
   const [token, setToken] = useState('');
+  const [currentUserId, setCurrentUserId] = useState('');
   const [activeTab, setActiveTab] = useState<ResourceTab>('vehicles');
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search);
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
   // Data
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -269,6 +266,7 @@ export default function AgencyResources() {
   const [editItem, setEditItem] = useState<any>(null);
   const [deleteItem, setDeleteItem] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [menuItem, setMenuItem] = useState<any>(null);
 
   // Forms
   const [vForm, setVForm] = useState({
@@ -437,6 +435,7 @@ export default function AgencyResources() {
       const user = userRaw ? JSON.parse(userRaw) : null;
       const chefId = user?.userId || user?.id;
       if (!chefId) return;
+      setCurrentUserId(chefId);
 
       const headers = { Authorization: `Bearer ${tok}` };
       const agencyRes = await fetch(`${API_URL}/agence/chef-agence/${chefId}`, {
@@ -444,14 +443,13 @@ export default function AgencyResources() {
       });
       if (!agencyRes.ok) return;
       const agency = await agencyRes.json();
-      const aid = agency.agencyId;
-      setAgencyId(aid);
+      setAgencyId(agency.id);
 
       const [vRes, dRes, eRes, cRes] = await Promise.allSettled([
-        fetch(`${API_URL}/vehicule/agence/${aid}`, { headers }),
-        fetch(`${API_URL}/utilisateur/chauffeurs/${aid}`, { headers }),
-        fetch(`${API_URL}/utilisateur/employes/${aid}`, { headers }),
-        fetch(`${API_URL}/class-voyage/agence/${aid}`, { headers }),
+        fetch(`${API_URL}/vehicule/agence/${agency.id}`, { headers }),
+        fetch(`${API_URL}/utilisateur/chauffeurs/${agency.id}`, { headers }),
+        fetch(`${API_URL}/utilisateur/employes/${agency.id}`, { headers }),
+        fetch(`${API_URL}/class-voyage/agence/${agency.id}`, { headers }),
       ]);
 
       if (vRes.status === 'fulfilled' && vRes.value.ok) {
@@ -491,38 +489,38 @@ export default function AgencyResources() {
 
   const filteredVehicles = useMemo(
     () =>
-      vehicles.filter(
-        v =>
-          !debouncedSearch.trim() ||
-          [v.nom, v.modele, v.plaqueMatricule].some(f =>
-            f?.toLowerCase().includes(debouncedSearch.toLowerCase()),
-          ),
-      ),
-    [vehicles, debouncedSearch],
+      vehicles.filter(v => {
+        if (filterStatus !== 'ALL' && (v.statut || 'DISPONIBLE').toUpperCase() !== filterStatus) return false;
+        if (!debouncedSearch.trim()) return true;
+        return [v.nom, v.modele, v.plaqueMatricule].some(f =>
+          f?.toLowerCase().includes(debouncedSearch.toLowerCase()),
+        );
+      }),
+    [vehicles, debouncedSearch, filterStatus],
   );
 
   const filteredDrivers = useMemo(
     () =>
-      drivers.filter(
-        d =>
-          !debouncedSearch.trim() ||
-          [d.first_name, d.last_name, d.phone_number].some(f =>
-            f?.toLowerCase().includes(debouncedSearch.toLowerCase()),
-          ),
-      ),
-    [drivers, debouncedSearch],
+      drivers.filter(d => {
+        if (filterStatus !== 'ALL' && (d.statut || 'DISPONIBLE').toUpperCase() !== filterStatus) return false;
+        if (!debouncedSearch.trim()) return true;
+        return [d.first_name, d.last_name, d.phone_number].some(f =>
+          f?.toLowerCase().includes(debouncedSearch.toLowerCase()),
+        );
+      }),
+    [drivers, debouncedSearch, filterStatus],
   );
 
   const filteredEmployees = useMemo(
     () =>
-      employees.filter(
-        e =>
-          !debouncedSearch.trim() ||
-          [e.firstName, e.lastName, e.poste, e.departement].some(f =>
-            f?.toLowerCase().includes(debouncedSearch.toLowerCase()),
-          ),
-      ),
-    [employees, debouncedSearch],
+      employees.filter(e => {
+        if (filterStatus !== 'ALL' && (e.statutEmploye || 'ACTIF').toUpperCase() !== filterStatus) return false;
+        if (!debouncedSearch.trim()) return true;
+        return [e.firstName, e.lastName, e.poste, e.departement, e.phoneNumber].some(f =>
+          f?.toLowerCase().includes(debouncedSearch.toLowerCase()),
+        );
+      }),
+    [employees, debouncedSearch, filterStatus],
   );
 
   const filteredClasses = useMemo(
@@ -533,6 +531,29 @@ export default function AgencyResources() {
       ),
     [classes, debouncedSearch],
   );
+
+  const STATUS_CHIPS: Record<ResourceTab, { key: string; label: string }[]> = {
+    vehicles: [
+      { key: 'ALL', label: lang === 'fr' ? 'Tous' : 'All' },
+      { key: 'DISPONIBLE', label: lang === 'fr' ? 'Disponible' : 'Available' },
+      { key: 'EN_VOYAGE', label: lang === 'fr' ? 'En voyage' : 'On trip' },
+      { key: 'MAINTENANCE', label: 'Maintenance' },
+      { key: 'HORS_SERVICE', label: lang === 'fr' ? 'Hors service' : 'Out of service' },
+    ],
+    drivers: [
+      { key: 'ALL', label: lang === 'fr' ? 'Tous' : 'All' },
+      { key: 'DISPONIBLE', label: lang === 'fr' ? 'Disponible' : 'Available' },
+      { key: 'EN_VOYAGE', label: lang === 'fr' ? 'En voyage' : 'On trip' },
+      { key: 'REPOS', label: lang === 'fr' ? 'Repos' : 'Rest' },
+    ],
+    employees: [
+      { key: 'ALL', label: lang === 'fr' ? 'Tous' : 'All' },
+      { key: 'ACTIF', label: lang === 'fr' ? 'Actif' : 'Active' },
+      { key: 'EN_CONGE', label: lang === 'fr' ? 'En congé' : 'On leave' },
+      { key: 'INACTIF', label: lang === 'fr' ? 'Inactif' : 'Inactive' },
+    ],
+    classes: [],
+  };
 
   const openCreate = () => {
     setEditItem(null);
@@ -593,8 +614,8 @@ export default function AgencyResources() {
       });
     if (activeTab === 'employees')
       setEForm({
-        firstName: item.firstName || '',
-        lastName: item.lastName || '',
+        firstName: item.firstName || item.first_name || '',
+        lastName: item.lastName || item.last_name || '',
         email: item.email || '',
         poste: item.poste || '',
         departement: item.departement || '',
@@ -644,7 +665,17 @@ export default function AgencyResources() {
         }
       }
       if (activeTab === 'drivers') {
-        const body = { ...dForm, role: 'CHAUFFEUR', agenceId: agencyId };
+        const body = {
+          first_name: dForm.first_name,
+          last_name: dForm.last_name,
+          email: dForm.email,
+          phone_number: dForm.phone_number,
+          username: dForm.username,
+          password: dForm.password,
+          role: ['EMPLOYE'],
+          gender: 'MALE',
+          agenceVoyageId: agencyId,
+        };
         const url = isEdit
           ? `${API_URL}/utilisateur/chauffeur/${editItem.userId}`
           : `${API_URL}/utilisateur/chauffeur`;
@@ -663,7 +694,18 @@ export default function AgencyResources() {
         }
       }
       if (activeTab === 'employees') {
-        const body = { ...eForm, role: 'EMPLOYE', agenceId: agencyId };
+        const body = {
+          first_name: eForm.firstName,
+          last_name: eForm.lastName,
+          email: eForm.email,
+          username: eForm.username,
+          password: eForm.password,
+          role: ['EMPLOYE'],
+          gender: 'MALE',
+          poste: eForm.poste,
+          departement: eForm.departement,
+          agenceVoyageId: agencyId,
+        };
         const url = isEdit
           ? `${API_URL}/utilisateur/employe/${editItem.employeId}`
           : `${API_URL}/utilisateur/employe`;
@@ -689,7 +731,7 @@ export default function AgencyResources() {
           idAgenceVoyage: agencyId,
         };
         const url = isEdit
-          ? `${API_URL}/class-voyage/${editItem.idClassVoyage}`
+          ? `${API_URL}/class-voyage/${editItem.id || editItem.idClassVoyage}`
           : `${API_URL}/class-voyage`;
         const method = isEdit ? 'PUT' : 'POST';
         const res = await fetch(url, {
@@ -724,7 +766,7 @@ export default function AgencyResources() {
       if (activeTab === 'employees')
         url = `${API_URL}/utilisateur/employe/${deleteItem.employeId}`;
       if (activeTab === 'classes')
-        url = `${API_URL}/class-voyage/${deleteItem.idClassVoyage}`;
+        url = `${API_URL}/class-voyage/${deleteItem.id || deleteItem.idClassVoyage}`;
       const res = await fetch(url, { method: 'DELETE', headers });
       if (res.ok) {
         toast.success(t.deletedSuccess);
@@ -751,13 +793,6 @@ export default function AgencyResources() {
     classes: t.searchClass,
   }[activeTab];
 
-  const addLabel = {
-    vehicles: t.addVehicle,
-    drivers: t.addDriver,
-    employees: t.addEmployee,
-    classes: t.addClass,
-  }[activeTab];
-
   const formTitle = {
     vehicles: editItem ? t.editVehicle : t.newVehicle,
     drivers: editItem ? t.editDriver : t.newDriver,
@@ -766,24 +801,16 @@ export default function AgencyResources() {
   }[activeTab];
 
   const ThreeDotMenu = ({ item }: { item: any }) => (
-    <View style={{ flexDirection: 'column', gap: 0 }}>
-      <TouchableOpacity
-        onPress={() => openEdit(item)}
-        style={styles.dotMenuItem}
-      >
-        <Ionicons name="create-outline" size={16} color={theme.text} />
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => openDelete(item)}
-        style={styles.dotMenuItem}
-      >
-        <Ionicons name="trash-outline" size={16} color={colors.error} />
-      </TouchableOpacity>
-    </View>
+    <TouchableOpacity onPress={() => setMenuItem(item)} style={styles.dotMenuBtn}>
+      <Ionicons name="ellipsis-vertical" size={18} color={theme.text} />
+    </TouchableOpacity>
   );
 
   const VehiclesTab = () => (
     <>
+      {filteredVehicles.length === 0 && (
+        <EmptyState type="result" message={lang === 'fr' ? 'Aucun véhicule' : 'No vehicles'} textColor={theme.text} />
+      )}
       {filteredVehicles.map((v, i) => {
         const statusKey = (v.statut || 'DISPONIBLE')
           .toUpperCase()
@@ -804,14 +831,14 @@ export default function AgencyResources() {
                 { backgroundColor: theme.backgroundAlt },
               ]}
             >
-              {v.lienPhoto ? (
+              {v.lienPhoto && v.lienPhoto.startsWith('http') ? (
                 <Image
                   source={{ uri: v.lienPhoto }}
                   style={styles.vehicleImageInner}
                   resizeMode="cover"
                 />
               ) : (
-                <Ionicons name="bus-outline" size={24} color={theme.text} />
+                <ImagePlaceholder width="65%" height="65%" />
               )}
             </View>
             <View style={styles.listInfo}>
@@ -865,9 +892,7 @@ export default function AgencyResources() {
                 )}
               </View>
             </View>
-            <TouchableOpacity onPress={() => openEdit(v)}>
-              <Ionicons name="ellipsis-vertical" size={20} color={theme.text} />
-            </TouchableOpacity>
+            <ThreeDotMenu item={v} />
           </View>
         );
       })}
@@ -876,13 +901,14 @@ export default function AgencyResources() {
 
   const DriversTab = () => (
     <>
-      {filteredDrivers.map((d, i) => {
+      {filteredDrivers.length === 0 && (
+        <EmptyState type="result" message={lang === 'fr' ? 'Aucun chauffeur' : 'No drivers'} textColor={theme.text} />
+      )}
+      {filteredDrivers.map(d => {
         const statusKey = (d.statut || 'DISPONIBLE')
           .toUpperCase()
           .replace(/ /g, '_');
         const statusCfg = DRIVER_STATUS[statusKey] || DRIVER_STATUS.DISPONIBLE;
-        const initials = getInitials(d.first_name, d.last_name);
-        const avatarColor = AVATAR_COLORS[i % AVATAR_COLORS.length];
         return (
           <View
             key={d.userId}
@@ -891,8 +917,8 @@ export default function AgencyResources() {
               { backgroundColor: theme.background, borderColor: theme.border },
             ]}
           >
-            <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-              <Text style={styles.avatarText}>{initials}</Text>
+            <View style={styles.avatar}>
+              <AvatarPlaceholder width="100%" height="100%" />
             </View>
             <View style={styles.listInfo}>
               <View style={styles.listTopRow}>
@@ -902,12 +928,7 @@ export default function AgencyResources() {
                 >
                   {d.first_name} {d.last_name}
                 </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: statusCfg.bg },
-                  ]}
-                >
+                <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
                   <Text style={[styles.statusText, { color: statusCfg.color }]}>
                     {lang === 'fr' ? statusCfg.label : statusCfg.labelEn}
                   </Text>
@@ -920,15 +941,11 @@ export default function AgencyResources() {
                 <View style={styles.listMeta}>
                   <Ionicons name="card-outline" size={12} color={theme.text} />
                   <Text style={[styles.listMetaText, { color: theme.text }]}>
-                    {' '}
-                    {t.permit} {d.permis}
+                    {' '}{t.permit} {d.permis}
                   </Text>
                 </View>
               )}
             </View>
-            <TouchableOpacity onPress={() => openEdit(d)}>
-              <Ionicons name="ellipsis-vertical" size={20} color={theme.text} />
-            </TouchableOpacity>
           </View>
         );
       })}
@@ -937,13 +954,14 @@ export default function AgencyResources() {
 
   const EmployeesTab = () => (
     <>
-      {filteredEmployees.map((e, i) => {
+      {filteredEmployees.length === 0 && (
+        <EmptyState type="result" message={lang === 'fr' ? 'Aucun employé' : 'No employees'} textColor={theme.text} />
+      )}
+      {filteredEmployees.map(e => {
         const statusKey = (e.statutEmploye || 'ACTIF')
           .toUpperCase()
           .replace(/ /g, '_');
         const statusCfg = EMPLOYEE_STATUS[statusKey] || EMPLOYEE_STATUS.ACTIF;
-        const initials = getInitials(e.firstName, e.lastName);
-        const avatarColor = AVATAR_COLORS[i % AVATAR_COLORS.length];
         return (
           <View
             key={e.employeId}
@@ -952,8 +970,8 @@ export default function AgencyResources() {
               { backgroundColor: theme.background, borderColor: theme.border },
             ]}
           >
-            <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-              <Text style={styles.avatarText}>{initials}</Text>
+            <View style={styles.avatar}>
+              <AvatarPlaceholder width="100%" height="100%" />
             </View>
             <View style={styles.listInfo}>
               <View style={styles.listTopRow}>
@@ -963,27 +981,28 @@ export default function AgencyResources() {
                 >
                   {e.firstName} {e.lastName}
                 </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: statusCfg.bg },
-                  ]}
-                >
+                <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
                   <Text style={[styles.statusText, { color: statusCfg.color }]}>
                     {lang === 'fr' ? statusCfg.label : statusCfg.labelEn}
                   </Text>
                 </View>
               </View>
-              <Text style={[styles.listSub, { color: theme.text }]}>
-                {e.poste}
-              </Text>
-              <Text style={[styles.listMetaText, { color: theme.text }]}>
-                {t.department}: {e.departement}
-              </Text>
+              <Text style={[styles.listSub, { color: theme.text }]}>{e.poste}</Text>
+              {e.phoneNumber && (
+                <View style={styles.listMeta}>
+                  <Ionicons name="call-outline" size={12} color={theme.text} />
+                  <Text style={[styles.listMetaText, { color: theme.text }]}>
+                    {' '}{e.phoneNumber}
+                  </Text>
+                </View>
+              )}
+              {e.departement && (
+                <Text style={[styles.listMetaText, { color: theme.text }]}>
+                  {t.department}: {e.departement}
+                </Text>
+              )}
             </View>
-            <TouchableOpacity onPress={() => openEdit(e)}>
-              <Ionicons name="ellipsis-vertical" size={20} color={theme.text} />
-            </TouchableOpacity>
+            {e.userId !== currentUserId && <ThreeDotMenu item={e} />}
           </View>
         );
       })}
@@ -992,6 +1011,9 @@ export default function AgencyResources() {
 
   const ClassesTab = () => (
     <>
+      {filteredClasses.length === 0 && (
+        <EmptyState type="result" message={lang === 'fr' ? 'Aucune classe' : 'No classes'} textColor={theme.text} />
+      )}
       {filteredClasses.map((c, i) => {
         const classKey = c.nom.toUpperCase().split(' ')[0];
         const iconName = CLASS_ICONS[classKey] || 'star-outline';
@@ -1027,299 +1049,11 @@ export default function AgencyResources() {
                 </Text>
               )}
             </View>
-            <TouchableOpacity onPress={() => openEdit(c)}>
-              <Ionicons name="ellipsis-vertical" size={20} color={theme.text} />
-            </TouchableOpacity>
+            <ThreeDotMenu item={c} />
           </View>
         );
       })}
     </>
-  );
-
-  const FormModal = () => (
-    <Modal
-      visible={formModal}
-      animationType="slide"
-      onRequestClose={() => setFormModal(false)}
-    >
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <View
-          style={[styles.modalContainer, { backgroundColor: theme.background }]}
-        >
-          {/* Modal header */}
-          <View
-            style={[styles.modalHeader, { borderBottomColor: theme.border }]}
-          >
-            <Text style={[styles.modalTitle, { color: theme.textStrong }]}>
-              {formTitle}
-            </Text>
-            <TouchableOpacity onPress={() => setFormModal(false)}>
-              <Ionicons name="close" size={24} color={theme.textStrong} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            contentContainerStyle={styles.modalContent}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Vehicle form */}
-            {activeTab === 'vehicles' && (
-              <>
-                <Field
-                  label={t.vehicleName}
-                  value={vForm.nom}
-                  onChangeText={v => setVForm(f => ({ ...f, nom: v }))}
-                  placeholder="Mercedes Sprinter"
-                  required
-                />
-                <Field
-                  label={t.model}
-                  value={vForm.modele}
-                  onChangeText={v => setVForm(f => ({ ...f, modele: v }))}
-                  placeholder="2022"
-                />
-                <Field
-                  label={t.plate}
-                  value={vForm.plaqueMatricule}
-                  onChangeText={v =>
-                    setVForm(f => ({ ...f, plaqueMatricule: v }))
-                  }
-                  placeholder="1234AB56"
-                  required
-                />
-                <Field
-                  label={t.seats}
-                  value={vForm.nbrPlaces}
-                  onChangeText={v => setVForm(f => ({ ...f, nbrPlaces: v }))}
-                  keyboardType="numeric"
-                  placeholder="50"
-                  required
-                />
-                <Field
-                  label={t.desc}
-                  value={vForm.description}
-                  onChangeText={v => setVForm(f => ({ ...f, description: v }))}
-                  multiline
-                />
-              </>
-            )}
-
-            {/* Driver form */}
-            {activeTab === 'drivers' && (
-              <>
-                <View style={styles.twoCol}>
-                  <View style={{ flex: 1 }}>
-                    <Field
-                      label={t.firstName}
-                      value={dForm.first_name}
-                      onChangeText={v =>
-                        setDForm(f => ({ ...f, first_name: v }))
-                      }
-                      placeholder="Jean"
-                      required
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Field
-                      label={t.lastName}
-                      value={dForm.last_name}
-                      onChangeText={v =>
-                        setDForm(f => ({ ...f, last_name: v }))
-                      }
-                      placeholder="Kouassi"
-                      required
-                    />
-                  </View>
-                </View>
-                <Field
-                  label={t.email}
-                  value={dForm.email}
-                  onChangeText={v => setDForm(f => ({ ...f, email: v }))}
-                  keyboardType="email-address"
-                  placeholder="jean@example.com"
-                  required
-                />
-                <Field
-                  label={t.phone}
-                  value={dForm.phone_number}
-                  onChangeText={v => setDForm(f => ({ ...f, phone_number: v }))}
-                  keyboardType="phone-pad"
-                  placeholder="+237650000000"
-                  required
-                />
-                <Field
-                  label={t.username}
-                  value={dForm.username}
-                  onChangeText={v => setDForm(f => ({ ...f, username: v }))}
-                  placeholder="jkouassi"
-                  required
-                />
-                <Field
-                  label={t.permitNum}
-                  value={dForm.permis}
-                  onChangeText={v => setDForm(f => ({ ...f, permis: v }))}
-                  placeholder="ABCDE"
-                />
-                {!editItem && (
-                  <Field
-                    label={t.password}
-                    value={dForm.password}
-                    onChangeText={v => setDForm(f => ({ ...f, password: v }))}
-                    placeholder="••••••••"
-                    required
-                  />
-                )}
-              </>
-            )}
-
-            {/* Employee form */}
-            {activeTab === 'employees' && (
-              <>
-                <View style={styles.twoCol}>
-                  <View style={{ flex: 1 }}>
-                    <Field
-                      label={t.firstName}
-                      value={eForm.firstName}
-                      onChangeText={v =>
-                        setEForm(f => ({ ...f, firstName: v }))
-                      }
-                      placeholder="Alice"
-                      required
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Field
-                      label={t.lastName}
-                      value={eForm.lastName}
-                      onChangeText={v => setEForm(f => ({ ...f, lastName: v }))}
-                      placeholder="Nguessan"
-                      required
-                    />
-                  </View>
-                </View>
-                <Field
-                  label={t.email}
-                  value={eForm.email}
-                  onChangeText={v => setEForm(f => ({ ...f, email: v }))}
-                  keyboardType="email-address"
-                  placeholder="alice@example.com"
-                  required
-                />
-                <Field
-                  label={t.position}
-                  value={eForm.poste}
-                  onChangeText={v => setEForm(f => ({ ...f, poste: v }))}
-                  placeholder="Responsable Commercial"
-                  required
-                />
-                <Field
-                  label={t.dept}
-                  value={eForm.departement}
-                  onChangeText={v => setEForm(f => ({ ...f, departement: v }))}
-                  placeholder="Ventes"
-                />
-                <Field
-                  label={t.username}
-                  value={eForm.username}
-                  onChangeText={v => setEForm(f => ({ ...f, username: v }))}
-                  placeholder="anguessan"
-                  required
-                />
-                {!editItem && (
-                  <Field
-                    label={t.password}
-                    value={eForm.password}
-                    onChangeText={v => setEForm(f => ({ ...f, password: v }))}
-                    placeholder="••••••••"
-                    required
-                  />
-                )}
-              </>
-            )}
-
-            {/* Class form */}
-            {activeTab === 'classes' && (
-              <>
-                <View style={styles.twoCol}>
-                  <View style={{ flex: 1 }}>
-                    <Field
-                      label={t.className}
-                      value={cForm.nom}
-                      onChangeText={v => setCForm(f => ({ ...f, nom: v }))}
-                      placeholder="VIP*"
-                      required
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Field
-                      label={t.price}
-                      value={cForm.prix}
-                      onChangeText={v => setCForm(f => ({ ...f, prix: v }))}
-                      keyboardType="numeric"
-                      placeholder="Ex: 15000 *"
-                      required
-                    />
-                  </View>
-                </View>
-                <View style={styles.twoCol}>
-                  <View style={{ flex: 1 }}>
-                    <Field
-                      label={t.cancelRateField}
-                      value={cForm.tauxAnnulation}
-                      onChangeText={v =>
-                        setCForm(f => ({ ...f, tauxAnnulation: v }))
-                      }
-                      keyboardType="numeric"
-                      placeholder="Ex: 5"
-                      required
-                    />
-                  </View>
-                </View>
-                <Field
-                  label={t.desc}
-                  value={cForm.description}
-                  onChangeText={v => setCForm(f => ({ ...f, description: v }))}
-                  placeholder="Description de la classe (optionnel)"
-                  multiline
-                />
-              </>
-            )}
-          </ScrollView>
-
-          {/* Buttons */}
-          <View style={[styles.modalFooter, { borderTopColor: theme.border }]}>
-            <TouchableOpacity
-              style={[styles.cancelBtn, { borderColor: theme.border }]}
-              onPress={() => setFormModal(false)}
-            >
-              <Text style={[styles.cancelBtnText, { color: theme.text }]}>
-                {t.close}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.saveBtn,
-                {
-                  backgroundColor: colors.primary,
-                  opacity: submitting ? 0.7 : 1,
-                },
-              ]}
-              onPress={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.saveBtnText}>{t.save}</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
   );
 
   if (loading) { return <SkeletonResourcesScreen />; }
@@ -1340,25 +1074,12 @@ export default function AgencyResources() {
         <View
           style={[
             styles.header,
-            {
-              backgroundColor: theme.background,
-              borderBottomColor: theme.border,
-            },
+            { backgroundColor: theme.background, borderBottomColor: theme.border },
           ]}
         >
           <Text style={[styles.title, { color: theme.textStrong }]}>
             {t.title}
           </Text>
-          <TouchableOpacity>
-            <View
-              style={[
-                styles.avatarBtn,
-                { backgroundColor: theme.backgroundAlt },
-              ]}
-            >
-              <Ionicons name="person-outline" size={18} color={theme.text} />
-            </View>
-          </TouchableOpacity>
         </View>
 
         {/* Tabs */}
@@ -1384,6 +1105,8 @@ export default function AgencyResources() {
               onPress={() => {
                 setActiveTab(tab.key);
                 setSearch('');
+                setFilterStatus('ALL');
+                setShowFilter(false);
               }}
             >
               <Text
@@ -1520,16 +1243,56 @@ export default function AgencyResources() {
                 </TouchableOpacity>
               )}
             </View>
-            <TouchableOpacity
-              style={[styles.filterBtn, { borderColor: theme.border }]}
-            >
-              <Ionicons
-                name="options-outline"
-                size={20}
-                color={theme.textStrong}
-              />
-            </TouchableOpacity>
+            {STATUS_CHIPS[activeTab].length > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.filterBtn,
+                  {
+                    borderColor: filterStatus !== 'ALL' ? colors.primary : theme.border,
+                    backgroundColor: filterStatus !== 'ALL' ? `${colors.primary}10` : 'transparent',
+                  },
+                ]}
+                onPress={() => setShowFilter(v => !v)}
+              >
+                <Ionicons
+                  name="options-outline"
+                  size={20}
+                  color={filterStatus !== 'ALL' ? colors.primary : theme.textStrong}
+                />
+              </TouchableOpacity>
+            )}
           </View>
+
+          {/* Filter chips */}
+          {showFilter && STATUS_CHIPS[activeTab].length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.chipsScroll}
+              contentContainerStyle={styles.chipsContent}
+            >
+              {STATUS_CHIPS[activeTab].map(chip => {
+                const active = filterStatus === chip.key;
+                return (
+                  <TouchableOpacity
+                    key={chip.key}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: active ? colors.primary : 'transparent',
+                        borderColor: active ? colors.primary : theme.border,
+                      },
+                    ]}
+                    onPress={() => setFilterStatus(chip.key)}
+                  >
+                    <Text style={[styles.chipText, { color: active ? '#fff' : theme.text }]}>
+                      {chip.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
 
           {/* Tab content */}
           <View style={styles.listContainer}>
@@ -1546,13 +1309,304 @@ export default function AgencyResources() {
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: colors.primary }]}
           onPress={openCreate}
+          activeOpacity={0.85}
         >
-          <Ionicons name="add" size={20} color="#fff" />
-          <Text style={styles.fabText}>{addLabel}</Text>
+          <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      <FormModal />
+      <Modal
+        visible={formModal}
+        animationType="slide"
+        onRequestClose={() => setFormModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.modalTitle, { color: theme.textStrong }]}>
+                {formTitle}
+              </Text>
+              <TouchableOpacity onPress={() => setFormModal(false)}>
+                <Ionicons name="close" size={24} color={theme.textStrong} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={styles.modalContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              {activeTab === 'vehicles' && (
+                <>
+                  <Field
+                    label={t.vehicleName}
+                    value={vForm.nom}
+                    onChangeText={v => setVForm(f => ({ ...f, nom: v }))}
+                    placeholder="Mercedes Sprinter"
+                    required
+                  />
+                  <Field
+                    label={t.model}
+                    value={vForm.modele}
+                    onChangeText={v => setVForm(f => ({ ...f, modele: v }))}
+                    placeholder="2022"
+                  />
+                  <Field
+                    label={t.plate}
+                    value={vForm.plaqueMatricule}
+                    onChangeText={v => setVForm(f => ({ ...f, plaqueMatricule: v }))}
+                    placeholder="1234AB56"
+                    required
+                  />
+                  <Field
+                    label={t.seats}
+                    value={vForm.nbrPlaces}
+                    onChangeText={v => setVForm(f => ({ ...f, nbrPlaces: v }))}
+                    keyboardType="numeric"
+                    placeholder="50"
+                    required
+                  />
+                  <Field
+                    label={t.desc}
+                    value={vForm.description}
+                    onChangeText={v => setVForm(f => ({ ...f, description: v }))}
+                    multiline
+                  />
+                </>
+              )}
+
+              {activeTab === 'drivers' && (
+                <>
+                  <View style={styles.twoCol}>
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        label={t.firstName}
+                        value={dForm.first_name}
+                        onChangeText={v => setDForm(f => ({ ...f, first_name: v }))}
+                        placeholder={t.firstName}
+                        required
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        label={t.lastName}
+                        value={dForm.last_name}
+                        onChangeText={v => setDForm(f => ({ ...f, last_name: v }))}
+                        placeholder={t.lastName}
+                        required
+                      />
+                    </View>
+                  </View>
+                  <Field
+                    label={t.email}
+                    value={dForm.email}
+                    onChangeText={v => setDForm(f => ({ ...f, email: v }))}
+                    keyboardType="email-address"
+                    placeholder={t.email}
+                    required
+                  />
+                  <Field
+                    label={t.phone}
+                    value={dForm.phone_number}
+                    onChangeText={v => setDForm(f => ({ ...f, phone_number: v }))}
+                    keyboardType="phone-pad"
+                    placeholder={t.phone}
+                    required
+                  />
+                  <Field
+                    label={t.username}
+                    value={dForm.username}
+                    onChangeText={v => setDForm(f => ({ ...f, username: v }))}
+                    placeholder={t.username}
+                    required
+                  />
+                  <Field
+                    label={t.permitNum}
+                    value={dForm.permis}
+                    onChangeText={v => setDForm(f => ({ ...f, permis: v }))}
+                    placeholder={t.permitNum}
+                  />
+                  {!editItem && (
+                    <Field
+                      label={t.password}
+                      value={dForm.password}
+                      onChangeText={v => setDForm(f => ({ ...f, password: v }))}
+                      placeholder={t.password}
+                      required
+                    />
+                  )}
+                </>
+              )}
+
+              {activeTab === 'employees' && (
+                <>
+                  <View style={styles.twoCol}>
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        label={t.firstName}
+                        value={eForm.firstName}
+                        onChangeText={v => setEForm(f => ({ ...f, firstName: v }))}
+                        placeholder={t.firstName}
+                        required
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        label={t.lastName}
+                        value={eForm.lastName}
+                        onChangeText={v => setEForm(f => ({ ...f, lastName: v }))}
+                        placeholder={t.lastName}
+                        required
+                      />
+                    </View>
+                  </View>
+                  <Field
+                    label={t.email}
+                    value={eForm.email}
+                    onChangeText={v => setEForm(f => ({ ...f, email: v }))}
+                    keyboardType="email-address"
+                    placeholder={t.email}
+                    required
+                  />
+                  <Field
+                    label={t.position}
+                    value={eForm.poste}
+                    onChangeText={v => setEForm(f => ({ ...f, poste: v }))}
+                    placeholder={t.position}
+                    required
+                  />
+                  <Field
+                    label={t.dept}
+                    value={eForm.departement}
+                    onChangeText={v => setEForm(f => ({ ...f, departement: v }))}
+                    placeholder={t.dept}
+                  />
+                  <Field
+                    label={t.username}
+                    value={eForm.username}
+                    onChangeText={v => setEForm(f => ({ ...f, username: v }))}
+                    placeholder={t.username}
+                    required
+                  />
+                  {!editItem && (
+                    <Field
+                      label={t.password}
+                      value={eForm.password}
+                      onChangeText={v => setEForm(f => ({ ...f, password: v }))}
+                      placeholder={t.password}
+                      required
+                    />
+                  )}
+                </>
+              )}
+
+              {activeTab === 'classes' && (
+                <>
+                  <View style={styles.twoCol}>
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        label={t.className}
+                        value={cForm.nom}
+                        onChangeText={v => setCForm(f => ({ ...f, nom: v }))}
+                        placeholder={t.className}
+                        required
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        label={t.price}
+                        value={cForm.prix}
+                        onChangeText={v => setCForm(f => ({ ...f, prix: v }))}
+                        keyboardType="numeric"
+                        placeholder="Ex: 15000 *"
+                        required
+                      />
+                    </View>
+                  </View>
+                  <View style={styles.twoCol}>
+                    <View style={{ flex: 1 }}>
+                      <Field
+                        label={t.cancelRateField}
+                        value={cForm.tauxAnnulation}
+                        onChangeText={v => setCForm(f => ({ ...f, tauxAnnulation: v }))}
+                        keyboardType="numeric"
+                        placeholder="Ex: 5"
+                        required
+                      />
+                    </View>
+                  </View>
+                  <Field
+                    label={t.desc}
+                    value={cForm.description}
+                    onChangeText={v => setCForm(f => ({ ...f, description: v }))}
+                    placeholder="Description de la classe (optionnel)"
+                    multiline
+                  />
+                </>
+              )}
+            </ScrollView>
+
+            <View style={[styles.modalFooter, { borderTopColor: theme.border }]}>
+              <TouchableOpacity
+                style={[styles.cancelBtn, { borderColor: theme.border }]}
+                onPress={() => setFormModal(false)}
+              >
+                <Text style={[styles.cancelBtnText, { color: theme.text }]}>
+                  {t.close}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: submitting ? 0.7 : 1 }]}
+                onPress={handleSubmit}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.saveBtnText}>{t.save}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={menuItem !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuItem(null)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setMenuItem(null)}
+        >
+          <View style={[styles.menuSheet, { backgroundColor: theme.background }]}>
+            <TouchableOpacity
+              style={styles.menuSheetItem}
+              onPress={() => { openEdit(menuItem); setMenuItem(null); }}
+            >
+              <Ionicons name="create-outline" size={20} color={theme.textStrong} />
+              <Text style={[styles.menuSheetText, { color: theme.textStrong }]}>
+                {lang === 'fr' ? 'Modifier' : 'Edit'}
+              </Text>
+            </TouchableOpacity>
+            <View style={[styles.menuSheetDivider, { backgroundColor: theme.border }]} />
+            <TouchableOpacity
+              style={styles.menuSheetItem}
+              onPress={() => { openDelete(menuItem); setMenuItem(null); }}
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.error} />
+              <Text style={[styles.menuSheetText, { color: colors.error }]}>
+                {lang === 'fr' ? 'Supprimer' : 'Delete'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <ConfirmModal
         visible={confirmModal}
@@ -1574,22 +1628,14 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
   title: { ...typography.heading, fontSize: typography.sizes.xl },
-  avatarBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   tabsRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
@@ -1688,15 +1734,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
     overflow: 'hidden',
-  },
-  avatarImage: { width: '100%', height: '100%' },
-  avatarText: {
-    ...typography.bodyBold,
-    fontSize: typography.sizes.md,
-    color: '#fff',
   },
   classIcon: {
     width: 48,
@@ -1728,25 +1766,54 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
-  dotMenuItem: { padding: spacing.xs },
+  dotMenuBtn: { padding: spacing.xs },
+  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  menuSheet: {
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
+  },
+  menuSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
+  },
+  menuSheetText: { ...typography.body, fontSize: typography.sizes.md },
+  menuSheetDivider: { height: 1, marginHorizontal: spacing.lg },
+
+  chipsScroll: { maxHeight: 52 },
+  chipsContent: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  chipText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
 
   // FAB
   fab: {
     position: 'absolute',
-    bottom: spacing.lg,
-    left: spacing.lg,
+    bottom: spacing.xl,
     right: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
-    height: 52,
-    borderRadius: 4,
-    gap: spacing.sm,
-  },
-  fabText: {
-    ...typography.bodyBold,
-    fontSize: typography.sizes.md,
-    color: '#fff',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
 
   // Modal

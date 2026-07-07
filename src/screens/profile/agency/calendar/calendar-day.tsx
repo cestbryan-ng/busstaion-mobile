@@ -119,6 +119,8 @@ const DAYS_FR_FULL = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const DAYS_EN_FULL = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function getTripHour(trip: Trip): string {
+  const t = trip.dateDepartPrev;
+  if (t?.includes('T')) return t.split('T')[1]?.slice(0, 5) || '00:00';
   return trip.heureDepartEffectif || '00:00';
 }
 
@@ -204,7 +206,7 @@ export default function AgencyCalendarDay() {
 
   const TripCard = ({ trip }: { trip: Trip }) => {
     const hour = getTripHour(trip);
-    const sold = trip.nbrPlaceReservable - trip.nbrPlaceRestante;
+    const sold = Math.max(0, trip.nbrPlaceRestante - trip.nbrPlaceReservable);
     const classLabel = trip.nomClasseVoyage || 'Standard';
     const classColor =
       CLASS_COLORS[classLabel.toUpperCase().replace(' ', '_')] ||
@@ -341,10 +343,6 @@ export default function AgencyCalendarDay() {
           </View>
         </View>
 
-        {/* Chevron */}
-        <View style={styles.cardChevron}>
-          <Ionicons name="chevron-forward" size={18} color={theme.text} />
-        </View>
       </TouchableOpacity>
     );
   };
@@ -455,6 +453,7 @@ export default function AgencyCalendarDay() {
               textColor={theme.text}
             />
             <TouchableOpacity
+              style={styles.createLinkBtn}
               onPress={() => navigation.navigate('AgencyNewTrip', {})}
             >
               <Text style={[styles.createLink, { color: colors.primary }]}>
@@ -533,6 +532,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 4,
     overflow: 'hidden',
+    marginTop: spacing.md,
+    marginRight: spacing.md,
   },
   cardChevron: {
     justifyContent: 'center',
@@ -612,5 +613,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: { ...typography.body, fontSize: typography.sizes.md },
-  createLink: { ...typography.bodyBold, fontSize: typography.sizes.md },
+  createLinkBtn: { alignItems: 'center', marginTop: spacing.sm },
+  createLink: { ...typography.bodyBold, fontSize: typography.sizes.md, textAlign: 'center' },
 });

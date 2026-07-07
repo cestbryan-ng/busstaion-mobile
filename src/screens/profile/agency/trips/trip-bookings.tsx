@@ -157,7 +157,7 @@ export default function AgencyTripBookings() {
       const agency = await agencyRes.json();
 
       const res = await fetch(
-        `${API_URL}/reservation/agence/${agency.agencyId}?size=100`,
+        `${API_URL}/reservation/agence/${agency.id}?size=100`,
         { headers },
       );
       if (res.ok) {
@@ -256,17 +256,41 @@ export default function AgencyTripBookings() {
   };
 
   const handleExport = async () => {
-    const text = filtered
-      .map(b => {
-        const name = b.customerName || b.passagers?.[0]?.nom || '—';
-        const seat = b.passagers?.map(p => p.siege).join(', ') || '—';
-        return `${b.reservation.idReservation} · ${name} · ${seat} · ${b.reservation.prixTotal} FCFA · ${b.reservation.statutReservation}`;
-      })
-      .join('\n');
-    await Share.share({
-      message: `${tripTitle || 'Réservations'}\n\n${text}`,
-      title: tripTitle,
-    });
+    if (filtered.length === 0) {
+      toast.error(lang === 'fr' ? 'Aucune réservation à exporter' : 'No bookings to export');
+      return;
+    }
+    try {
+      const escape = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+      const statusLabel = (s: string) =>
+        STATUS_CONFIG[s] ? (lang === 'fr' ? STATUS_CONFIG[s].label : STATUS_CONFIG[s].labelEn) : s;
+
+      const headers = lang === 'fr'
+        ? ['ID Réservation', 'Client', 'Sièges', 'Prix (FCFA)', 'Statut', 'Date réservation']
+        : ['Booking ID', 'Customer', 'Seats', 'Price (FCFA)', 'Status', 'Booking date'];
+
+      const rows = filtered.map(b => {
+        const name = b.customerName || b.passagers?.[0]?.nom || '';
+        const seats = b.passagers?.map(p => p.siege).filter(Boolean).join(', ') || '';
+        const date = b.reservation.dateReservation
+          ? new Date(b.reservation.dateReservation).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB')
+          : '';
+        return [
+          b.reservation.idReservation,
+          name,
+          seats,
+          b.reservation.prixTotal || 0,
+          statusLabel(b.reservation.statutReservation),
+          date,
+        ].map(escape).join(',');
+      });
+
+      const csv = [headers.map(escape).join(','), ...rows].join('\n');
+      const title = tripTitle || (lang === 'fr' ? 'Réservations' : 'Bookings');
+      await Share.share({ message: csv, title });
+    } catch {
+      toast.error(lang === 'fr' ? "Erreur lors de l'export" : 'Export error');
+    }
   };
 
   const BookingRow = ({ item, index }: { item: Booking; index: number }) => {
@@ -363,14 +387,14 @@ export default function AgencyTripBookings() {
     );
   };
 
-  if (loading) return <SkeletonListScreen />;
-
   const FILTER_TABS: { key: StatusFilter; label: string }[] = [
     { key: 'ALL', label: t.all },
     { key: 'CONFIRMER', label: t.confirmed },
     { key: 'RESERVER', label: t.pending },
     { key: 'ANNULER', label: t.cancelled },
   ];
+
+  if (loading) return <SkeletonListScreen />;
 
   return (
     <KeyboardAvoidingView
@@ -403,13 +427,7 @@ export default function AgencyTripBookings() {
               </Text>
             )}
           </View>
-          <TouchableOpacity>
-            <Ionicons
-              name="ellipsis-horizontal"
-              size={22}
-              color={theme.textStrong}
-            />
-          </TouchableOpacity>
+          <View style={{ width: 24 }} />
         </View>
 
         {/* Search */}
@@ -440,15 +458,6 @@ export default function AgencyTripBookings() {
               onChangeText={setSearch}
             />
           </View>
-          <TouchableOpacity
-            style={[styles.filterIconBtn, { borderColor: theme.border }]}
-          >
-            <Ionicons
-              name="options-outline"
-              size={20}
-              color={theme.textStrong}
-            />
-          </TouchableOpacity>
         </View>
 
         {/* Stats */}
@@ -727,4 +736,19 @@ const styles = StyleSheet.create({
   exportText: { ...typography.bodyBold, fontSize: typography.sizes.md },
   empty: { alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.sm },
   emptyText: { ...typography.body, fontSize: typography.sizes.md },
+  filterPanel: {
+    borderBottomWidth: 1,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+  },
+  filterPanelItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 4,
+    marginBottom: 2,
+  },
+  filterPanelText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
 });

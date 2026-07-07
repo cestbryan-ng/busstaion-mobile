@@ -9,7 +9,7 @@ import DrawerMenu from '../../../components/draw-menu';
 
 import OrgDashboard from './tabs/dashboard';
 import OrgAgencies from './tabs/agencies';
-import OrgProfil from './tabs/profil';
+import OrgProfil from './tabs/profile';
 
 const Tab = createBottomTabNavigator();
 

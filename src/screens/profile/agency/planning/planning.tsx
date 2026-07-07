@@ -20,12 +20,16 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonAgencyPlanning } from '../../../../components/skeleton';
+import AgencyPlaceholder from '../../../../assets/placeholders/shape.svg';
 
 type Agency = {
-  agencyId: string;
-  long_name: string;
-  location: string;
+  id: string;
+  longName: string;
+  shortName?: string;
+  logoUrl?: string;
+  location?: string;
   description?: string;
+  isActive?: boolean;
   contact?: { phone?: string; email?: string; website?: string };
   specialties?: string[];
 };
@@ -99,7 +103,6 @@ export default function AgencyPlanning() {
       contacts: 'Contacts',
       specialites: 'Spécialités',
       about: 'À propos',
-      creationDate: 'Date de création',
       status: 'Statut',
       agencyType: "Type d'agence",
       region: 'Région',
@@ -125,7 +128,6 @@ export default function AgencyPlanning() {
       contacts: 'Contacts',
       specialites: 'Specialties',
       about: 'About',
-      creationDate: 'Creation date',
       status: 'Status',
       agencyType: 'Agency type',
       region: 'Region',
@@ -170,7 +172,7 @@ export default function AgencyPlanning() {
         setAgency(agencyData);
 
         const tripsRes = await fetch(
-          `${API_URL}/voyage/agence/${agencyData.agencyId}`,
+          `${API_URL}/voyage/agence/${agencyData.id}`,
           { headers },
         );
         if (tripsRes.ok) {
@@ -191,24 +193,43 @@ export default function AgencyPlanning() {
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
 
-  const todayTrips = trips.filter(t => {
-    const d = new Date(t.dateDepartPrev);
-    d.setHours(0, 0, 0, 0);
-    return d.getTime() === today.getTime();
-  });
+  const getTripHour = (iso?: string) => {
+    if (!iso) return '';
+    const t = iso.includes('T') ? iso.split('T')[1] : iso;
+    return t.slice(0, 5);
+  };
 
-  const tomorrowTrips = trips.filter(t => {
-    const d = new Date(t.dateDepartPrev);
+  const getDayLabel = (dateStr: string) => {
+    const d = new Date(dateStr);
     d.setHours(0, 0, 0, 0);
-    return d.getTime() === tomorrow.getTime();
-  });
+    if (d.getTime() === today.getTime()) return lang === 'fr' ? "Aujourd'hui" : 'Today';
+    if (d.getTime() === tomorrow.getTime()) return lang === 'fr' ? 'Demain' : 'Tomorrow';
+    return d.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'short',
+    });
+  };
+
+  const upcomingTrips = trips
+    .filter(tr => new Date(tr.dateDepartPrev).getTime() >= today.getTime())
+    .sort((a, b) => new Date(a.dateDepartPrev).getTime() - new Date(b.dateDepartPrev).getTime())
+    .slice(0, 10);
+
+  const groupedTrips: { label: string; trips: Trip[] }[] = [];
+  for (const tr of upcomingTrips) {
+    const label = getDayLabel(tr.dateDepartPrev);
+    const existing = groupedTrips.find(g => g.label === label);
+    if (existing) existing.trips.push(tr);
+    else groupedTrips.push({ label, trips: [tr] });
+  }
 
   const TripRow = ({ trip }: { trip: Trip }) => {
     const statusCfg = STATUS_TRIP[trip.statusVoyage] || STATUS_TRIP.PUBLIE;
     return (
       <View style={[styles.tripRow, { borderBottomColor: theme.border }]}>
         <Text style={[styles.tripHour, { color: theme.textStrong }]}>
-          {trip.heureDepartEffectif || ''}
+          {getTripHour(trip.dateDepartPrev)}
         </Text>
         <View style={styles.tripInfo}>
           <Text
@@ -251,18 +272,10 @@ export default function AgencyPlanning() {
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
         <View style={styles.infoRow}>
           <Text style={[styles.infoLabel, { color: theme.text }]}>
-            {t.creationDate}
-          </Text>
-          <Text style={[styles.infoValue, { color: theme.textStrong }]}>
-            {'—'}
-          </Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={[styles.infoLabel, { color: theme.text }]}>
             {t.status}
           </Text>
-          <Text style={[styles.infoValueGreen, { color: colors.success }]}>
-            {t.active}
+          <Text style={[styles.infoValueGreen, { color: agency?.isActive ? colors.success : colors.error }]}>
+            {agency?.isActive ? t.active : (lang === 'fr' ? 'Inactif' : 'Inactive')}
           </Text>
         </View>
         <View style={styles.infoRow}>
@@ -294,7 +307,7 @@ export default function AgencyPlanning() {
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
             {t.weeklySchedule}
           </Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('AgencyEditInfo')}>
             <Text style={[styles.modifyText, { color: colors.primary }]}>
               {t.modify}
             </Text>
@@ -342,41 +355,23 @@ export default function AgencyPlanning() {
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
             {t.upcomingTrips}
           </Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => (navigation as any).navigate('AgencyMain', { screen: 'trips' })}>
             <Text style={[styles.seeAll, { color: colors.primary }]}>
               {t.seeAll}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {todayTrips.length > 0 && (
-          <>
-            <Text style={[styles.dayLabel, { color: theme.text }]}>
-              {t.today}
+        {groupedTrips.length > 0 ? groupedTrips.map((group, gi) => (
+          <React.Fragment key={group.label}>
+            <Text style={[styles.dayLabel, { color: theme.text, marginTop: gi > 0 ? spacing.md : 0 }]}>
+              {group.label}
             </Text>
-            {todayTrips.map(trip => (
+            {group.trips.map(trip => (
               <TripRow key={trip.idVoyage} trip={trip} />
             ))}
-          </>
-        )}
-
-        {tomorrowTrips.length > 0 && (
-          <>
-            <Text
-              style={[
-                styles.dayLabel,
-                { color: theme.text, marginTop: spacing.md },
-              ]}
-            >
-              {t.tomorrow}
-            </Text>
-            {tomorrowTrips.map(trip => (
-              <TripRow key={trip.idVoyage} trip={trip} />
-            ))}
-          </>
-        )}
-
-        {todayTrips.length === 0 && tomorrowTrips.length === 0 && (
+          </React.Fragment>
+        )) : (
           <EmptyState type="result" message="" textColor={theme.text} />
         )}
       </View>
@@ -513,24 +508,32 @@ export default function AgencyPlanning() {
               { backgroundColor: `${colors.primary}15` },
             ]}
           >
-            <Text style={[styles.agencyLogoText, { color: colors.primary }]}>
-              {agency?.long_name.slice(0, 2).toUpperCase() || 'VP'}
-            </Text>
+            {agency?.logoUrl && agency.logoUrl.startsWith('http') ? (
+              <Image
+                source={{ uri: agency.logoUrl }}
+                style={styles.agencyLogoImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <AgencyPlaceholder width="60%" height="60%" />
+            )}
           </View>
           <View style={styles.agencyInfo}>
             <Text style={[styles.agencyName, { color: theme.textStrong }]}>
-              {agency?.long_name}
+              {agency?.longName}
             </Text>
-            <View style={styles.agencyLocation}>
-              <Ionicons name="location-outline" size={12} color={theme.text} />
-              <Text style={[styles.agencyLocationText, { color: theme.text }]}>
-                {' '}
-                {agency?.location}
-              </Text>
-            </View>
+            {agency?.location ? (
+              <View style={styles.agencyLocation}>
+                <Ionicons name="location-outline" size={12} color={theme.text} />
+                <Text style={[styles.agencyLocationText, { color: theme.text }]}>
+                  {' '}{agency.location}
+                </Text>
+              </View>
+            ) : null}
           </View>
           <TouchableOpacity
             style={[styles.modifyBtn, { borderColor: colors.primary }]}
+            onPress={() => navigation.navigate('AgencyEditInfo')}
           >
             <Ionicons name="create-outline" size={14} color={colors.primary} />
             <Text style={[styles.modifyBtnText, { color: colors.primary }]}>

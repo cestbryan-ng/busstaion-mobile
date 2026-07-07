@@ -6,9 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
-  RefreshControl,
   useColorScheme,
+  RefreshControl,
+  Linking,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,18 +17,28 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
-import { API_URL, SUPPORT_URL, CGU_URL } from '../../../../utils/config';
+import { SUPPORT_URL, CGU_URL } from '../../../../utils/config';
 import { logout } from '../../../../utils/logout';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonProfileScreen } from '../../../../components/skeleton';
+import AgencyPlaceholder from '../../../../assets/placeholders/shape.svg';
 
 type Agency = {
-  agencyId: string;
-  long_name: string;
+  id: string;
+  longName: string;
+  shortName?: string;
   location?: string;
+  logoUrl?: string;
+  isActive: boolean;
 };
 
-export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: (lang: 'fr' | 'en') => void } = {}) {
+export default function AgencyProfil({
+  setLang: notifyParentLang,
+  setDrawerOpen,
+}: {
+  setLang?: (lang: 'fr' | 'en') => void;
+  setDrawerOpen?: (open: boolean) => void;
+} = {}) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
   const navigation =
@@ -51,14 +61,18 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
       agencyInfoDesc: 'Voir et modifier les informations',
       subscription: 'Abonnement',
       subscriptionDesc: 'Gérer mon abonnement',
-      security: 'Sécurité',
-      securityDesc: 'Code PIN',
+      preferences: 'Préférences',
+      security: 'Code PIN',
+      pinActive: 'Code PIN activé',
+      pinInactive: 'Code PIN non configuré',
+      pinStatusActive: 'Actif',
+      pinStatusInactive: 'Inactif',
       changeLanguage: 'Changer de langue',
-      currentLang: 'Français (FR)',
-      help: 'Aide & support',
-      helpDesc: "Centre d'aide et contact",
-      about: 'À propos',
-      aboutDesc: "Version de l'application",
+      support: 'Support',
+      help: "Centre d'aide",
+      helpDesc: 'FAQ et assistance',
+      terms: "Conditions d'utilisation",
+      termsDesc: 'Lire nos conditions',
       logout: 'Déconnexion',
     },
     en: {
@@ -69,14 +83,18 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
       agencyInfoDesc: 'View and edit information',
       subscription: 'Subscription',
       subscriptionDesc: 'Manage my subscription',
-      security: 'Security',
-      securityDesc: 'PIN code',
+      preferences: 'Preferences',
+      security: 'PIN code',
+      pinActive: 'PIN enabled',
+      pinInactive: 'PIN not configured',
+      pinStatusActive: 'Active',
+      pinStatusInactive: 'Inactive',
       changeLanguage: 'Change language',
-      currentLang: 'English (EN)',
-      help: 'Help & support',
-      helpDesc: 'Help center and contact',
-      about: 'About',
-      aboutDesc: 'App version',
+      support: 'Support',
+      help: 'Help center',
+      helpDesc: 'FAQ and assistance',
+      terms: 'Terms of use',
+      termsDesc: 'Read our terms',
       logout: 'Logout',
     },
   }[lang];
@@ -91,12 +109,12 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
       ]);
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
       setPinEnabled(pinVal === 'true');
-      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
       const user = userRaw ? JSON.parse(userRaw) : null;
       const chefId = user?.userId || user?.id;
       if (!chefId) return;
 
+      const { API_URL } = require('../../../../utils/config');
       const res = await fetch(`${API_URL}/agence/chef-agence/${chefId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -127,8 +145,6 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
 
   const MenuItem = ({
     icon,
-    iconColor,
-    iconBg,
     label,
     desc,
     onPress,
@@ -136,8 +152,6 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
     danger = false,
   }: {
     icon: string;
-    iconColor: string;
-    iconBg: string;
     label: string;
     desc?: string;
     onPress: () => void;
@@ -149,8 +163,21 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={[styles.menuIcon, { backgroundColor: iconBg }]}>
-        <Ionicons name={icon} size={20} color={iconColor} />
+      <View
+        style={[
+          styles.menuIcon,
+          {
+            backgroundColor: danger
+              ? `${colors.error}10`
+              : `${colors.primary}10`,
+          },
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={20}
+          color={danger ? colors.error : colors.primary}
+        />
       </View>
       <View style={styles.menuText}>
         <Text
@@ -171,7 +198,7 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
     </TouchableOpacity>
   );
 
-  if (loading) { return <SkeletonProfileScreen />; }
+  if (loading) return <SkeletonProfileScreen />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
@@ -179,21 +206,17 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
       <View
         style={[
           styles.header,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
+          { backgroundColor: theme.background, borderBottomColor: theme.border },
         ]}
       >
         <Text style={[styles.title, { color: theme.textStrong }]}>
           {t.title}
         </Text>
-        <View
-          style={[
-            styles.headerAvatar,
-            { backgroundColor: theme.backgroundAlt },
-          ]}
-        />
+        <TouchableOpacity onPress={() => setDrawerOpen?.(true)}>
+          <View style={[styles.avatarSmall, { backgroundColor: theme.backgroundAlt }]}>
+            <Ionicons name="menu-outline" size={22} color={theme.text} />
+          </View>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -203,7 +226,6 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[colors.primary]}
             tintColor={colors.primary}
           />
         }
@@ -217,19 +239,20 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
           onPress={() => navigation.navigate('AgencyInfo')}
           activeOpacity={0.85}
         >
-          <View
-            style={[
-              styles.agencyLogo,
-              { backgroundColor: `${colors.primary}15` },
-            ]}
-          >
-            <Text style={[styles.agencyLogoText, { color: colors.primary }]}>
-              {agency?.long_name.slice(0, 2).toUpperCase() || 'VP'}
-            </Text>
+          <View style={[styles.agencyLogo, { backgroundColor: `${colors.primary}15` }]}>
+            {agency?.logoUrl && agency.logoUrl.startsWith('http') ? (
+              <Image
+                source={{ uri: agency.logoUrl }}
+                style={styles.agencyLogoImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <AgencyPlaceholder width="60%" height="60%" />
+            )}
           </View>
           <View style={styles.agencyInfo}>
             <Text style={[styles.agencyName, { color: theme.textStrong }]}>
-              {agency?.long_name || '—'}
+              {agency?.longName || '—'}
             </Text>
             <Text style={[styles.agencyType, { color: theme.text }]}>
               {t.agencyType}
@@ -237,8 +260,7 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
             <View style={styles.agencyLocationRow}>
               <Ionicons name="location-outline" size={12} color={theme.text} />
               <Text style={[styles.agencyLocation, { color: theme.text }]}>
-                {' '}
-                {agency?.location || '—'}
+                {' '}{agency?.location || '—'}
               </Text>
             </View>
           </View>
@@ -257,46 +279,46 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
           </Text>
           <MenuItem
             icon="business-outline"
-            iconColor={colors.primary}
-            iconBg={`${colors.primary}15`}
             label={t.agencyInfo}
             desc={t.agencyInfoDesc}
             onPress={() => navigation.navigate('AgencyInfo')}
           />
           <MenuItem
             icon="ribbon-outline"
-            iconColor="#d97706"
-            iconBg="#fef3c715"
             label={t.subscription}
             desc={t.subscriptionDesc}
             onPress={() => navigation.navigate('AgencySubscription')}
           />
         </View>
 
-        {/* Other */}
+        {/* Préférences */}
         <View
           style={[
             styles.menuSection,
             { backgroundColor: theme.background, borderColor: theme.border },
           ]}
         >
+          <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
+            {t.preferences}
+          </Text>
+          <MenuItem
+            icon="language-outline"
+            label={t.changeLanguage}
+            desc={lang === 'fr' ? 'Français (FR)' : 'English (EN)'}
+            onPress={handleLangChange}
+            rightEl={
+              <View style={[styles.langBadge, { borderColor: colors.primary }]}>
+                <Text style={[styles.langBadgeText, { color: colors.primary }]}>
+                  {lang.toUpperCase()}
+                </Text>
+              </View>
+            }
+          />
           <MenuItem
             icon="keypad-outline"
-            iconColor={colors.success}
-            iconBg={`${colors.success}15`}
             label={t.security}
-            desc={
-              pinEnabled
-                ? lang === 'fr'
-                  ? 'Code PIN activé'
-                  : 'PIN enabled'
-                : lang === 'fr'
-                ? 'Code PIN non configuré'
-                : 'PIN not configured'
-            }
-            onPress={() =>
-              navigation.navigate('PinSetup', { fromSettings: true })
-            }
+            desc={pinEnabled ? t.pinActive : t.pinInactive}
+            onPress={() => navigation.navigate('PinSetup', { fromSettings: true })}
             rightEl={
               <View
                 style={[
@@ -311,11 +333,7 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
                 <View
                   style={[
                     styles.pinDot,
-                    {
-                      backgroundColor: pinEnabled
-                        ? colors.success
-                        : colors.error,
-                    },
+                    { backgroundColor: pinEnabled ? colors.success : colors.error },
                   ]}
                 />
                 <Text
@@ -324,51 +342,34 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
                     { color: pinEnabled ? colors.success : colors.error },
                   ]}
                 >
-                  {pinEnabled
-                    ? lang === 'fr'
-                      ? 'Actif'
-                      : 'Active'
-                    : lang === 'fr'
-                    ? 'Inactif'
-                    : 'Inactive'}
+                  {pinEnabled ? t.pinStatusActive : t.pinStatusInactive}
                 </Text>
               </View>
             }
           />
-          <MenuItem
-            icon="language-outline"
-            iconColor={colors.success}
-            iconBg={`${colors.success}15`}
-            label={t.changeLanguage}
-            desc={t.currentLang}
-            onPress={handleLangChange}
-            rightEl={
-              <View style={[styles.langBadge, { borderColor: colors.primary }]}>
-                <Text style={[styles.langBadgeText, { color: colors.primary }]}>
-                  {lang.toUpperCase()}
-                </Text>
-              </View>
-            }
-          />
+        </View>
+
+        {/* Support */}
+        <View
+          style={[
+            styles.menuSection,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
+            {t.support}
+          </Text>
           <MenuItem
             icon="help-circle-outline"
-            iconColor="#7c3aed"
-            iconBg="#f5f3ff15"
             label={t.help}
             desc={t.helpDesc}
-            onPress={() => {
-              require('react-native').Linking.openURL(SUPPORT_URL);
-            }}
+            onPress={() => Linking.openURL(SUPPORT_URL)}
           />
           <MenuItem
-            icon="information-circle-outline"
-            iconColor={theme.text}
-            iconBg={theme.backgroundAlt}
-            label={t.about}
-            desc={t.aboutDesc}
-            onPress={() => {
-              require('react-native').Linking.openURL(CGU_URL);
-            }}
+            icon="document-text-outline"
+            label={t.terms}
+            desc={t.termsDesc}
+            onPress={() => Linking.openURL(CGU_URL)}
           />
         </View>
 
@@ -391,7 +392,6 @@ export default function AgencyProfil({ setLang: notifyParentLang }: { setLang?: 
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -402,7 +402,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { ...typography.heading, fontSize: typography.sizes.xl },
-  headerAvatar: { width: 36, height: 36, borderRadius: 18 },
+  avatarSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
 
   agencyCard: {
     flexDirection: 'row',
@@ -422,19 +429,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   agencyLogoImage: { width: '100%', height: '100%' },
-  agencyLogoText: { ...typography.heading, fontSize: typography.sizes.lg },
   agencyInfo: { flex: 1 },
   agencyName: { ...typography.bodyBold, fontSize: typography.sizes.md },
-  agencyType: {
-    ...typography.body,
-    fontSize: typography.sizes.sm,
-    marginTop: 1,
-  },
-  agencyLocationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
+  agencyType: { ...typography.body, fontSize: typography.sizes.sm, marginTop: 1 },
+  agencyLocationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   agencyLocation: { ...typography.body, fontSize: typography.sizes.xs },
 
   menuSection: {
@@ -470,6 +468,24 @@ const styles = StyleSheet.create({
   menuLabel: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   menuDesc: { ...typography.body, fontSize: typography.sizes.xs, marginTop: 2 },
 
+  langBadge: {
+    borderWidth: 1.5,
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  langBadgeText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
+  pinStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  pinDot: { width: 6, height: 6, borderRadius: 3 },
+  pinStatusText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
+
   logoutContainer: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
@@ -484,22 +500,4 @@ const styles = StyleSheet.create({
     height: 52,
   },
   logoutText: { ...typography.bodyBold, fontSize: typography.sizes.md },
-
-  pinStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-  },
-  pinDot: { width: 6, height: 6, borderRadius: 3 },
-  pinStatusText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
-  langBadge: {
-    borderWidth: 1.5,
-    borderRadius: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  langBadgeText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
 });

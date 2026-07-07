@@ -33,6 +33,7 @@ import AgencyTripBookings from '../screens/profile/agency/trips/trip-bookings';
 import AgencyNewTrip from '../screens/profile/agency/trips/new-trip';
 import AgencyCalendarDay from '../screens/profile/agency/calendar/calendar-day';
 import AgencyInfo from '../screens/profile/agency/profile/agency-info';
+import AgencyEditInfo from '../screens/profile/agency/profile/edit-agency-info';
 import AgencySubscription from '../screens/profile/agency/profile/subscription';
 import OrgHome from '../screens/profile/organization/org-main';
 import OrgMyAgencies from '../screens/profile/organization/agencies/my-agencies';
@@ -85,9 +86,10 @@ export type RootStackParamList = {
   AgencyPlanning: undefined;
   AgencyTripDetail: { tripId: string };
   AgencyTripBookings: { tripId: string; tripTitle?: string };
-  AgencyNewTrip: { editTripId?: string };
+  AgencyNewTrip: { editTripId?: string; duplicateTripId?: string };
   AgencyCalendarDay: { dateStr: string; trips: any[] };
   AgencyInfo: undefined;
+  AgencyEditInfo: undefined;
   AgencySubscription: undefined;
   OrgMain: undefined;
   OrgMyAgencies: undefined;
@@ -165,6 +167,7 @@ export default function Navigation() {
             component={AgencyCalendarDay}
           />
           <Stack.Screen name="AgencyInfo" component={AgencyInfo} />
+          <Stack.Screen name="AgencyEditInfo" component={AgencyEditInfo} />
           <Stack.Screen
             name="AgencySubscription"
             component={AgencySubscription}

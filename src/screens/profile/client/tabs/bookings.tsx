@@ -300,7 +300,7 @@ export default function Bookings() {
           <View
             style={[styles.cardImage, { backgroundColor: theme.backgroundAlt }]}
           >
-            {item.voyage.smallImage ? (
+            {item.voyage.smallImage?.startsWith('http') ? (
               <Image
                 source={{ uri: item.voyage.smallImage }}
                 style={styles.cardImageInner}

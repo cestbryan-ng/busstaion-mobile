@@ -19,21 +19,22 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonCalendarScreen } from '../../../../components/skeleton';
+import { EmptyState } from '../../../../components/empty-state';
 
 type Trip = {
   idVoyage: string;
   titre?: string;
+  nomAgence?: string;
   lieuDepart: string;
   lieuArrive: string;
   dateDepartPrev: string;
-  heureDepartEffectif?: string;
-  heureArrive?: string;
+  dureeVoyage?: string;
   statusVoyage: string;
   prix: number;
   nomClasseVoyage?: string;
   nbrPlaceReservable: number;
   nbrPlaceRestante: number;
-  vehiculeNom?: string;
+  smallImage?: string | null;
 };
 
 const STATUS_DOT: Record<string, string> = {
@@ -106,7 +107,9 @@ function formatPrice(price: number): string {
 }
 
 function getTripHour(trip: Trip): string {
-  return trip.heureDepartEffectif || '00:00';
+  const t = trip.dateDepartPrev;
+  if (!t?.includes('T')) return '00:00';
+  return t.split('T')[1]?.slice(0, 5) || '00:00';
 }
 
 export default function AgencyCalendar() {
@@ -184,7 +187,7 @@ export default function AgencyCalendar() {
       const agency = await agencyRes.json();
 
       const tripsRes = await fetch(
-        `${API_URL}/voyage/agence/${agency.agencyId}?size=200`,
+        `${API_URL}/voyage/agence/${agency.id}?size=200`,
         { headers },
       );
       if (tripsRes.ok) {
@@ -219,7 +222,7 @@ export default function AgencyCalendar() {
 
   const totalSeats = monthTrips.reduce((s, t) => s + t.nbrPlaceReservable, 0);
   const soldSeats = monthTrips.reduce(
-    (s, t) => s + (t.nbrPlaceReservable - t.nbrPlaceRestante),
+    (s, t) => s + Math.max(0, t.nbrPlaceRestante - t.nbrPlaceReservable),
     0,
   );
   const occupation =
@@ -233,7 +236,7 @@ export default function AgencyCalendar() {
         t.statusVoyage === 'EN_COURS',
     )
     .reduce(
-      (s, t) => s + t.prix * (t.nbrPlaceReservable - t.nbrPlaceRestante),
+      (s, t) => s + t.prix * Math.max(0, t.nbrPlaceRestante - t.nbrPlaceReservable),
       0,
     );
 
@@ -325,7 +328,7 @@ export default function AgencyCalendar() {
 
   const UpcomingTripRow = ({ trip }: { trip: Trip }) => {
     const hour = getTripHour(trip);
-    const sold = trip.nbrPlaceReservable - trip.nbrPlaceRestante;
+    const sold = Math.max(0, trip.nbrPlaceRestante - trip.nbrPlaceReservable);
     const classLabel = trip.nomClasseVoyage || 'Standard';
     const classColor =
       CLASS_COLORS[classLabel.toUpperCase().replace(' ', '_')] ||
@@ -370,7 +373,6 @@ export default function AgencyCalendar() {
                 year: 'numeric',
               },
             )}
-            {trip.vehiculeNom ? ` · Bus: ${trip.vehiculeNom}` : ''}
           </Text>
           <Text style={[styles.upcomingSeats, { color: dotColor }]}>
             {sold} / {trip.nbrPlaceReservable} {t.seatsReserved}
@@ -400,13 +402,6 @@ export default function AgencyCalendar() {
         <Text style={[styles.title, { color: theme.textStrong }]}>
           {t.title}
         </Text>
-        <TouchableOpacity onPress={() => {}}>
-          <View
-            style={[styles.avatarBtn, { backgroundColor: theme.backgroundAlt }]}
-          >
-            <Ionicons name="person-outline" size={18} color={theme.text} />
-          </View>
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -608,16 +603,18 @@ export default function AgencyCalendar() {
             <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
               {t.upcoming}
             </Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => (navigation as any).navigate('trips')}>
               <Text style={[styles.seeAll, { color: colors.primary }]}>
                 {t.seeAll}
               </Text>
             </TouchableOpacity>
           </View>
           {upcomingTrips.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="bus-outline" size={32} color={theme.text} />
-            </View>
+            <EmptyState
+              type="result"
+              message={lang === 'fr' ? 'Aucun départ à venir' : 'No upcoming departures'}
+              textColor={theme.text}
+            />
           ) : (
             upcomingTrips.map(trip => (
               <UpcomingTripRow key={trip.idVoyage} trip={trip} />
@@ -635,22 +632,14 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
   title: { ...typography.heading, fontSize: typography.sizes.xl },
-  avatarBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
 
   statsSection: { padding: spacing.lg, paddingBottom: spacing.sm },
   sectionTitle: {
@@ -784,5 +773,4 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     marginTop: 2,
   },
-  empty: { height: 80, justifyContent: 'center', alignItems: 'center' },
 });

@@ -14,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import TripPlaceholder from '../../../../assets/placeholders/product.svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -367,10 +368,10 @@ export default function PaymentModal({
       ]}
     >
       <View style={[styles.tripImage, { backgroundColor: theme.border }]}>
-        {trip.smallImage ? (
+        {trip.smallImage?.startsWith('http') ? (
           <Image source={{ uri: trip.smallImage }} style={styles.tripImageInner} resizeMode="cover" />
         ) : (
-          <Ionicons name="bus-outline" size={24} color={theme.text} />
+          <TripPlaceholder width="90%" height="90%" />
         )}
       </View>
       <View style={styles.tripInfo}>

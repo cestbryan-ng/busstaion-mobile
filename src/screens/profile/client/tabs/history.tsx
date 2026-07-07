@@ -403,7 +403,7 @@ export default function Historique() {
           <View
             style={[styles.cardImage, { backgroundColor: theme.backgroundAlt }]}
           >
-            {r?.smallImage ? (
+            {r?.smallImage?.startsWith('http') ? (
               <Image
                 source={{ uri: r.smallImage }}
                 style={styles.cardImageInner}
@@ -526,7 +526,7 @@ export default function Historique() {
           <View
             style={[styles.cardImage, { backgroundColor: theme.backgroundAlt }]}
           >
-            {r?.smallImage ? (
+            {r?.smallImage?.startsWith('http') ? (
               <Image
                 source={{ uri: r.smallImage }}
                 style={styles.cardImageInner}

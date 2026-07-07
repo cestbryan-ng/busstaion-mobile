@@ -114,9 +114,16 @@ export default function AgencyMain() {
         </Tab.Screen>
         <Tab.Screen
           name="trips"
-          component={AgencyTrips}
           options={{ tabBarLabel: TAB_LABELS[lang].trips }}
-        />
+        >
+          {() => (
+            <AgencyTrips
+              setDrawerOpen={setDrawerOpen}
+              lang={lang}
+              setLang={handleLangChange}
+            />
+          )}
+        </Tab.Screen>
         <Tab.Screen
           name="calendar"
           component={AgencyCalendar}
@@ -131,7 +138,7 @@ export default function AgencyMain() {
           name="profile"
           options={{ tabBarLabel: TAB_LABELS[lang].profile }}
         >
-          {() => <AgencyProfil setLang={handleLangChange} />}
+          {() => <AgencyProfil setLang={handleLangChange} setDrawerOpen={setDrawerOpen} />}
         </Tab.Screen>
       </Tab.Navigator>
 

@@ -1,481 +1,392 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Image,
-  ActivityIndicator,
   useColorScheme,
-  KeyboardAvoidingView,
-  Platform,
+  RefreshControl,
+  Linking,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useToast } from '../../../../components/toast';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonAgencyInfo } from '../../../../components/skeleton';
+import AgencyPlaceholder from '../../../../assets/placeholders/shape.svg';
 
 type Agency = {
-  agencyId: string;
-  long_name: string;
+  id: string;
+  longName: string;
+  shortName?: string;
   location?: string;
-  greeting_message?: string;
+  logoUrl?: string;
+  description?: string;
+  greetingMessage?: string;
+  isActive: boolean;
+  socialNetwork?: string;
+  contact?: {
+    email?: string;
+    phone?: string;
+    website?: string;
+  };
 };
-
-type FormErrors = Partial<
-  Record<'longName' | 'email' | 'greetingMessage', string>
->;
 
 export default function AgencyInfo() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const toast = useToast();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [agency, setAgency] = useState<Agency | null>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [apiError, setApiError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-
-  const [longName, setLongName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [location, setLocation] = useState('');
-  const [greetingMessage, setGreetingMessage] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   const t = {
     fr: {
-      title: 'Informations agence',
-      logo: "Logo de l'agence",
-      changeLogo: 'Changer le logo',
-      logoHint: 'JPG, PNG max. 2Mo',
-      agencyName: "Nom de l'agence",
-      contactEmail: 'Email de contact',
-      phone: 'Téléphone',
+      title: "Informations agence",
+      generalInfo: 'Informations générales',
+      agencyId: 'ID agence',
+      longName: 'Nom long',
+      shortName: 'Nom court',
       location: 'Localisation',
+      email: 'Email',
+      phone: 'Téléphone',
+      website: 'Site web',
+      socialNetwork: 'Réseau social',
+      description: 'Description',
       greeting: "Message d'accueil",
-      greetingPlaceholder: 'Bienvenue chez ... !',
-      save: 'Enregistrer les modifications',
-      success: 'Informations mises à jour avec succès.',
-      required: 'Ce champ est requis.',
-      invalidEmail: 'Email invalide.',
-      errorGeneric: 'Une erreur est survenue, veuillez réessayer.',
-      changesSaved: 'Modifications enregistrées',
-      saveError: 'Erreur lors de la sauvegarde',
+      status: 'Statut',
+      active: 'ACTIVE',
+      inactive: 'INACTIVE',
     },
     en: {
       title: 'Agency information',
-      logo: 'Agency logo',
-      changeLogo: 'Change logo',
-      logoHint: 'JPG, PNG max 2MB',
-      agencyName: 'Agency name',
-      contactEmail: 'Contact email',
-      phone: 'Phone',
+      generalInfo: 'General information',
+      agencyId: 'Agency ID',
+      longName: 'Long name',
+      shortName: 'Short name',
       location: 'Location',
+      email: 'Email',
+      phone: 'Phone',
+      website: 'Website',
+      socialNetwork: 'Social network',
+      description: 'Description',
       greeting: 'Greeting message',
-      greetingPlaceholder: 'Welcome to ... !',
-      save: 'Save changes',
-      success: 'Information updated successfully.',
-      required: 'This field is required.',
-      invalidEmail: 'Invalid email.',
-      errorGeneric: 'An error occurred, please try again.',
-      changesSaved: 'Changes saved',
-      saveError: 'Save error',
+      status: 'Status',
+      active: 'ACTIVE',
+      inactive: 'INACTIVE',
     },
   }[lang];
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [token, userRaw, storedLang] = await Promise.all([
-          AsyncStorage.getItem('token'),
-          AsyncStorage.getItem('user'),
-          AsyncStorage.getItem('app_lang'),
-        ]);
-        if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
-
-        const user = userRaw ? JSON.parse(userRaw) : null;
-        const chefId = user?.userId || user?.id;
-        if (!chefId) return;
-
-        const res = await fetch(`${API_URL}/agence/chef-agence/${chefId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setAgency(data);
-          setLongName(data.long_name || '');
-          setLocation(data.location || '');
-          setGreetingMessage(data.greeting_message || '');
-        }
-      } catch {
-        // silent
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
-
-  const validate = (): boolean => {
-    const e: FormErrors = {};
-    if (!longName.trim()) e.longName = t.required;
-    if (!email.trim()) e.email = t.required;
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      e.email = t.invalidEmail;
-    if (!greetingMessage.trim()) e.greetingMessage = t.required;
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleSubmit = async () => {
-    if (!validate() || !agency) return;
-    setSubmitting(true);
-    setApiError('');
-    setSuccessMessage('');
-
+  const loadData = useCallback(async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`${API_URL}/agence/${agency.agencyId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          longName,
-          location,
-          greetingMessage,
-          contact: { email, phone },
-        }),
-      });
+      const [token, userRaw, storedLang] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('user'),
+        AsyncStorage.getItem('app_lang'),
+      ]);
+      if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      const chefId = user?.userId || user?.id;
+      if (!chefId) return;
+
+      const res = await fetch(`${API_URL}/agence/chef-agence/${chefId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
-        toast.success(t.changesSaved);
-        setSuccessMessage(t.success);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(t.saveError);
-        setApiError(data.message || t.errorGeneric);
+        const data = await res.json();
+        setAgency(data);
       }
     } catch {
-      toast.error(t.saveError);
-      setApiError(t.errorGeneric);
+      // silent
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
+  const truncateId = (id?: string) =>
+    id ? `${id.slice(0, 8)}-...-${id.slice(-8)}` : '—';
 
   if (loading) return <SkeletonAgencyInfo />;
 
-  return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+  const isActive = agency?.isActive;
+
+  const InfoRow = ({
+    icon,
+    iconColor,
+    iconBg,
+    label,
+    value,
+    onPress,
+    last = false,
+  }: {
+    icon: string;
+    iconColor: string;
+    iconBg: string;
+    label: string;
+    value?: string;
+    onPress?: () => void;
+    last?: boolean;
+  }) => (
+    <TouchableOpacity
+      style={[
+        styles.infoRow,
+        { borderBottomColor: theme.border, borderBottomWidth: last ? 0 : 1 },
+      ]}
+      onPress={onPress}
+      activeOpacity={onPress ? 0.7 : 1}
+      disabled={!onPress}
     >
-      <View
-        style={[styles.container, { backgroundColor: theme.backgroundAlt }]}
+      <View style={[styles.infoIcon, { backgroundColor: iconBg }]}>
+        <Ionicons name={icon} size={14} color={iconColor} />
+      </View>
+      <Text style={[styles.infoLabel, { color: theme.text }]}>{label}</Text>
+      <Text
+        style={[styles.infoValue, { color: theme.textStrong }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
       >
-        {/* Header */}
+        {value || '—'}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {/* Header */}
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: theme.background, borderBottomColor: theme.border },
+        ]}
+      >
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: theme.textStrong }]}>
+          {t.title}
+        </Text>
+        <TouchableOpacity onPress={() => navigation.navigate('AgencyEditInfo')}>
+          <Ionicons name="create-outline" size={22} color={theme.textStrong} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* Agency top card */}
         <View
           style={[
-            styles.header,
-            {
-              backgroundColor: theme.background,
-              borderBottomColor: theme.border,
-            },
+            styles.agencyTopCard,
+            { backgroundColor: theme.background, borderColor: theme.border },
           ]}
         >
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: theme.textStrong }]}>
-            {t.title}
-          </Text>
-          <View style={{ width: 24 }} />
-        </View>
-
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View
-            style={[
-              styles.form,
-              { backgroundColor: theme.background, borderColor: theme.border },
-            ]}
-          >
-            {/* Logo */}
-            <Text style={[styles.label, { color: theme.textStrong }]}>
-              {t.logo}
-            </Text>
-            <View style={styles.logoRow}>
-              <View
-                style={[
-                  styles.logoPreview,
-                  {
-                    backgroundColor: `${colors.primary}15`,
-                    borderColor: theme.border,
-                  },
-                ]}
-              >
-                <Text style={[styles.logoLetter, { color: colors.primary }]}>
-                  {longName.slice(0, 2).toUpperCase() || 'VP'}
-                </Text>
-              </View>
-              <View style={styles.logoTextCol}>
-                <Text
-                  style={[styles.logoChangeText, { color: theme.textStrong }]}
-                >
-                  {t.changeLogo}
-                </Text>
-                <Text style={[styles.logoHint, { color: theme.text }]}>
-                  {t.logoHint}
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.cameraBtn, { borderColor: theme.border }]}
-              >
-                <Ionicons
-                  name="camera-outline"
-                  size={18}
-                  color={theme.textStrong}
-                />
-              </TouchableOpacity>
-            </View>
-
-            {/* Agency name */}
-            <Text
-              style={[
-                styles.label,
-                { color: theme.textStrong, marginTop: spacing.lg },
-              ]}
-            >
-              {t.agencyName} <Text style={{ color: colors.error }}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  borderColor: errors.longName ? colors.error : theme.border,
-                  backgroundColor: theme.backgroundAlt,
-                  color: theme.textStrong,
-                },
-              ]}
-              value={longName}
-              onChangeText={v => {
-                setLongName(v);
-                setErrors(p => ({ ...p, longName: undefined }));
-              }}
-              placeholderTextColor={theme.text}
-            />
-            {errors.longName && (
-              <Text style={[styles.fieldError, { color: colors.error }]}>
-                {errors.longName}
-              </Text>
-            )}
-
-            {/* Email */}
-            <Text
-              style={[
-                styles.label,
-                { color: theme.textStrong, marginTop: spacing.lg },
-              ]}
-            >
-              {t.contactEmail} <Text style={{ color: colors.error }}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  borderColor: errors.email ? colors.error : theme.border,
-                  backgroundColor: theme.backgroundAlt,
-                  color: theme.textStrong,
-                },
-              ]}
-              value={email}
-              onChangeText={v => {
-                setEmail(v);
-                setErrors(p => ({ ...p, email: undefined }));
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholderTextColor={theme.text}
-            />
-            {errors.email && (
-              <Text style={[styles.fieldError, { color: colors.error }]}>
-                {errors.email}
-              </Text>
-            )}
-
-            {/* Phone */}
-            <Text
-              style={[
-                styles.label,
-                { color: theme.textStrong, marginTop: spacing.lg },
-              ]}
-            >
-              {t.phone}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  borderColor: theme.border,
-                  backgroundColor: theme.backgroundAlt,
-                  color: theme.textStrong,
-                },
-              ]}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              placeholderTextColor={theme.text}
-            />
-
-            {/* Location */}
-            <Text
-              style={[
-                styles.label,
-                { color: theme.textStrong, marginTop: spacing.lg },
-              ]}
-            >
-              {t.location}
-            </Text>
-            <View
-              style={[
-                styles.locationInputWrapper,
-                {
-                  borderColor: theme.border,
-                  backgroundColor: theme.backgroundAlt,
-                },
-              ]}
-            >
-              <Ionicons name="location-outline" size={16} color={theme.text} />
-              <TextInput
-                style={[styles.locationInput, { color: theme.textStrong }]}
-                value={location}
-                onChangeText={setLocation}
-                placeholderTextColor={theme.text}
+          <View style={[styles.agencyLogo, { backgroundColor: `${colors.primary}15` }]}>
+            {agency?.logoUrl && agency.logoUrl.startsWith('http') ? (
+              <Image
+                source={{ uri: agency.logoUrl }}
+                style={styles.agencyLogoImage}
+                resizeMode="contain"
               />
-            </View>
-
-            {/* Greeting message */}
-            <Text
-              style={[
-                styles.label,
-                { color: theme.textStrong, marginTop: spacing.lg },
-              ]}
-            >
-              {t.greeting} <Text style={{ color: colors.error }}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                styles.textarea,
-                {
-                  borderColor: errors.greetingMessage
-                    ? colors.error
-                    : theme.border,
-                  backgroundColor: theme.backgroundAlt,
-                  color: theme.textStrong,
-                },
-              ]}
-              value={greetingMessage}
-              onChangeText={v => {
-                setGreetingMessage(v);
-                setErrors(p => ({ ...p, greetingMessage: undefined }));
-              }}
-              placeholder={t.greetingPlaceholder}
-              placeholderTextColor={theme.text}
-              multiline
-            />
-            {errors.greetingMessage && (
-              <Text style={[styles.fieldError, { color: colors.error }]}>
-                {errors.greetingMessage}
-              </Text>
-            )}
-
-            {/* Save button */}
-            <TouchableOpacity
-              style={[
-                styles.saveBtn,
-                {
-                  backgroundColor: colors.primary,
-                  opacity: submitting ? 0.7 : 1,
-                },
-              ]}
-              onPress={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.saveBtnText}>{t.save}</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Feedback */}
-            {apiError !== '' && (
-              <View
-                style={[
-                  styles.alert,
-                  {
-                    backgroundColor: `${colors.error}10`,
-                    borderColor: `${colors.error}30`,
-                  },
-                ]}
-              >
-                <Ionicons name="close-circle" size={18} color={colors.error} />
-                <Text style={[styles.alertText, { color: colors.error }]}>
-                  {apiError}
-                </Text>
-              </View>
-            )}
-            {successMessage !== '' && (
-              <View
-                style={[
-                  styles.alert,
-                  {
-                    backgroundColor: `${colors.success}10`,
-                    borderColor: `${colors.success}30`,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="checkmark-circle"
-                  size={18}
-                  color={colors.success}
-                />
-                <Text style={[styles.alertText, { color: colors.success }]}>
-                  {successMessage}
-                </Text>
-              </View>
+            ) : (
+              <AgencyPlaceholder width="60%" height="60%" />
             )}
           </View>
+          <View style={styles.agencyTopInfo}>
+            <View style={styles.agencyNameRow}>
+              <Text style={[styles.agencyName, { color: theme.textStrong }]}>
+                {agency?.longName || '—'}
+              </Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  {
+                    backgroundColor: isActive
+                      ? `${colors.success}15`
+                      : `${colors.error}15`,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusText,
+                    { color: isActive ? colors.success : colors.error },
+                  ]}
+                >
+                  {isActive ? t.active : t.inactive}
+                </Text>
+              </View>
+            </View>
+            {agency?.contact?.email && (
+              <View style={styles.agencyContactRow}>
+                <Ionicons name="mail-outline" size={13} color={theme.text} />
+                <Text style={[styles.agencyContact, { color: theme.text }]}>
+                  {' '}{agency.contact.email}
+                </Text>
+              </View>
+            )}
+            {agency?.location && (
+              <View style={styles.agencyContactRow}>
+                <Ionicons name="location-outline" size={13} color={theme.text} />
+                <Text style={[styles.agencyContact, { color: theme.text }]}>
+                  {' '}{agency.location}
+                </Text>
+              </View>
+            )}
+            {agency?.contact?.website && (
+              <TouchableOpacity
+                style={styles.agencyContactRow}
+                onPress={() => agency.contact?.website && Linking.openURL(agency.contact.website)}
+              >
+                <Ionicons name="globe-outline" size={13} color={theme.text} />
+                <Text style={[styles.agencyContact, { color: theme.text }]}>
+                  {' '}{agency.contact.website}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
 
-          <View style={{ height: spacing.xl }} />
-        </ScrollView>
-      </View>
-    </KeyboardAvoidingView>
+        {/* General info */}
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
+            {t.generalInfo}
+          </Text>
+          <InfoRow
+            icon="finger-print-outline"
+            iconColor="#7c3aed"
+            iconBg={`${colors.primary}10`}
+            label={t.agencyId}
+            value={truncateId(agency?.id)}
+          />
+          <InfoRow
+            icon="business-outline"
+            iconColor={colors.primary}
+            iconBg={`${colors.primary}10`}
+            label={t.longName}
+            value={agency?.longName}
+          />
+          {agency?.shortName && (
+            <InfoRow
+              icon="text-outline"
+              iconColor={colors.primary}
+              iconBg={`${colors.primary}10`}
+              label={t.shortName}
+              value={agency.shortName}
+            />
+          )}
+          <InfoRow
+            icon="location-outline"
+            iconColor="#d97706"
+            iconBg="#fef3c710"
+            label={t.location}
+            value={agency?.location}
+          />
+          <InfoRow
+            icon="mail-outline"
+            iconColor={colors.primary}
+            iconBg={`${colors.primary}10`}
+            label={t.email}
+            value={agency?.contact?.email}
+          />
+          <InfoRow
+            icon="call-outline"
+            iconColor={colors.success}
+            iconBg={`${colors.success}10`}
+            label={t.phone}
+            value={agency?.contact?.phone}
+          />
+          {agency?.contact?.website && (
+            <InfoRow
+              icon="globe-outline"
+              iconColor={colors.primary}
+              iconBg={`${colors.primary}10`}
+              label={t.website}
+              value={agency.contact.website}
+              onPress={() => agency.contact?.website && Linking.openURL(agency.contact.website)}
+            />
+          )}
+          {agency?.socialNetwork && (
+            <InfoRow
+              icon="share-social-outline"
+              iconColor="#1877f2"
+              iconBg="#1877f215"
+              label={t.socialNetwork}
+              value={agency.socialNetwork}
+              onPress={() => agency.socialNetwork && Linking.openURL(
+                agency.socialNetwork.startsWith('http') ? agency.socialNetwork : `https://${agency.socialNetwork}`
+              )}
+            />
+          )}
+          <InfoRow
+            icon="checkmark-circle-outline"
+            iconColor={isActive ? colors.success : colors.error}
+            iconBg={isActive ? `${colors.success}10` : `${colors.error}10`}
+            label={t.status}
+            value={isActive ? t.active : t.inactive}
+          />
+          {agency?.greetingMessage && (
+            <InfoRow
+              icon="chatbubble-outline"
+              iconColor="#7c3aed"
+              iconBg={`${colors.primary}10`}
+              label={t.greeting}
+              value={agency.greetingMessage}
+              last={!agency.description}
+            />
+          )}
+          {agency?.description && (
+            <InfoRow
+              icon="document-text-outline"
+              iconColor={colors.primary}
+              iconBg={`${colors.primary}10`}
+              label={t.description}
+              value={agency.description}
+              last
+            />
+          )}
+        </View>
+
+        <View style={{ height: spacing.xl }} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -485,85 +396,81 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
-  title: { ...typography.heading, fontSize: typography.sizes.lg },
-  form: {
+  title: {
+    ...typography.heading,
+    fontSize: typography.sizes.lg,
+    flex: 1,
+    textAlign: 'center',
+  },
+
+  agencyTopCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
     margin: spacing.lg,
     borderWidth: 1,
     borderRadius: 4,
     padding: spacing.md,
   },
-  label: {
-    ...typography.bodyBold,
-    fontSize: typography.sizes.sm,
-    marginBottom: spacing.sm,
-  },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  logoPreview: {
-    width: 64,
-    height: 64,
-    borderRadius: 4,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  logoImage: { width: '100%', height: '100%' },
-  logoLetter: { ...typography.heading, fontSize: typography.sizes.xl },
-  logoTextCol: { flex: 1 },
-  logoChangeText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
-  logoHint: { ...typography.body, fontSize: typography.sizes.xs, marginTop: 2 },
-  cameraBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 4,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: spacing.md,
-    height: 48,
-    ...typography.body,
-    fontSize: typography.sizes.sm,
-  },
-  textarea: { height: 90, textAlignVertical: 'top', paddingTop: spacing.sm },
-  fieldError: {
-    ...typography.body,
-    fontSize: typography.sizes.xs,
-    marginTop: 4,
-  },
-  locationInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: spacing.md,
-    height: 48,
-  },
-  locationInput: { flex: 1, ...typography.body, fontSize: typography.sizes.sm },
-  saveBtn: {
+  agencyLogo: {
+    width: 52,
     height: 52,
     borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.xl,
+    overflow: 'hidden',
   },
-  saveBtnText: {
-    ...typography.bodyBold,
-    fontSize: typography.sizes.md,
-    color: '#fff',
-  },
-  alert: {
+  agencyLogoImage: { width: '100%', height: '100%' },
+  agencyTopInfo: { flex: 1 },
+  agencyNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  agencyName: { ...typography.bodyBold, fontSize: typography.sizes.md, flex: 1 },
+  statusBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  statusText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
+  agencyContactRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
+  agencyContact: { ...typography.body, fontSize: typography.sizes.xs },
+
+  section: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderRadius: 4,
-    padding: spacing.md,
-    marginTop: spacing.md,
+    overflow: 'hidden',
   },
-  alertText: { ...typography.body, fontSize: typography.sizes.sm, flex: 1 },
+  sectionTitle: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+  },
+  infoIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoLabel: { ...typography.body, fontSize: typography.sizes.sm, flex: 1 },
+  infoValue: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+    flex: 1,
+    textAlign: 'right',
+  },
 });
