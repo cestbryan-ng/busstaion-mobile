@@ -25,7 +25,7 @@ git clone https://github.com/cestbryan-ng/busstation-mobile.git
 cd busstation-mobile
 
 # Installer les dépendances
-npm install
+npm install --legacy-peer-deps
 
 # Lancer le projet sur un appareil physique ou un émulateur
 # Android
