@@ -21,6 +21,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import ConfirmModal from '../../../../components/confirm-modal';
 import { SkeletonResourcesScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -238,6 +241,7 @@ const fStyles = StyleSheet.create({
 export default function AgencyResources() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const toast = useToast();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
@@ -259,6 +263,7 @@ export default function AgencyResources() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [classes, setClasses] = useState<TravelClass[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
 
   // Modals
   const [formModal, setFormModal] = useState(false);
@@ -445,6 +450,8 @@ export default function AgencyResources() {
       const agency = await agencyRes.json();
       setAgencyId(agency.id);
 
+      const cacheKey = `agency_resources_${agency.id}`;
+
       const [vRes, dRes, eRes, cRes] = await Promise.allSettled([
         fetch(`${API_URL}/vehicule/agence/${agency.id}`, { headers }),
         fetch(`${API_URL}/utilisateur/chauffeurs/${agency.id}`, { headers }),
@@ -452,22 +459,52 @@ export default function AgencyResources() {
         fetch(`${API_URL}/class-voyage/agence/${agency.id}`, { headers }),
       ]);
 
+      let anySuccess = false;
+
       if (vRes.status === 'fulfilled' && vRes.value.ok) {
         const d = await vRes.value.json();
-        setVehicles(d.content || d || []);
+        const vehicles = d.content || d || [];
+        setVehicles(vehicles);
+        anySuccess = true;
+        await setCache(`${cacheKey}_vehicles`, vehicles);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`${cacheKey}_vehicles`);
+        if (cached) { setVehicles(cached); setIsOffline(true); }
       }
       if (dRes.status === 'fulfilled' && dRes.value.ok) {
         const d = await dRes.value.json();
-        setDrivers(d.content || d || []);
+        const drivers = d.content || d || [];
+        setDrivers(drivers);
+        anySuccess = true;
+        await setCache(`${cacheKey}_drivers`, drivers);
+        if (!isOffline) setIsOffline(false);
+      } else {
+        const cached = await getCache(`${cacheKey}_drivers`);
+        if (cached) { setDrivers(cached); setIsOffline(true); }
       }
       if (eRes.status === 'fulfilled' && eRes.value.ok) {
         const d = await eRes.value.json();
-        setEmployees(d.content || d || []);
+        const employees = d.content || d || [];
+        setEmployees(employees);
+        anySuccess = true;
+        await setCache(`${cacheKey}_employees`, employees);
+      } else {
+        const cached = await getCache(`${cacheKey}_employees`);
+        if (cached) { setEmployees(cached); setIsOffline(true); }
       }
       if (cRes.status === 'fulfilled' && cRes.value.ok) {
         const d = await cRes.value.json();
-        setClasses(d.content || d || []);
+        const classes = d.content || d || [];
+        setClasses(classes);
+        anySuccess = true;
+        await setCache(`${cacheKey}_classes`, classes);
+      } else {
+        const cached = await getCache(`${cacheKey}_classes`);
+        if (cached) { setClasses(cached); setIsOffline(true); }
       }
+
+      if (anySuccess) setIsOffline(false);
     } catch {
       // silent
     } finally {
@@ -1081,6 +1118,7 @@ export default function AgencyResources() {
             {t.title}
           </Text>
         </View>
+        {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
         {/* Tabs */}
         <View
@@ -1129,7 +1167,7 @@ export default function AgencyResources() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={isOnline ? onRefresh : undefined}
               tintColor={colors.primary}
             />
           }

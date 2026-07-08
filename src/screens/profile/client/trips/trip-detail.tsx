@@ -22,6 +22,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import SeatSelectionModal from './seat-selection-modal';
 import PaymentModal from './payment-modal';
@@ -161,6 +164,7 @@ function formatPrice(price: number): string {
 export default function TripDetailScreen() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'TripDetail'>>();
@@ -178,6 +182,7 @@ export default function TripDetailScreen() {
   const [reservationId, setReservationId] = useState('');
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const carouselRef = useRef<FlatList>(null);
   const autoPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -257,9 +262,21 @@ export default function TripDetailScreen() {
       if (res.ok) {
         const data = await res.json();
         setTrip(data);
+        await setCache(`trip_detail_${tripId}`, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`trip_detail_${tripId}`);
+        if (cached) {
+          setTrip(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const cached = await getCache(`trip_detail_${tripId}`);
+      if (cached) {
+        setTrip(cached);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -383,12 +400,14 @@ export default function TripDetailScreen() {
           </TouchableOpacity>
         </View>
 
+        {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
         <ScrollView
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={isOnline ? onRefresh : undefined}
               tintColor={colors.primary}
             />
           }

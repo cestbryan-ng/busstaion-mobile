@@ -18,6 +18,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -40,6 +43,7 @@ type Agency = {
 export default function OrgMyAgencies() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -50,6 +54,7 @@ export default function OrgMyAgencies() {
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [isOffline, setIsOffline] = useState(false);
   const debouncedSearch = useDebounce(search);
 
   const t = {
@@ -94,7 +99,14 @@ export default function OrgMyAgencies() {
         `${API_URL}/organizations/agencies/${org.organization_id}`,
         { headers },
       );
-      if (!res.ok) return;
+      if (!res.ok) {
+        const cached = await getCache('org_my_agencies');
+        if (cached) {
+          setAgencies(cached);
+          setIsOffline(true);
+        }
+        return;
+      }
       const data = await res.json();
       const list: Agency[] = data.content || data || [];
 
@@ -131,9 +143,15 @@ export default function OrgMyAgencies() {
           }
         }),
       );
+      await setCache('org_my_agencies', enriched);
+      setIsOffline(false);
       setAgencies(enriched);
     } catch {
-      // silent
+      const cached = await getCache('org_my_agencies');
+      if (cached) {
+        setAgencies(cached);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -185,6 +203,8 @@ export default function OrgMyAgencies() {
         </Text>
         <View style={styles.backBtn} />
       </View>
+
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
       {/* Search */}
       <View
@@ -255,7 +275,7 @@ export default function OrgMyAgencies() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />
         }
         contentContainerStyle={styles.list}
       >

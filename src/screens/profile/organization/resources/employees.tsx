@@ -21,6 +21,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { useToast } from '../../../../components/toast';
@@ -68,6 +71,7 @@ const EMPTY_FORM: FormData = {
 export default function OrgEmployees() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'OrgEmployees'>>();
@@ -81,6 +85,7 @@ export default function OrgEmployees() {
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
   const toast = useToast();
 
   const t = {
@@ -154,9 +159,21 @@ export default function OrgEmployees() {
       if (res.ok) {
         const data = await res.json();
         setEmployees(data.content || data || []);
+        setCache(`org_employees_${agencyId}`, data.content || data || []);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`org_employees_${agencyId}`);
+        if (cached) {
+          setEmployees(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const cached = await getCache(`org_employees_${agencyId}`);
+      if (cached) {
+        setEmployees(cached);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -242,6 +259,7 @@ export default function OrgEmployees() {
         </Text>
         <View style={styles.headerSide} />
       </View>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -249,7 +267,7 @@ export default function OrgEmployees() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

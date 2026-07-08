@@ -17,6 +17,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonServiceLineDetail } from '../../../../components/skeleton';
 
@@ -58,6 +61,7 @@ const RECURRENCE_FR: Record<string, string> = {
 export default function OrgServiceLineDetail() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route =
@@ -70,6 +74,7 @@ export default function OrgServiceLineDetail() {
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -87,12 +92,41 @@ export default function OrgServiceLineDetail() {
         }),
       ]);
 
-      if (lineRes.status === 'fulfilled' && lineRes.value.ok)
-        setLine(await lineRes.value.json());
-      if (statsRes.status === 'fulfilled' && statsRes.value.ok)
-        setStats(await statsRes.value.json());
+      if (lineRes.status === 'fulfilled' && lineRes.value.ok) {
+        const lineData = await lineRes.value.json();
+        setLine(lineData);
+        setCache(`org_service_line_${lineId}`, lineData);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`org_service_line_${lineId}`);
+        if (cached) {
+          setLine(cached);
+          setIsOffline(true);
+        }
+      }
+
+      if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
+        const statsData = await statsRes.value.json();
+        setStats(statsData);
+        setCache(`org_service_line_stats_${agencyId}`, statsData);
+      } else {
+        const cachedStats = await getCache(`org_service_line_stats_${agencyId}`);
+        if (cachedStats) {
+          setStats(cachedStats);
+          setIsOffline(true);
+        }
+      }
     } catch {
-      // silent
+      const cached = await getCache(`org_service_line_${lineId}`);
+      if (cached) {
+        setLine(cached);
+        setIsOffline(true);
+      }
+      const cachedStats = await getCache(`org_service_line_stats_${agencyId}`);
+      if (cachedStats) {
+        setStats(cachedStats);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -159,7 +193,9 @@ export default function OrgServiceLineDetail() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}>
         {/* Line header */}
         <View
           style={[

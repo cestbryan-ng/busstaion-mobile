@@ -17,6 +17,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 
@@ -60,6 +63,8 @@ type TabType = 'affiliations' | 'taxes';
 export default function OrgAffiliations() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
+  const [isOffline, setIsOffline] = useState(false);
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'OrgAffiliations'>>();
@@ -103,9 +108,24 @@ export default function OrgAffiliations() {
       const res = await fetch(`${API_URL}/affiliation/agence/${agencyId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setAffiliations(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setAffiliations(data);
+        setCache(`org_affiliations_${agencyId}`, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`org_affiliations_${agencyId}`);
+        if (cached) {
+          setAffiliations(cached);
+          setIsOffline(true);
+        }
+      }
     } catch {
-      // silent
+      const cached = await getCache(`org_affiliations_${agencyId}`);
+      if (cached) {
+        setAffiliations(cached);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -127,6 +147,7 @@ export default function OrgAffiliations() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
       <View
         style={[
           styles.header,
@@ -176,7 +197,7 @@ export default function OrgAffiliations() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}
       >
         {tab === 'affiliations' ? (
           affiliations.length === 0 ? (

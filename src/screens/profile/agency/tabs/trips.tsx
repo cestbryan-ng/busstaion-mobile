@@ -25,6 +25,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -92,6 +95,9 @@ export default function AgencyTrips({
   const theme = isDark ? colors.dark : colors.light;
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  const isOnline = useNetworkStatus();
+  const [isOffline, setIsOffline] = useState(false);
 
   const [lang, setLang] = useState<'fr' | 'en'>(propLang || 'fr');
   const scrollRef = useRef<ScrollView>(null);
@@ -162,6 +168,7 @@ export default function AgencyTrips({
         setAgencyId(currentAgencyId);
       }
 
+      const cacheKey = `agency_trips_list_${pageNum}`;
       const tripsRes = await fetch(
         `${API_URL}/voyage/agence/${currentAgencyId}?page=${pageNum}&size=20`,
         { headers },
@@ -172,9 +179,28 @@ export default function AgencyTrips({
         setTrips(prev => (pageNum === 0 ? items : [...prev, ...items]));
         setTotalPages(data.totalPages ?? 1);
         setPage(pageNum);
+        await setCache(cacheKey, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(cacheKey);
+        if (cached) {
+          const items: Trip[] = cached.content || cached || [];
+          setTrips(prev => (pageNum === 0 ? items : [...prev, ...items]));
+          setTotalPages(cached.totalPages ?? 1);
+          setPage(pageNum);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const cacheKey = `agency_trips_list_${pageNum}`;
+      const cached = await getCache(cacheKey);
+      if (cached) {
+        const items: Trip[] = cached.content || cached || [];
+        setTrips(prev => (pageNum === 0 ? items : [...prev, ...items]));
+        setTotalPages(cached.totalPages ?? 1);
+        setPage(pageNum);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -346,6 +372,8 @@ export default function AgencyTrips({
         <Text style={[styles.headerTitle, { color: theme.textStrong }]}>{t.title}</Text>
       </View>
 
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
       {/* Search + filtre */}
       <View
         style={[
@@ -432,7 +460,7 @@ export default function AgencyTrips({
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

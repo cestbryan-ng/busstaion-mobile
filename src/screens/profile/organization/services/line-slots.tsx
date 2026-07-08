@@ -16,6 +16,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 
@@ -32,6 +35,8 @@ type Slot = {
 export default function OrgLineSlots() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
+  const [isOffline, setIsOffline] = useState(false);
   const navigation = useNavigation();
   const route = useRoute<RouteProp<RootStackParamList, 'OrgLineSlots'>>();
   const { lineId, lineName } = route.params;
@@ -46,9 +51,24 @@ export default function OrgLineSlots() {
       const res = await fetch(`${API_URL}/ligne-service/${lineId}/creneaux`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setSlots(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setSlots(data);
+        setCache(`org_line_slots_${lineId}`, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`org_line_slots_${lineId}`);
+        if (cached) {
+          setSlots(cached);
+          setIsOffline(true);
+        }
+      }
     } catch {
-      // silent
+      const cached = await getCache(`org_line_slots_${lineId}`);
+      if (cached) {
+        setSlots(cached);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -74,6 +94,7 @@ export default function OrgLineSlots() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {(!isOnline || isOffline) && <OfflineBanner />}
       <View
         style={[
           styles.header,
@@ -106,7 +127,7 @@ export default function OrgLineSlots() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}
       >
         {slots.map((slot, i) => (
           <View

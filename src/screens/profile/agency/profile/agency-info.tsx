@@ -18,6 +18,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonAgencyInfo } from '../../../../components/skeleton';
 import AgencyPlaceholder from '../../../../assets/placeholders/shape.svg';
@@ -42,6 +45,7 @@ type Agency = {
 export default function AgencyInfo() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -49,6 +53,7 @@ export default function AgencyInfo() {
   const [agency, setAgency] = useState<Agency | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const t = {
     fr: {
@@ -106,9 +111,30 @@ export default function AgencyInfo() {
       if (res.ok) {
         const data = await res.json();
         setAgency(data);
+        setCache(`agency_info_${chefId}`, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`agency_info_${chefId}`);
+        if (cached) {
+          setAgency(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      try {
+        const userRaw = await AsyncStorage.getItem('user');
+        const user = userRaw ? JSON.parse(userRaw) : null;
+        const chefId = user?.userId || user?.id;
+        if (chefId) {
+          const cached = await getCache(`agency_info_${chefId}`);
+          if (cached) {
+            setAgency(cached);
+            setIsOffline(true);
+          }
+        }
+      } catch {
+        // silent
+      }
     } finally {
       setLoading(false);
     }
@@ -191,12 +217,14 @@ export default function AgencyInfo() {
         </TouchableOpacity>
       </View>
 
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

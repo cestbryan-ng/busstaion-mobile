@@ -22,6 +22,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
@@ -203,10 +206,12 @@ function isInDateRange(dateStr: string, filter: DateFilter): boolean {
 export default function Historique() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const [isOffline, setIsOffline] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
   const [tab, setTab] = useState<TabType>('reservations');
@@ -291,7 +296,11 @@ export default function Historique() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!res.ok) return;
+      if (!res.ok) {
+        const cached = await getCache<HistoriqueEnrichi[]>(`history_${userId}`);
+        if (cached) { setHistoriques(cached); setIsOffline(true); }
+        return;
+      }
 
       const data = await res.json();
       const rawList: HistoriqueRaw[] = data;
@@ -319,8 +328,16 @@ export default function Historique() {
       }));
 
       setHistoriques(enriched);
+      const userId2 = user?.userId || user?.id;
+      if (userId2) setCache(`history_${userId2}`, enriched);
+      setIsOffline(false);
     } catch {
-      // silent
+      const userRaw2 = await AsyncStorage.getItem('user');
+      const userId2 = userRaw2 ? JSON.parse(userRaw2)?.userId || JSON.parse(userRaw2)?.id : null;
+      if (userId2) {
+        const cached = await getCache<HistoriqueEnrichi[]>(`history_${userId2}`);
+        if (cached) { setHistoriques(cached); setIsOffline(true); }
+      }
     } finally {
       setLoading(false);
     }
@@ -706,6 +723,8 @@ export default function Historique() {
           </Text>
         </View>
 
+        {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
@@ -713,7 +732,7 @@ export default function Historique() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={isOnline ? onRefresh : undefined}
               tintColor={colors.primary}
             />
           }

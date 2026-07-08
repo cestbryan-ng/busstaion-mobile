@@ -22,6 +22,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
@@ -130,10 +133,12 @@ function isUpcoming(dateStr: string): boolean {
 export default function Bookings() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const [isOffline, setIsOffline] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
   const [tab, setTab] = useState<TabType>('avenir');
@@ -208,6 +213,7 @@ export default function Bookings() {
       const userId = user?.userId || user?.id;
       if (!userId) return;
 
+      const cacheKey = `bookings_${userId}_${page}`;
       const res = await fetch(
         `${API_URL}/reservation/user/${userId}?page=${page}&size=10`,
         { headers: { Authorization: `Bearer ${token}` } },
@@ -215,14 +221,32 @@ export default function Bookings() {
 
       if (res.ok) {
         const data = await res.json();
-        console.log('Reservations data:', data);
         const content = data.content || [];
         setReservations(prev => (reset ? content : [...prev, ...content]));
         setTotalPages(data.totalPages || 1);
         setCurrentPage(page);
+        setCache(cacheKey, { content, totalPages: data.totalPages || 1 });
+        if (reset) setIsOffline(false);
+      } else {
+        const cached = await getCache<{ content: Reservation[]; totalPages: number }>(cacheKey);
+        if (cached && reset) {
+          setReservations(cached.content);
+          setTotalPages(cached.totalPages);
+          setCurrentPage(page);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const user2 = await AsyncStorage.getItem('user');
+      const userId2 = user2 ? JSON.parse(user2)?.userId || JSON.parse(user2)?.id : null;
+      if (userId2 && reset) {
+        const cached = await getCache<{ content: Reservation[]; totalPages: number }>(`bookings_${userId2}_0`);
+        if (cached) {
+          setReservations(cached.content);
+          setTotalPages(cached.totalPages);
+          setIsOffline(true);
+        }
+      }
     } finally {
       setLoading(false);
       if (!reset) setLoadingMore(false);
@@ -442,6 +466,9 @@ export default function Bookings() {
           </Text>
         </View>
 
+        {/* Offline banner */}
+        {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
         {/* Tabs */}
         <View
           style={[
@@ -497,7 +524,7 @@ export default function Bookings() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={isOnline ? onRefresh : undefined}
               tintColor={colors.primary}
             />
           }

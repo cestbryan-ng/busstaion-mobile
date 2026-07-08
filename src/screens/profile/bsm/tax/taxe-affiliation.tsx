@@ -23,6 +23,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
@@ -64,6 +67,7 @@ function formatAmount(item: TaxeAffiliation): string {
 export default function TaxeAffiliationBsm() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const toast = useToast();
@@ -73,6 +77,7 @@ export default function TaxeAffiliationBsm() {
   const [gareId, setGareId] = useState('');
   const [items, setItems] = useState<TaxeAffiliation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -170,13 +175,30 @@ export default function TaxeAffiliationBsm() {
       const station = await stRes.json();
       setGareId(station.idGareRoutiere);
 
-      const res = await fetch(
-        `${API_URL}/taxe-affiliation/gare/${station.idGareRoutiere}`,
-        { headers: { Authorization: `Bearer ${tk}` } },
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setItems(Array.isArray(data) ? data : []);
+      const cacheKey = `bsm_taxe_affiliation_${managerId}`;
+      try {
+        const res = await fetch(
+          `${API_URL}/taxe-affiliation/gare/${station.idGareRoutiere}`,
+          { headers: { Authorization: `Bearer ${tk}` } },
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setItems(Array.isArray(data) ? data : []);
+          setCache(cacheKey, Array.isArray(data) ? data : []);
+          setIsOffline(false);
+        } else {
+          const cached = await getCache(cacheKey);
+          if (cached) {
+            setItems(cached);
+            setIsOffline(true);
+          }
+        }
+      } catch {
+        const cached = await getCache(cacheKey);
+        if (cached) {
+          setItems(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
       // silent
@@ -314,7 +336,9 @@ export default function TaxeAffiliationBsm() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}>
         <View style={styles.list}>
           {items.length === 0 ? (
             <EmptyState

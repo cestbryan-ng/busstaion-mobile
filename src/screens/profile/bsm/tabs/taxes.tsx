@@ -23,6 +23,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -56,6 +59,7 @@ function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
 export default function BsmTaxes() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -69,6 +73,7 @@ export default function BsmTaxes() {
   const debouncedSearch = useDebounce(search);
   const [tab, setTab] = useState<TabFilter>('ALL');
   const [showFilter, setShowFilter] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const t = {
     fr: {
@@ -127,10 +132,28 @@ export default function BsmTaxes() {
       );
       if (res.ok) {
         const taxData = await res.json();
-        setItems(Array.isArray(taxData) ? taxData : []);
+        const data = Array.isArray(taxData) ? taxData : [];
+        setItems(data);
+        await setCache(`bsm_taxes_${managerId}`, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`bsm_taxes_${managerId}`);
+        if (cached) {
+          setItems(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const userRaw = await AsyncStorage.getItem('user');
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      const managerId = user?.userId || user?.id;
+      if (managerId) {
+        const cached = await getCache(`bsm_taxes_${managerId}`);
+        if (cached) {
+          setItems(cached);
+          setIsOffline(true);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -290,6 +313,8 @@ export default function BsmTaxes() {
           </Text>
         </View>
 
+        {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
@@ -297,7 +322,7 @@ export default function BsmTaxes() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={isOnline ? onRefresh : undefined}
               tintColor={colors.primary}
             />
           }

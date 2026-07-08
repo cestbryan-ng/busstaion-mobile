@@ -19,6 +19,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL, MAPS_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonStationDetail } from '../../../../components/skeleton';
@@ -125,6 +128,8 @@ function formatDuration(raw: string | number): string {
 export default function StationDetail() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
+  const [isOffline, setIsOffline] = useState(false);
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'StationDetail'>>();
@@ -189,21 +194,44 @@ export default function StationDetail() {
         }),
       ]);
 
-      if (gareRes.ok) { 
+      if (gareRes.ok) {
         const data = await gareRes.json();
         setGare(data);
-       }
+        setCache(`station_detail_${stationId}`, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`station_detail_${stationId}`);
+        if (cached) { setGare(cached); setIsOffline(true); }
+      }
       if (agenciesRes.ok) {
         const data = await agenciesRes.json();
         setAgencies(data.content || data || []);
+        setCache(`station_agencies_${stationId}`, data.content || data || []);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`station_agencies_${stationId}`);
+        if (cached) { setAgencies(cached); setIsOffline(true); }
       }
       if (tripsRes.ok) {
         const data = await tripsRes.json();
         const now = new Date();
-        setTrips((data.content || data || []).filter((t: Trip) => t.statusVoyage === 'PUBLIE' && t.dateDepartPrev && new Date(t.dateDepartPrev) > now));
+        const filtered = (data.content || data || []).filter((t: Trip) => t.statusVoyage === 'PUBLIE' && t.dateDepartPrev && new Date(t.dateDepartPrev) > now);
+        setTrips(filtered);
+        setCache(`station_trips_${stationId}`, filtered);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`station_trips_${stationId}`);
+        if (cached) { setTrips(cached); setIsOffline(true); }
       }
     } catch {
-      // silent
+      const [cachedGare, cachedAgencies, cachedTrips] = await Promise.all([
+        getCache(`station_detail_${stationId}`),
+        getCache(`station_agencies_${stationId}`),
+        getCache(`station_trips_${stationId}`),
+      ]);
+      if (cachedGare) { setGare(cachedGare); setIsOffline(true); }
+      if (cachedAgencies) { setAgencies(cachedAgencies); setIsOffline(true); }
+      if (cachedTrips) { setTrips(cachedTrips); setIsOffline(true); }
     } finally {
       setLoading(false);
     }
@@ -251,8 +279,9 @@ export default function StationDetail() {
           />
         </TouchableOpacity>
       </View>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}>
         {/* Banner Image */}
         <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
           {gare.photoUrl && !gare.photoUrl.toLowerCase().includes('placeholder')

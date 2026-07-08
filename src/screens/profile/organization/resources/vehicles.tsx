@@ -22,6 +22,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -54,6 +57,7 @@ const CLASS_COLORS: Record<string, string> = {
 export default function OrgVehicles() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'OrgVehicles'>>();
@@ -67,6 +71,7 @@ export default function OrgVehicles() {
   const [classes, setClasses] = useState<TravelClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filterSeats, setFilterSeats] = useState<
@@ -127,14 +132,41 @@ export default function OrgVehicles() {
 
       if (vRes.status === 'fulfilled' && vRes.value.ok) {
         const d = await vRes.value.json();
-        setVehicles(d.content || d || []);
+        const vehicleData = d.content || d || [];
+        setVehicles(vehicleData);
+        setCache(`org_vehicles_${agencyId}`, vehicleData);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`org_vehicles_${agencyId}`);
+        if (cached) {
+          setVehicles(cached);
+          setIsOffline(true);
+        }
       }
+
       if (cRes.status === 'fulfilled' && cRes.value.ok) {
         const d = await cRes.value.json();
-        setClasses(d.content || d || []);
+        const classData = d.content || d || [];
+        setClasses(classData);
+        setCache(`org_vehicles_classes_${agencyId}`, classData);
+      } else {
+        const cached = await getCache(`org_vehicles_classes_${agencyId}`);
+        if (cached) {
+          setClasses(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const cachedVehicles = await getCache(`org_vehicles_${agencyId}`);
+      if (cachedVehicles) {
+        setVehicles(cachedVehicles);
+        setIsOffline(true);
+      }
+      const cachedClasses = await getCache(`org_vehicles_classes_${agencyId}`);
+      if (cachedClasses) {
+        setClasses(cachedClasses);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -264,6 +296,7 @@ export default function OrgVehicles() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
       <View
         style={[
           styles.header,
@@ -380,7 +413,7 @@ export default function OrgVehicles() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

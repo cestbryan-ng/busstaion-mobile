@@ -19,6 +19,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import { SkeletonOrgDashboard } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
 import type { RootStackParamList } from '../../../../navigation';
@@ -350,6 +353,8 @@ export default function OrgDashboard({
 }: OrgDashboardProps) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
+  const [isOffline, setIsOffline] = useState(false);
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -527,14 +532,36 @@ export default function OrgDashboard({
           setOrg(first);
           orgId = first.organization_id;
           await AsyncStorage.setItem('organization', JSON.stringify(first));
+          await setCache(`org_dashboard_${orgId}`, orgsData);
+          setIsOffline(false);
+        }
+      } else {
+        const cachedOrgs = await getCache(`org_dashboard_${orgId}`);
+        if (cachedOrgs) {
+          const first = Array.isArray(cachedOrgs) ? cachedOrgs[0] : null;
+          if (first) {
+            setOrg(first);
+            orgId = first.organization_id;
+            setIsOffline(true);
+          }
         }
       }
       if (!orgId) return;
 
       const agenciesRes = await fetch(`${API_URL}/organizations/agencies/${orgId}`, { headers });
-      if (!agenciesRes.ok) return;
-      const agenciesData = await agenciesRes.json();
-      const list: Agency[] = agenciesData.content || agenciesData || [];
+      let list: Agency[] = [];
+      if (agenciesRes.ok) {
+        const agenciesData = await agenciesRes.json();
+        list = agenciesData.content || agenciesData || [];
+        await setCache(`org_agencies_${orgId}`, list);
+        setIsOffline(false);
+      } else {
+        const cachedAgencies = await getCache(`org_agencies_${orgId}`);
+        if (cachedAgencies) {
+          list = cachedAgencies;
+          setIsOffline(true);
+        }
+      }
       setAgencies(list);
       if (list.length === 0) return;
 
@@ -557,18 +584,44 @@ export default function OrgDashboard({
         const agency = list[i];
         const agencyResults = results[i];
         if (agencyResults.status !== 'fulfilled') {
-          newMap[agency.agencyId] = { stats: null, evolution: null, trips: [], reservations: [], taxes: null, alerts: [] };
+          const cached = await getCache(`org_agency_data_${agency.agencyId}`);
+          if (cached) {
+            newMap[agency.agencyId] = cached;
+            setIsOffline(true);
+          } else {
+            newMap[agency.agencyId] = { stats: null, evolution: null, trips: [], reservations: [], taxes: null, alerts: [] };
+          }
           continue;
         }
         const [sR, eR, tR, rR, taxR, alR] = agencyResults.value;
-        newMap[agency.agencyId] = {
-          stats: sR.status === 'fulfilled' && sR.value.ok ? await sR.value.json() : null,
-          evolution: eR.status === 'fulfilled' && eR.value.ok ? await eR.value.json() : null,
-          trips: tR.status === 'fulfilled' && tR.value.ok ? ((await tR.value.json()).content || []) : [],
-          reservations: rR.status === 'fulfilled' && rR.value.ok ? ((await rR.value.json()).content || []) : [],
-          taxes: taxR.status === 'fulfilled' && taxR.value.ok ? await taxR.value.json() : null,
-          alerts: alR.status === 'fulfilled' && alR.value.ok ? await alR.value.json() : [],
-        };
+        const stats = sR.status === 'fulfilled' && sR.value.ok ? await sR.value.json() : null;
+        const evolution = eR.status === 'fulfilled' && eR.value.ok ? await eR.value.json() : null;
+        const trips = tR.status === 'fulfilled' && tR.value.ok ? ((await tR.value.json()).content || []) : [];
+        const reservations = rR.status === 'fulfilled' && rR.value.ok ? ((await rR.value.json()).content || []) : [];
+        const taxes = taxR.status === 'fulfilled' && taxR.value.ok ? await taxR.value.json() : null;
+        const alerts = alR.status === 'fulfilled' && alR.value.ok ? await alR.value.json() : [];
+
+        const agencyData: AgencyData = { stats, evolution, trips, reservations, taxes, alerts };
+
+        // Fill missing fields from cache if fetch failed
+        const hasFailed = !stats || !evolution || trips.length === 0 || reservations.length === 0;
+        if (hasFailed) {
+          const cached = await getCache(`org_agency_data_${agency.agencyId}`);
+          if (cached) {
+            agencyData.stats = agencyData.stats ?? cached.stats;
+            agencyData.evolution = agencyData.evolution ?? cached.evolution;
+            if (agencyData.trips.length === 0) agencyData.trips = cached.trips;
+            if (agencyData.reservations.length === 0) agencyData.reservations = cached.reservations;
+            agencyData.taxes = agencyData.taxes ?? cached.taxes;
+            if (agencyData.alerts.length === 0) agencyData.alerts = cached.alerts;
+            setIsOffline(true);
+          }
+        } else {
+          await setCache(`org_agency_data_${agency.agencyId}`, agencyData);
+          setIsOffline(false);
+        }
+
+        newMap[agency.agencyId] = agencyData;
       }
       setAgencyDataMap(newMap);
     } catch {
@@ -739,6 +792,7 @@ export default function OrgDashboard({
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
       {/* Header */}
       <View
         style={[
@@ -781,7 +835,7 @@ export default function OrgDashboard({
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

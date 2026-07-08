@@ -18,6 +18,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonDashboard } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -290,6 +293,8 @@ export default function AgencyDashboard({
 }: AgencyDashboardProps) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
+  const [isOffline, setIsOffline] = useState(false);
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -466,17 +471,38 @@ export default function AgencyDashboard({
         fetch(`${API_URL}/reservation/agence/${agencyId}?page=0&size=5`, { headers }),
       ]);
 
-      if (statsRes.status === 'fulfilled' && statsRes.value.ok)
-        setStats(await statsRes.value.json());
-      if (evolutionRes.status === 'fulfilled' && evolutionRes.value.ok)
-        setEvolution(await evolutionRes.value.json());
+      if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
+        const data = await statsRes.value.json();
+        setStats(data);
+        setCache(`agency_dashboard_${agencyId}`, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`agency_dashboard_${agencyId}`);
+        if (cached) { setStats(cached); setIsOffline(true); }
+      }
+      if (evolutionRes.status === 'fulfilled' && evolutionRes.value.ok) {
+        const data = await evolutionRes.value.json();
+        setEvolution(data);
+        setCache(`agency_dashboard_evolution_${agencyId}`, data);
+      } else {
+        const cached = await getCache(`agency_dashboard_evolution_${agencyId}`);
+        if (cached) { setEvolution(cached); setIsOffline(true); }
+      }
       if (tripsRes.status === 'fulfilled' && tripsRes.value.ok) {
         const data = await tripsRes.value.json();
         setTrips(data.content || data || []);
+        setCache(`agency_dashboard_trips_${agencyId}`, data.content || data || []);
+      } else {
+        const cached = await getCache(`agency_dashboard_trips_${agencyId}`);
+        if (cached) { setTrips(cached); setIsOffline(true); }
       }
       if (reservationsRes.status === 'fulfilled' && reservationsRes.value.ok) {
         const data = await reservationsRes.value.json();
         setReservations(data.content || []);
+        setCache(`agency_dashboard_reservations_${agencyId}`, data.content || []);
+      } else {
+        const cached = await getCache(`agency_dashboard_reservations_${agencyId}`);
+        if (cached) { setReservations(cached); setIsOffline(true); }
       }
     } catch {
       // silent
@@ -593,13 +619,15 @@ export default function AgencyDashboard({
         </View>
       </View>
 
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

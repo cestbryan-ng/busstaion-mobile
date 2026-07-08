@@ -19,6 +19,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL, SUPPORT_URL, CGU_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import { logout } from '../../../../utils/logout';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonProfileScreen } from '../../../../components/skeleton';
@@ -49,10 +52,12 @@ type Station = {
 export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: { setDrawerOpen: (open: boolean) => void; setLang?: (lang: 'fr' | 'en') => void }) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const [isOffline, setIsOffline] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
   const [user, setUser] = useState<User | null>(null);
@@ -148,44 +153,101 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      const profileRes = await fetch(`${API_URL}/bsm/profil`, { headers });
       let managerId = '';
-      if (profileRes.ok) {
-        const data = await profileRes.json();
-        setUser(data);
-        managerId = data.userId;
-        await AsyncStorage.setItem('user', JSON.stringify(data));
+      try {
+        const profileRes = await fetch(`${API_URL}/bsm/profil`, { headers });
+        if (profileRes.ok) {
+          const data = await profileRes.json();
+          setUser(data);
+          managerId = data.userId;
+          await AsyncStorage.setItem('user', JSON.stringify(data));
+          await setCache(`bsm_profile_${managerId}`, data);
+          setIsOffline(false);
+        } else {
+          const cached = await getCache('bsm_profile_unknown');
+          if (cached) { setUser(cached); managerId = cached.userId || ''; setIsOffline(true); }
+        }
+      } catch {
+        const cached = await getCache('bsm_profile_unknown');
+        if (cached) { setUser(cached); managerId = cached.userId || ''; setIsOffline(true); }
       }
 
       if (managerId) {
-        const stationRes = await fetch(`${API_URL}/gare/manager/${managerId}`, {
-          headers,
-        });
-        let gareId = '';
-        if (stationRes.ok) {
-          const stationData = await stationRes.json();
-          setStation(stationData);
-          gareId = stationData.idGareRoutiere ?? '';
-
-          const agenciesRes = await fetch(`${API_URL}/gare/${gareId}/agences`, { headers }).catch(() => null);
-          if (agenciesRes?.ok) {
-            const agData = await agenciesRes.json();
-            setAgenciesCount((agData.content || agData || []).length);
-          }
+        // save profile with correct key now that we have managerId
+        const existingUser = await getCache(`bsm_profile_${managerId}`);
+        if (!existingUser) {
+          const cached = await getCache('bsm_profile_unknown');
+          if (cached) await setCache(`bsm_profile_${managerId}`, cached);
         }
 
-        const taxesRes = await fetch(
-          `${API_URL}/politique-et-taxes/gare-routiere/${gareId}`,
-          { headers },
-        ).catch(() => null);
-        if (taxesRes?.ok) {
-          const taxData = await taxesRes.json();
-          const total = Array.isArray(taxData)
-            ? taxData
-                .filter((x: any) => x.type === 'TAXE')
-                .reduce((s: number, x: any) => s + (x.montantFixe || 0), 0)
-            : 0;
-          setTaxesCollected(total);
+        let gareId = '';
+        try {
+          const stationRes = await fetch(`${API_URL}/gare/manager/${managerId}`, { headers });
+          if (stationRes.ok) {
+            const stationData = await stationRes.json();
+            setStation(stationData);
+            gareId = stationData.idGareRoutiere ?? '';
+            await setCache(`bsm_station_${managerId}`, stationData);
+            setIsOffline(false);
+          } else {
+            const cached = await getCache(`bsm_station_${managerId}`);
+            if (cached) { setStation(cached); gareId = cached.idGareRoutiere ?? ''; setIsOffline(true); }
+          }
+        } catch {
+          const cached = await getCache(`bsm_station_${managerId}`);
+          if (cached) { setStation(cached); gareId = cached.idGareRoutiere ?? ''; setIsOffline(true); }
+        }
+
+        if (gareId) {
+          try {
+            const agenciesRes = await fetch(`${API_URL}/gare/${gareId}/agences`, { headers });
+            if (agenciesRes.ok) {
+              const agData = await agenciesRes.json();
+              const count = (agData.content || agData || []).length;
+              setAgenciesCount(count);
+              await setCache(`bsm_agencies_${gareId}`, agData);
+              setIsOffline(false);
+            } else {
+              const cached = await getCache(`bsm_agencies_${gareId}`);
+              if (cached) { setAgenciesCount((cached.content || cached || []).length); setIsOffline(true); }
+            }
+          } catch {
+            const cached = await getCache(`bsm_agencies_${gareId}`);
+            if (cached) { setAgenciesCount((cached.content || cached || []).length); setIsOffline(true); }
+          }
+
+          try {
+            const taxesRes = await fetch(`${API_URL}/politique-et-taxes/gare-routiere/${gareId}`, { headers });
+            if (taxesRes.ok) {
+              const taxData = await taxesRes.json();
+              const total = Array.isArray(taxData)
+                ? taxData
+                    .filter((x: any) => x.type === 'TAXE')
+                    .reduce((s: number, x: any) => s + (x.montantFixe || 0), 0)
+                : 0;
+              setTaxesCollected(total);
+              await setCache(`bsm_taxes_${gareId}`, taxData);
+              setIsOffline(false);
+            } else {
+              const cached = await getCache(`bsm_taxes_${gareId}`);
+              if (cached) {
+                const total = Array.isArray(cached)
+                  ? cached.filter((x: any) => x.type === 'TAXE').reduce((s: number, x: any) => s + (x.montantFixe || 0), 0)
+                  : 0;
+                setTaxesCollected(total);
+                setIsOffline(true);
+              }
+            }
+          } catch {
+            const cached = await getCache(`bsm_taxes_${gareId}`);
+            if (cached) {
+              const total = Array.isArray(cached)
+                ? cached.filter((x: any) => x.type === 'TAXE').reduce((s: number, x: any) => s + (x.montantFixe || 0), 0)
+                : 0;
+              setTaxesCollected(total);
+              setIsOffline(true);
+            }
+          }
         }
       }
     } catch {
@@ -264,6 +326,7 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
       {/* Header */}
       <View
         style={[
@@ -295,7 +358,7 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

@@ -19,6 +19,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonAgencyDetail } from '../../../../components/skeleton';
@@ -97,6 +100,7 @@ const AMENITY_ICONS: Record<string, string> = {
 export default function AgencyDetail() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AgencyDetail'>>();
@@ -108,6 +112,7 @@ export default function AgencyDetail() {
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const t = {
     fr: {
@@ -163,14 +168,42 @@ export default function AgencyDetail() {
       if (agencyRes.ok) {
         const agencyData = await agencyRes.json();
         setAgency(agencyData);
+        setCache(`agency_detail_${agencyId}`, agencyData);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`agency_detail_${agencyId}`);
+        if (cached) {
+          setAgency(cached);
+          setIsOffline(true);
+        }
       }
       if (tripsRes.ok) {
         const data = await tripsRes.json();
         const now = new Date();
-        setTrips((data.content || data || []).filter((t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now));
+        const filtered = (data.content || data || []).filter((t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now);
+        setTrips(filtered);
+        setCache(`agency_trips_${agencyId}`, filtered);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`agency_trips_${agencyId}`);
+        if (cached) {
+          setTrips(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const [cachedAgency, cachedTrips] = await Promise.all([
+        getCache(`agency_detail_${agencyId}`),
+        getCache(`agency_trips_${agencyId}`),
+      ]);
+      if (cachedAgency) {
+        setAgency(cachedAgency);
+        setIsOffline(true);
+      }
+      if (cachedTrips) {
+        setTrips(cachedTrips);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -216,8 +249,9 @@ export default function AgencyDetail() {
           />
         </TouchableOpacity>
       </View>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}>
         {/* Banner */}
         <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
           <View

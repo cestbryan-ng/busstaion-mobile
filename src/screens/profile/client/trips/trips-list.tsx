@@ -23,6 +23,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import type { TripFilters } from './trips-filter';
 import { EmptyState } from '../../../../components/empty-state';
@@ -101,6 +104,8 @@ function formatPrice(price: number): string {
 export default function TripsList() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
+  const [isOffline, setIsOffline] = useState(false);
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'TripsList'>>();
@@ -215,9 +220,33 @@ export default function TripsList() {
         setTrips(prev => (reset ? published : [...prev, ...published]));
         setTotalPages(data.totalPages || 1);
         setCurrentPage(page);
+        await setCache(`trips_list_${page}`, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`trips_list_${page}`);
+        if (cached) {
+          const now = new Date();
+          const published = (cached.content || []).filter(
+            (t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now,
+          );
+          setTrips(prev => (reset ? published : [...prev, ...published]));
+          setTotalPages(cached.totalPages || 1);
+          setCurrentPage(page);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const cached = await getCache(`trips_list_${page}`);
+      if (cached) {
+        const now = new Date();
+        const published = (cached.content || []).filter(
+          (t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now,
+        );
+        setTrips(prev => (reset ? published : [...prev, ...published]));
+        setTotalPages(cached.totalPages || 1);
+        setCurrentPage(page);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
       if (!reset) setLoadingMore(false);
@@ -494,6 +523,8 @@ export default function TripsList() {
       <View
         style={[styles.container, { backgroundColor: theme.backgroundAlt }]}
       >
+        {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
         {/* Header */}
         <View
           style={[
@@ -530,7 +561,7 @@ export default function TripsList() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={isOnline ? onRefresh : undefined}
               tintColor={colors.primary}
             />
           }

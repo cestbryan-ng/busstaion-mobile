@@ -20,6 +20,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonOrgAgencyDetail } from '../../../../components/skeleton';
 import ShapePlaceholder from '../../../../assets/placeholders/shape.svg';
@@ -60,6 +63,8 @@ type TabType = 'agence' | 'ressources' | 'lignes' | 'finances';
 export default function OrgAgencyDetail() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
+  const [isOffline, setIsOffline] = useState(false);
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'OrgAgencyDetail'>>();
@@ -163,6 +168,8 @@ export default function OrgAgencyDetail() {
       if (agencyRes.status === 'fulfilled' && agencyRes.value.ok) {
         const data = await agencyRes.value.json();
         setAgency(data);
+        setIsOffline(false);
+        setCache(`org_agency_detail_${agencyId}`, data);
         const gareId = data.gareIds?.[0];
         if (gareId) {
           const gareRes = await fetch(`${API_URL}/gare/${gareId}`, { headers });
@@ -171,12 +178,36 @@ export default function OrgAgencyDetail() {
             setStationName(g.nomGareRoutiere || null);
           }
         }
+      } else {
+        const cached = await getCache(`org_agency_detail_${agencyId}`);
+        if (cached) {
+          setAgency(cached);
+          setIsOffline(true);
+        }
       }
       if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
-        setStats(await statsRes.value.json());
+        const statsData = await statsRes.value.json();
+        setStats(statsData);
+        setIsOffline(false);
+        setCache(`org_agency_stats_${agencyId}`, statsData);
+      } else {
+        const cachedStats = await getCache(`org_agency_stats_${agencyId}`);
+        if (cachedStats) {
+          setStats(cachedStats);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const cached = await getCache(`org_agency_detail_${agencyId}`);
+      if (cached) {
+        setAgency(cached);
+        setIsOffline(true);
+      }
+      const cachedStats = await getCache(`org_agency_stats_${agencyId}`);
+      if (cachedStats) {
+        setStats(cachedStats);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -213,7 +244,7 @@ export default function OrgAgencyDetail() {
     <ScrollView
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.tabContent}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}
     >
       <View
         style={[
@@ -601,6 +632,8 @@ export default function OrgAgencyDetail() {
           <Ionicons name="share-outline" size={22} color={theme.textStrong} />
         </TouchableOpacity>
       </View>
+
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
       {/* Agency banner */}
       <View

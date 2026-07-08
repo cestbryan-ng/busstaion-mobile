@@ -20,6 +20,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import type { PolicyOrTax } from '../tabs/taxes';
 import { SkeletonTaxDetail } from '../../../../components/skeleton';
@@ -38,6 +41,8 @@ function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
 export default function TaxDetailBsm() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
+  const [isOffline, setIsOffline] = useState(false);
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'TaxDetailBsm'>>();
@@ -99,10 +104,23 @@ export default function TaxDetailBsm() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        setItem(await res.json());
+        const data = await res.json();
+        setItem(data);
+        setCache(`bsm_tax_detail_${itemId}`, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`bsm_tax_detail_${itemId}`);
+        if (cached) {
+          setItem(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const cached = await getCache(`bsm_tax_detail_${itemId}`);
+      if (cached) {
+        setItem(cached);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -161,6 +179,7 @@ export default function TaxDetailBsm() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
       {/* Header */}
       <View
         style={[
@@ -189,7 +208,7 @@ export default function TaxDetailBsm() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}>
         {/* Hero card */}
         <View
           style={[

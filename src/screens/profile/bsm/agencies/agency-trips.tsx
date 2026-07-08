@@ -18,6 +18,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
@@ -98,6 +101,7 @@ function isWithinWeek(d: Date, today: Date): boolean {
 export default function AgencyTripsBsm() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AgencyTripsBsm'>>();
@@ -109,6 +113,7 @@ export default function AgencyTripsBsm() {
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const t = {
     fr: {
@@ -146,13 +151,31 @@ export default function AgencyTripsBsm() {
         fetch(`${API_URL}/voyage/agence/${agencyId}`, { headers }),
       ]);
 
-      if (agencyRes.ok) setAgency(await agencyRes.json());
+      if (agencyRes.ok) {
+        const agencyData = await agencyRes.json();
+        setAgency(agencyData);
+        await setCache(`bsm_agency_trips_${agencyId}_agency`, agencyData);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`bsm_agency_trips_${agencyId}_agency`);
+        if (cached) { setAgency(cached); setIsOffline(true); }
+      }
+
       if (tripsRes.ok) {
         const data = await tripsRes.json();
-        setTrips(data.content || data || []);
+        const tripsData = data.content || data || [];
+        setTrips(tripsData);
+        await setCache(`bsm_agency_trips_${agencyId}`, tripsData);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`bsm_agency_trips_${agencyId}`);
+        if (cached) { setTrips(cached); setIsOffline(true); }
       }
     } catch {
-      // silent
+      const cachedAgency = await getCache(`bsm_agency_trips_${agencyId}_agency`);
+      if (cachedAgency) { setAgency(cachedAgency); setIsOffline(true); }
+      const cachedTrips = await getCache(`bsm_agency_trips_${agencyId}`);
+      if (cachedTrips) { setTrips(cachedTrips); setIsOffline(true); }
     } finally {
       setLoading(false);
     }
@@ -280,7 +303,9 @@ export default function AgencyTripsBsm() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}>
         {/* Agency summary */}
         {agency && (
           <View

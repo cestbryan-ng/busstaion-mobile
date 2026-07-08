@@ -17,6 +17,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -56,6 +59,8 @@ const STATUS_CONFIG: Record<
 export default function OrgServiceLines() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
+  const [isOffline, setIsOffline] = useState(false);
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'OrgServiceLines'>>();
@@ -106,10 +111,23 @@ export default function OrgServiceLines() {
       });
       if (res.ok) {
         const data = await res.json();
-        setLines(data.content || data || []);
+        const result = data.content || data || [];
+        setLines(result);
+        setCache(`org_service_lines_${agencyId}`, result);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`org_service_lines_${agencyId}`);
+        if (cached) {
+          setLines(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const cached = await getCache(`org_service_lines_${agencyId}`);
+      if (cached) {
+        setLines(cached);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -150,6 +168,7 @@ export default function OrgServiceLines() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
       <View
         style={[
           styles.header,
@@ -250,7 +269,7 @@ export default function OrgServiceLines() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

@@ -18,6 +18,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonDashboard } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -172,6 +175,8 @@ export default function BsmDashboard({
 }: BsmDashboardProps) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
+  const [isOffline, setIsOffline] = useState(false);
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -257,40 +262,93 @@ export default function BsmDashboard({
       const stationRes = await fetch(`${API_URL}/gare/manager/${managerId}`, {
         headers,
       });
-      if (!stationRes.ok) return;
-      const stationData = await stationRes.json();
-      setStation(stationData);
+      if (stationRes.ok) {
+        const stationData = await stationRes.json();
+        setStation(stationData);
+        setCache(`bsm_dashboard_${managerId}`, stationData);
+        setIsOffline(false);
 
-      const stationId = stationData.idGareRoutiere;
+        const stationId = stationData.idGareRoutiere;
 
-      const agenciesRes = await fetch(
-        `${API_URL}/gare/${stationId}/agences`,
-        { headers },
-      );
-      let agenciesList: Agency[] = [];
-      if (agenciesRes.ok) {
-        const data = await agenciesRes.json();
-        agenciesList = data.content || data || [];
-        setAgencies(agenciesList);
-      }
-
-      const tripPromises = agenciesList
-        .slice(0, 5)
-        .map(a =>
-          fetch(`${API_URL}/voyage/agence/${a.id}`, { headers }).then(r =>
-            r.ok ? r.json() : null,
-          ),
+        const agenciesRes = await fetch(
+          `${API_URL}/gare/${stationId}/agences`,
+          { headers },
         );
-      const tripResults = await Promise.allSettled(tripPromises);
-      const allTrips: Trip[] = [];
-      tripResults.forEach(r => {
-        if (r.status === 'fulfilled' && r.value) {
-          allTrips.push(...(r.value.content || r.value || []));
+        let agenciesList: Agency[] = [];
+        if (agenciesRes.ok) {
+          const data = await agenciesRes.json();
+          agenciesList = data.content || data || [];
+          setAgencies(agenciesList);
+          setCache(`bsm_dashboard_${managerId}_agencies`, agenciesList);
+          setIsOffline(false);
+        } else {
+          const cached = await getCache(`bsm_dashboard_${managerId}_agencies`);
+          if (cached) {
+            agenciesList = cached;
+            setAgencies(cached);
+            setIsOffline(true);
+          }
         }
-      });
-      setTrips(allTrips.slice(0, 5));
+
+        const tripPromises = agenciesList
+          .slice(0, 5)
+          .map(a =>
+            fetch(`${API_URL}/voyage/agence/${a.id}`, { headers }).then(r =>
+              r.ok ? r.json() : null,
+            ),
+          );
+        const tripResults = await Promise.allSettled(tripPromises);
+        const allTrips: Trip[] = [];
+        tripResults.forEach(r => {
+          if (r.status === 'fulfilled' && r.value) {
+            allTrips.push(...(r.value.content || r.value || []));
+          }
+        });
+        const slicedTrips = allTrips.slice(0, 5);
+        setTrips(slicedTrips);
+        setCache(`bsm_dashboard_${managerId}_trips`, slicedTrips);
+      } else {
+        const cachedStation = await getCache(`bsm_dashboard_${managerId}`);
+        if (cachedStation) {
+          setStation(cachedStation);
+          setIsOffline(true);
+        }
+        const cachedAgencies = await getCache(`bsm_dashboard_${managerId}_agencies`);
+        if (cachedAgencies) {
+          setAgencies(cachedAgencies);
+          setIsOffline(true);
+        }
+        const cachedTrips = await getCache(`bsm_dashboard_${managerId}_trips`);
+        if (cachedTrips) {
+          setTrips(cachedTrips);
+          setIsOffline(true);
+        }
+      }
     } catch {
-      // silent
+      try {
+        const userRaw = await AsyncStorage.getItem('user');
+        const parsed = userRaw ? JSON.parse(userRaw) : null;
+        const managerId = parsed?.userId || parsed?.id;
+        if (managerId) {
+          const cachedStation = await getCache(`bsm_dashboard_${managerId}`);
+          if (cachedStation) {
+            setStation(cachedStation);
+            setIsOffline(true);
+          }
+          const cachedAgencies = await getCache(`bsm_dashboard_${managerId}_agencies`);
+          if (cachedAgencies) {
+            setAgencies(cachedAgencies);
+            setIsOffline(true);
+          }
+          const cachedTrips = await getCache(`bsm_dashboard_${managerId}_trips`);
+          if (cachedTrips) {
+            setTrips(cachedTrips);
+            setIsOffline(true);
+          }
+        }
+      } catch {
+        // silent
+      }
     } finally {
       setLoading(false);
     }
@@ -407,13 +465,15 @@ export default function BsmDashboard({
         </View>
       </View>
 
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

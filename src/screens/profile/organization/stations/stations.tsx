@@ -19,6 +19,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -54,6 +57,7 @@ const SERVICE_ICONS: Record<string, string> = {
 export default function OrgStations() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -64,6 +68,7 @@ export default function OrgStations() {
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
+  const [isOffline, setIsOffline] = useState(false);
   const debouncedSearch = useDebounce(search);
 
   const t = {
@@ -103,9 +108,21 @@ export default function OrgStations() {
       if (res.ok) {
         const data = await res.json();
         setStations(data.content || data || []);
+        setCache('org_stations_0', data.content || data || []);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache('org_stations_0');
+        if (cached) {
+          setStations(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const cached = await getCache('org_stations_0');
+      if (cached) {
+        setStations(cached);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -141,6 +158,7 @@ export default function OrgStations() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
       <View
         style={[
           styles.header,
@@ -232,7 +250,7 @@ export default function OrgStations() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

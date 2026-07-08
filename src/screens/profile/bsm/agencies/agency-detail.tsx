@@ -22,6 +22,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonAgencyDetail } from '../../../../components/skeleton';
 import BuildingPlaceholder from '../../../../assets/placeholders/building.svg';
@@ -62,6 +65,7 @@ const STATUT_CONFIG: Record<
 export default function AgencyDetailBsm() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AgencyDetailBsm'>>();
@@ -77,6 +81,7 @@ export default function AgencyDetailBsm() {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [confirmIsActive, setConfirmIsActive] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const t = {
     fr: {
@@ -131,6 +136,8 @@ export default function AgencyDetailBsm() {
       if (res.ok) {
         const data: Agency = await res.json();
         setAgency(data);
+        setCache(`bsm_agency_detail_${agencyId}`, data);
+        setIsOffline(false);
 
         const gareId = data.gareIds?.[0];
         if (gareId) {
@@ -140,9 +147,19 @@ export default function AgencyDetailBsm() {
             setStationName(g.nomGareRoutiere || null);
           }
         }
+      } else {
+        const cached = await getCache(`bsm_agency_detail_${agencyId}`);
+        if (cached) {
+          setAgency(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const cached = await getCache(`bsm_agency_detail_${agencyId}`);
+      if (cached) {
+        setAgency(cached);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -248,10 +265,12 @@ export default function AgencyDetailBsm() {
         </TouchableOpacity>
       </View>
 
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />
         }
       >
         {/* Banner */}

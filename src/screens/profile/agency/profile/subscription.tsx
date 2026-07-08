@@ -17,6 +17,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonSubscription } from '../../../../components/skeleton';
 
@@ -93,6 +96,7 @@ const FALLBACK_BILLING: BillingItem[] = [
 export default function AgencySubscription() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -101,6 +105,7 @@ export default function AgencySubscription() {
   const [billing, setBilling] = useState<BillingItem[]>(FALLBACK_BILLING);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const t = {
     fr: {
@@ -168,16 +173,33 @@ export default function AgencySubscription() {
         }),
       ]);
 
+      let anyFromCache = false;
+
       if (plansRes.status === 'fulfilled' && plansRes.value.ok) {
         const data = await plansRes.value.json();
-        if (Array.isArray(data) && data.length > 0) setPlans(data);
+        if (Array.isArray(data) && data.length > 0) {
+          setPlans(data);
+          setCache(`subscription_plans_${agency.agencyId}`, data);
+        }
+      } else {
+        const cached = await getCache<Plan[]>(`subscription_plans_${agency.agencyId}`);
+        if (cached) { setPlans(cached); anyFromCache = true; }
       }
+
       if (billingRes.status === 'fulfilled' && billingRes.value.ok) {
         const data = await billingRes.value.json();
-        if (Array.isArray(data) && data.length > 0) setBilling(data);
+        if (Array.isArray(data) && data.length > 0) {
+          setBilling(data);
+          setCache(`subscription_billing_${agency.agencyId}`, data);
+        }
+      } else {
+        const cached = await getCache<BillingItem[]>(`subscription_billing_${agency.agencyId}`);
+        if (cached) { setBilling(cached); anyFromCache = true; }
       }
+
+      setIsOffline(anyFromCache);
     } catch {
-      // fallback already set
+      // fallback already set in initial state
     } finally {
       setLoading(false);
     }
@@ -232,7 +254,9 @@ export default function AgencySubscription() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}>
         {/* Current plan */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>

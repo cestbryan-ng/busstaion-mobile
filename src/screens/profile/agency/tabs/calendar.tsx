@@ -17,6 +17,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonCalendarScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -115,11 +118,13 @@ function getTripHour(trip: Trip): string {
 export default function AgencyCalendar() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const today = new Date();
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const [isOffline, setIsOffline] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -192,10 +197,40 @@ export default function AgencyCalendar() {
       );
       if (tripsRes.ok) {
         const data = await tripsRes.json();
-        setTrips(data.content || data || []);
+        const tripsData = data.content || data || [];
+        setTrips(tripsData);
+        setCache(`agency_calendar_${agency.id}`, tripsData);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`agency_calendar_${agency.id}`);
+        if (cached) {
+          setTrips(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      // Try to load from cache using stored agency info
+      try {
+        const userRaw = await AsyncStorage.getItem('user');
+        const user = userRaw ? JSON.parse(userRaw) : null;
+        const chefId = user?.userId || user?.id;
+        if (chefId) {
+          const token = await AsyncStorage.getItem('token');
+          const agencyRes = await fetch(`${API_URL}/agence/chef-agence/${chefId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (agencyRes.ok) {
+            const agency = await agencyRes.json();
+            const cached = await getCache(`agency_calendar_${agency.id}`);
+            if (cached) {
+              setTrips(cached);
+              setIsOffline(true);
+            }
+          }
+        }
+      } catch {
+        // silent
+      }
     } finally {
       setLoading(false);
     }
@@ -403,6 +438,7 @@ export default function AgencyCalendar() {
           {t.title}
         </Text>
       </View>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
       <ScrollView
         ref={scrollRef}
@@ -410,7 +446,7 @@ export default function AgencyCalendar() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

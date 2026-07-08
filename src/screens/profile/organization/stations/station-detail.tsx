@@ -19,6 +19,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonStationDetail } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -80,6 +83,7 @@ const SERVICE_LABELS_FR: Record<string, string> = {
 export default function OrgStationDetail() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'OrgStationDetail'>>();
@@ -90,6 +94,7 @@ export default function OrgStationDetail() {
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -102,13 +107,38 @@ export default function OrgStationDetail() {
       if (res.ok) {
         const data = await res.json();
         setStation(data);
+        setCache(`org_station_detail_${stationId}`, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`org_station_detail_${stationId}`);
+        if (cached) {
+          setStation(cached);
+          setIsOffline(true);
+        }
       }
       if (agenciesRes.ok) {
         const data = await agenciesRes.json();
         setAgencies(data.content || data || []);
+        setCache(`org_station_agencies_${stationId}`, data.content || data || []);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`org_station_agencies_${stationId}`);
+        if (cached) {
+          setAgencies(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const cachedStation = await getCache(`org_station_detail_${stationId}`);
+      if (cachedStation) {
+        setStation(cachedStation);
+        setIsOffline(true);
+      }
+      const cachedAgencies = await getCache(`org_station_agencies_${stationId}`);
+      if (cachedAgencies) {
+        setAgencies(cachedAgencies);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -141,6 +171,7 @@ export default function OrgStationDetail() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
       <View
         style={[
           styles.header,
@@ -161,7 +192,7 @@ export default function OrgStationDetail() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}>
         {/* Banner */}
         <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
           {station.photoUrl ? (

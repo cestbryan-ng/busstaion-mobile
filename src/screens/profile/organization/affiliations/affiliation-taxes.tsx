@@ -18,6 +18,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 
@@ -41,6 +44,8 @@ type TaxResponse = {
 export default function OrgAffiliationTaxes() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
+  const [isOffline, setIsOffline] = useState(false);
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route =
@@ -102,7 +107,16 @@ export default function OrgAffiliationTaxes() {
       if (taxRes.status === 'fulfilled' && taxRes.value.ok) {
         const tax = await taxRes.value.json();
         setTaxData(tax);
+        setIsOffline(false);
+        await setCache(`org_affiliation_taxes_${agencyId}`, tax);
         gareId = tax.gareRoutiereId || null;
+      } else {
+        const cached = await getCache(`org_affiliation_taxes_${agencyId}`);
+        if (cached) {
+          setTaxData(cached);
+          setIsOffline(true);
+          gareId = cached.gareRoutiereId || null;
+        }
       }
       if (agencyRes.status === 'fulfilled' && agencyRes.value.ok) {
         const d = await agencyRes.value.json();
@@ -116,7 +130,11 @@ export default function OrgAffiliationTaxes() {
         }
       }
     } catch {
-      // silent
+      const cached = await getCache(`org_affiliation_taxes_${agencyId}`);
+      if (cached) {
+        setTaxData(cached);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -152,7 +170,9 @@ export default function OrgAffiliationTaxes() {
         <View style={{ width: 22 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}>
         {/* Summary */}
         <View
           style={[

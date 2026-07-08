@@ -19,6 +19,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonOrgProfile } from '../../../../components/skeleton';
 import BuildingPlaceholder from '../../../../assets/placeholders/building.svg';
@@ -53,6 +56,7 @@ const SOCIAL_ICONS = [
 export default function OrgMyOrganization() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -60,6 +64,7 @@ export default function OrgMyOrganization() {
   const [org, setOrg] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const t = {
     fr: {
@@ -122,13 +127,29 @@ export default function OrgMyOrganization() {
       const cached = orgRaw ? JSON.parse(orgRaw) : null;
       const orgId = cached?.organization_id;
       if (orgId) {
-        const res = await fetch(`${API_URL}/organizations/${orgId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setOrg(data);
-          await AsyncStorage.setItem('organization', JSON.stringify(data));
+        try {
+          const res = await fetch(`${API_URL}/organizations/${orgId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setOrg(data);
+            setIsOffline(false);
+            await AsyncStorage.setItem('organization', JSON.stringify(data));
+            await setCache(`org_profile_${orgId}`, data);
+          } else {
+            const cachedData = await getCache(`org_profile_${orgId}`);
+            if (cachedData) {
+              setOrg(cachedData);
+              setIsOffline(true);
+            }
+          }
+        } catch {
+          const cachedData = await getCache(`org_profile_${orgId}`);
+          if (cachedData) {
+            setOrg(cachedData);
+            setIsOffline(true);
+          }
         }
       }
     } catch {
@@ -205,6 +226,7 @@ export default function OrgMyOrganization() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
       <View
         style={[
           styles.header,
@@ -232,7 +254,7 @@ export default function OrgMyOrganization() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

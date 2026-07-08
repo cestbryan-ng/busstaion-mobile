@@ -22,6 +22,9 @@ import { logout } from '../../../../utils/logout';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonProfileScreen } from '../../../../components/skeleton';
 import AgencyPlaceholder from '../../../../assets/placeholders/shape.svg';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 
 type Agency = {
   id: string;
@@ -41,10 +44,12 @@ export default function AgencyProfil({
 } = {}) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const [isOffline, setIsOffline] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
   const [pinEnabled, setPinEnabled] = useState(false);
@@ -118,9 +123,33 @@ export default function AgencyProfil({
       const res = await fetch(`${API_URL}/agence/chef-agence/${chefId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setAgency(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setAgency(data);
+        setCache(`agency_profile_${chefId}`, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`agency_profile_${chefId}`);
+        if (cached) {
+          setAgency(cached);
+          setIsOffline(true);
+        }
+      }
     } catch {
-      // silent
+      try {
+        const userRaw = await AsyncStorage.getItem('user');
+        const user = userRaw ? JSON.parse(userRaw) : null;
+        const chefId = user?.userId || user?.id;
+        if (chefId) {
+          const cached = await getCache(`agency_profile_${chefId}`);
+          if (cached) {
+            setAgency(cached);
+            setIsOffline(true);
+          }
+        }
+      } catch {
+        // silent
+      }
     } finally {
       setLoading(false);
     }
@@ -218,6 +247,7 @@ export default function AgencyProfil({
           </View>
         </TouchableOpacity>
       </View>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
       <ScrollView
         ref={scrollRef}
@@ -225,7 +255,7 @@ export default function AgencyProfil({
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

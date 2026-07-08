@@ -17,6 +17,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 
@@ -30,6 +33,7 @@ type Agency = {
 export default function OrgAgencies() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -39,6 +43,7 @@ export default function OrgAgencies() {
   const [tripsToday, setTripsToday] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const t = {
     fr: {
@@ -95,15 +100,15 @@ export default function OrgAgencies() {
       ]);
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
+      const userId = userRaw
+        ? (JSON.parse(userRaw)?.userId || JSON.parse(userRaw)?.id || JSON.parse(userRaw)?.user_id)
+        : null;
+
       const headers = { Authorization: `Bearer ${token}` };
 
       // Use cached org, or fetch from API if missing
       let orgId = orgRaw ? JSON.parse(orgRaw)?.organization_id : null;
       if (!orgId) {
-        const userId =
-          userRaw
-            ? (JSON.parse(userRaw)?.userId || JSON.parse(userRaw)?.id || JSON.parse(userRaw)?.user_id)
-            : null;
         if (!userId) return;
         const orgsRes = await fetch(`${API_URL}/organizations/user/${userId}`, { headers });
         if (!orgsRes.ok) return;
@@ -115,36 +120,55 @@ export default function OrgAgencies() {
       }
       if (!orgId) return;
 
-      const agenciesRes = await fetch(
-        `${API_URL}/organizations/agencies/${orgId}`,
-        { headers },
-      );
-      if (!agenciesRes.ok) return;
-      const data = await agenciesRes.json();
-      const list: Agency[] = data.content || data || [];
-      setAgencies(list);
+      const cacheKey = `org_agencies_${userId}`;
 
-      // Aggregate from first agency for overview
-      if (list.length > 0) {
-        const firstId = list[0].agencyId;
-        const [dRes, tRes] = await Promise.allSettled([
-          fetch(`${API_URL}/utilisateur/chauffeurs/${firstId}`, { headers }),
-          fetch(`${API_URL}/voyage/agence/${firstId}?size=100`, { headers }),
-        ]);
+      try {
+        const agenciesRes = await fetch(
+          `${API_URL}/organizations/agencies/${orgId}`,
+          { headers },
+        );
+        if (agenciesRes.ok) {
+          const data = await agenciesRes.json();
+          const list: Agency[] = data.content || data || [];
+          setAgencies(list);
+          setIsOffline(false);
+          await setCache(cacheKey, list);
 
-        if (dRes.status === 'fulfilled' && dRes.value.ok) {
-          const d = await dRes.value.json();
-          setDrivers((d.content || d || []).length);
+          // Aggregate from first agency for overview
+          if (list.length > 0) {
+            const firstId = list[0].agencyId;
+            const [dRes, tRes] = await Promise.allSettled([
+              fetch(`${API_URL}/utilisateur/chauffeurs/${firstId}`, { headers }),
+              fetch(`${API_URL}/voyage/agence/${firstId}?size=100`, { headers }),
+            ]);
+
+            if (dRes.status === 'fulfilled' && dRes.value.ok) {
+              const d = await dRes.value.json();
+              setDrivers((d.content || d || []).length);
+            }
+            if (tRes.status === 'fulfilled' && tRes.value.ok) {
+              const d = await tRes.value.json();
+              const today = new Date().toDateString();
+              const todayPublished = (d.content || d || []).filter(
+                (trip: any) =>
+                  trip.statusVoyage === 'PUBLIE' &&
+                  new Date(trip.dateDepartPrev).toDateString() === today,
+              );
+              setTripsToday(todayPublished.length);
+            }
+          }
+        } else {
+          const cached = await getCache(cacheKey);
+          if (cached) {
+            setAgencies(cached);
+            setIsOffline(true);
+          }
         }
-        if (tRes.status === 'fulfilled' && tRes.value.ok) {
-          const d = await tRes.value.json();
-          const today = new Date().toDateString();
-          const todayPublished = (d.content || d || []).filter(
-            (trip: any) =>
-              trip.statusVoyage === 'PUBLIE' &&
-              new Date(trip.dateDepartPrev).toDateString() === today,
-          );
-          setTripsToday(todayPublished.length);
+      } catch {
+        const cached = await getCache(cacheKey);
+        if (cached) {
+          setAgencies(cached);
+          setIsOffline(true);
         }
       }
     } catch {
@@ -202,13 +226,14 @@ export default function OrgAgencies() {
           {t.title}
         </Text>
       </View>
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

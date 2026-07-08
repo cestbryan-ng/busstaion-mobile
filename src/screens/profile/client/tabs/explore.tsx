@@ -27,6 +27,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -107,10 +110,12 @@ const SERVICE_LABELS: Record<string, { fr: string; en: string }> = {
 export default function Explore() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const [isOffline, setIsOffline] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
   const [tab, setTab] = useState<TabType>('agencies');
@@ -219,9 +224,17 @@ export default function Explore() {
         setAgencies(prev => (pageNum === 0 ? items : [...prev, ...items]));
         setAgencyTotalPages(data.totalPages ?? 1);
         setAgencyPage(pageNum);
+        if (pageNum === 0) setCache('explore_agencies', items);
+        setIsOffline(false);
+      } else if (pageNum === 0) {
+        const cached = await getCache<Agency[]>('explore_agencies');
+        if (cached) { setAgencies(cached); setIsOffline(true); }
       }
     } catch {
-      // silent
+      if (pageNum === 0) {
+        const cached = await getCache<Agency[]>('explore_agencies');
+        if (cached) { setAgencies(cached); setIsOffline(true); }
+      }
     } finally {
       setLoadingAgencies(false);
       setAgencyLoadingMore(false);
@@ -243,9 +256,16 @@ export default function Explore() {
         setGares(prev => (pageNum === 0 ? items : [...prev, ...items]));
         setGareTotalPages(data.totalPages ?? 1);
         setGarePage(pageNum);
+        if (pageNum === 0 && !services.length) setCache('explore_gares', items);
+      } else if (pageNum === 0 && !services.length) {
+        const cached = await getCache<Gare[]>('explore_gares');
+        if (cached) { setGares(cached); setIsOffline(true); }
       }
     } catch {
-      // silent
+      if (pageNum === 0 && !services.length) {
+        const cached = await getCache<Gare[]>('explore_gares');
+        if (cached) { setGares(cached); setIsOffline(true); }
+      }
     } finally {
       setLoadingGares(false);
       setGareLoadingMore(false);
@@ -521,6 +541,8 @@ export default function Explore() {
           </Text>
         </View>
 
+        {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
@@ -530,7 +552,7 @@ export default function Explore() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={isOnline ? onRefresh : undefined}
               tintColor={colors.primary}
             />
           }

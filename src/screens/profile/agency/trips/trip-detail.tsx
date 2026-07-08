@@ -20,6 +20,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import ConfirmModal from '../../../../components/confirm-modal';
 import { useToast } from '../../../../components/toast';
 import { SkeletonAgencyTripDetail } from '../../../../components/skeleton';
@@ -66,6 +69,7 @@ const STATUS_CONFIG: Record<
 export default function AgencyTripDetail() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AgencyTripDetail'>>();
@@ -78,6 +82,7 @@ export default function AgencyTripDetail() {
   const [cancelModal, setCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const t = {
     fr: {
@@ -174,9 +179,21 @@ export default function AgencyTripDetail() {
       if (res.ok) {
         const data = await res.json();
         setTrip(data);
+        setCache(`trip_${tripId}`, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`trip_${tripId}`);
+        if (cached) {
+          setTrip(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const cached = await getCache(`trip_${tripId}`);
+      if (cached) {
+        setTrip(cached);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -289,7 +306,9 @@ export default function AgencyTripDetail() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+        {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
+        <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}>
           {/* Image + Status */}
           <View
             style={[

@@ -23,6 +23,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import { RootStackParamList } from '../../../../navigation';
 import { SkeletonHome } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -144,10 +147,12 @@ export default function Home({
 }: AccueilProps) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [user, setUser] = useState<User | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -309,6 +314,8 @@ export default function Home({
       const token = tokenRaw || '';
       const headers = { Authorization: `Bearer ${token}` };
 
+      let anyFromCache = false;
+
       const [tripsRes, agenciesRes, garesRes] = await Promise.allSettled([
         fetch(`${API_URL}/voyage?page=0&size=6`, { headers }),
         fetch(`${API_URL}/agence`, { headers }),
@@ -318,22 +325,47 @@ export default function Home({
       if (tripsRes.status === 'fulfilled' && tripsRes.value.ok) {
         const data = await tripsRes.value.json();
         const now = new Date();
-        setTrips(
-          (data.content || [])
-            .filter((t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now)
-            .slice(0, 6),
-        );
+        const filtered = (data.content || [])
+          .filter((t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now)
+          .slice(0, 6);
+        setTrips(filtered);
+        setCache('home_trips', filtered);
+      } else {
+        const cached = await getCache<Trip[]>('home_trips');
+        if (cached) { setTrips(cached); anyFromCache = true; }
       }
+
       if (agenciesRes.status === 'fulfilled' && agenciesRes.value.ok) {
         const data = await agenciesRes.value.json();
-        setAgencies((data.content || data || []).slice(0, 5));
+        const list = (data.content || data || []).slice(0, 5);
+        setAgencies(list);
+        setCache('home_agencies', list);
+      } else {
+        const cached = await getCache<Agency[]>('home_agencies');
+        if (cached) { setAgencies(cached); anyFromCache = true; }
       }
+
       if (garesRes.status === 'fulfilled' && garesRes.value.ok) {
-        const data = await garesRes.value.json(); 
-        setGares((data.content || data || []).slice(0, 4));
+        const data = await garesRes.value.json();
+        const list = (data.content || data || []).slice(0, 4);
+        setGares(list);
+        setCache('home_gares', list);
+      } else {
+        const cached = await getCache<Gare[]>('home_gares');
+        if (cached) { setGares(cached); anyFromCache = true; }
       }
+
+      setIsOffline(anyFromCache);
     } catch {
-      // silent fail
+      const [cachedTrips, cachedAgencies, cachedGares] = await Promise.all([
+        getCache<Trip[]>('home_trips'),
+        getCache<Agency[]>('home_agencies'),
+        getCache<Gare[]>('home_gares'),
+      ]);
+      if (cachedTrips) setTrips(cachedTrips);
+      if (cachedAgencies) setAgencies(cachedAgencies);
+      if (cachedGares) setGares(cachedGares);
+      if (cachedTrips || cachedAgencies || cachedGares) setIsOffline(true);
     } finally {
       setLoading(false);
     }
@@ -624,7 +656,7 @@ export default function Home({
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }
@@ -675,6 +707,9 @@ export default function Home({
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* ── Offline banner ── */}
+        {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
         {/* ── Greeting ── */}
         <View style={styles.greetingBanner}>

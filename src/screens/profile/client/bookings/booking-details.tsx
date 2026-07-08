@@ -23,6 +23,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import { useToast } from '../../../../components/toast';
 import { SkeletonBookingDetail } from '../../../../components/skeleton';
 import type { RootStackParamList } from '../../../../navigation';
@@ -343,6 +346,8 @@ function generateTicketHTML(res: ReservationDetail, lang: 'fr' | 'en'): string {
 export default function BookingDetails() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
+  const [isOffline, setIsOffline] = useState(false);
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'BookingDetails'>>();
@@ -443,10 +448,24 @@ export default function BookingDetails() {
         const found = content.find(
           r => r.reservation?.idReservation === reservationId,
         );
-        if (found) setReservation(found);
+        if (found) {
+          setReservation(found);
+          await setCache(`booking_detail_${reservationId}`, found);
+          setIsOffline(false);
+        }
+      } else {
+        const cached = await getCache(`booking_detail_${reservationId}`);
+        if (cached) {
+          setReservation(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const cached = await getCache(`booking_detail_${reservationId}`);
+      if (cached) {
+        setReservation(cached);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -567,11 +586,13 @@ export default function BookingDetails() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }
       >
+        {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
         {/* Header */}
         <View
           style={[

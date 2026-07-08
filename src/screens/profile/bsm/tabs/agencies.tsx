@@ -25,6 +25,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
@@ -71,6 +74,7 @@ const STATUT_CONFIG: Record<
 export default function BsmAgencies() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const toast = useToast();
@@ -91,6 +95,7 @@ export default function BsmAgencies() {
   const [rejectTarget, setRejectTarget] = useState<Affiliation | null>(null);
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIF' | 'SUSPENDU'>('ALL');
   const [showFilter, setShowFilter] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const t = {
     fr: {
@@ -165,6 +170,14 @@ export default function BsmAgencies() {
       if (agenciesRes.ok) {
         const data = await agenciesRes.json();
         setAgencies(Array.isArray(data) ? data : []);
+        await setCache(`bsm_agencies_${managerId}`, Array.isArray(data) ? data : []);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache(`bsm_agencies_${managerId}`);
+        if (cached) {
+          setAgencies(cached);
+          setIsOffline(true);
+        }
       }
       if (affiliationsRes.ok) {
         const all: Affiliation[] = await affiliationsRes.json();
@@ -173,7 +186,16 @@ export default function BsmAgencies() {
         );
       }
     } catch {
-      // silent
+      const [userRaw] = await Promise.all([AsyncStorage.getItem('user')]).catch(() => [null]);
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      const managerId = user?.userId || user?.id;
+      if (managerId) {
+        const cached = await getCache(`bsm_agencies_${managerId}`);
+        if (cached) {
+          setAgencies(cached);
+          setIsOffline(true);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -461,6 +483,8 @@ export default function BsmAgencies() {
           </Text>
         </View>
 
+        {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
@@ -468,7 +492,7 @@ export default function BsmAgencies() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={isOnline ? onRefresh : undefined}
               tintColor={colors.primary}
             />
           }

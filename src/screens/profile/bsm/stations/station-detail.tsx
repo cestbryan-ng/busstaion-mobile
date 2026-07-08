@@ -19,6 +19,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonStationDetail } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -60,6 +63,7 @@ const SERVICE_LABELS: Record<string, { fr: string; en: string }> = {
 export default function StationDetailBsm() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -68,6 +72,7 @@ export default function StationDetailBsm() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const t = {
     fr: {
@@ -111,19 +116,53 @@ export default function StationDetailBsm() {
       if (!managerId) { setError(true); return; }
 
       const headers = { Authorization: `Bearer ${token}` };
-      const managerRes = await fetch(`${API_URL}/gare/manager/${managerId}`, { headers });
-      if (!managerRes.ok) { setError(true); return; }
-      const stationBasic: Station = await managerRes.json();
+      let stationBasic: Station | null = null;
 
-      const detailRes = await fetch(`${API_URL}/gare/${stationBasic.idGareRoutiere}`, { headers });
+      const managerRes = await fetch(`${API_URL}/gare/manager/${managerId}`, { headers });
+      if (managerRes.ok) {
+        stationBasic = await managerRes.json();
+      } else {
+        const cached = await getCache(`bsm_station_detail_${managerId}`);
+        if (cached) {
+          setStation(cached);
+          setIsOffline(true);
+          return;
+        }
+        setError(true);
+        return;
+      }
+
+      if (!stationBasic) { setError(true); return; }
+
+      const stationId = stationBasic.idGareRoutiere;
+      const detailRes = await fetch(`${API_URL}/gare/${stationId}`, { headers });
       if (detailRes.ok) {
         const detail: Station = await detailRes.json();
         console.log('Station detail:', detail);
+        await setCache(`bsm_station_detail_${stationId}`, detail);
         setStation(detail);
+        setIsOffline(false);
       } else {
-        setStation(stationBasic);
+        const cached = await getCache(`bsm_station_detail_${stationId}`);
+        if (cached) {
+          setStation(cached);
+          setIsOffline(true);
+        } else {
+          setStation(stationBasic);
+        }
       }
     } catch {
+      const userRaw = await AsyncStorage.getItem('user').catch(() => null);
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      const managerId = user?.userId || user?.id;
+      if (managerId) {
+        const cached = await getCache(`bsm_station_detail_${managerId}`);
+        if (cached) {
+          setStation(cached);
+          setIsOffline(true);
+          return;
+        }
+      }
       setError(true);
     } finally {
       setLoading(false);
@@ -205,12 +244,14 @@ export default function StationDetailBsm() {
         </TouchableOpacity>
       </View>
 
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }
