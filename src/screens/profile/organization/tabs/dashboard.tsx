@@ -1265,11 +1265,6 @@ export default function OrgDashboard({
                       {item.reservation.prixTotal.toLocaleString('fr-FR')} FCFA
                     </Text>
                   </View>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={16}
-                    color={theme.text}
-                  />
                 </View>
               );
           })}
@@ -1429,49 +1424,57 @@ export default function OrgDashboard({
               </Text>
             </View>
 
-            <View style={styles.taxNote}>
-              <Ionicons name="information-circle-outline" size={14} color={theme.text} />
-              <Text style={[styles.taxNoteText, { color: theme.text }]}>
-                {lang === 'fr'
-                  ? 'Cette taxe est appliquée sur chaque réservation effectuée via la plateforme.'
-                  : 'This tax applies to each booking made through the platform.'}
-              </Text>
-            </View>
-
             {displayTaxes.taxes.map((tax, i) => (
-              <View
-                key={tax.nomTaxe}
-                style={[
-                  styles.taxRow,
-                  {
-                    borderTopColor: theme.border,
-                    borderTopWidth: i === 0 ? 0 : 1,
-                  },
-                ]}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.taxName, { color: theme.textStrong }]}>
-                    {tax.nomTaxe}
-                  </Text>
-                  {tax.dateEffet && (
-                    <Text style={[styles.taxDate, { color: theme.text }]}>
-                      {new Date(tax.dateEffet) < new Date()
-                        ? (lang === 'fr' ? 'Depuis le' : 'Since')
-                        : (lang === 'fr' ? 'À partir du' : 'From')}{' '}
-                      {new Date(tax.dateEffet).toLocaleDateString(
-                        lang === 'fr' ? 'fr-FR' : 'en-GB',
-                        { day: 'numeric', month: 'short', year: 'numeric' },
-                      )}
+              <React.Fragment key={tax.nomTaxe}>
+                <View
+                  style={[
+                    styles.taxRow,
+                    {
+                      borderTopColor: theme.border,
+                      borderTopWidth: i === 0 ? 0 : 1,
+                    },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.taxName, { color: theme.textStrong }]}>
+                      {tax.nomTaxe}
+                    </Text>
+                    {tax.dateEffet && (
+                      <Text style={[styles.taxDate, { color: theme.text }]}>
+                        {new Date(tax.dateEffet) < new Date()
+                          ? (lang === 'fr' ? 'Depuis le' : 'Since')
+                          : (lang === 'fr' ? 'À partir du' : 'From')}{' '}
+                        {new Date(tax.dateEffet).toLocaleDateString(
+                          lang === 'fr' ? 'fr-FR' : 'en-GB',
+                          { day: 'numeric', month: 'short', year: 'numeric' },
+                        )}
+                      </Text>
+                    )}
+                  </View>
+                  {tax.tauxTaxe > 0 && (
+                    <Text style={[styles.taxRate, { color: theme.text }]}>
+                      {tax.tauxTaxe * 100}%
+                    </Text>
+                  )}
+                  {tax.montantFixe > 0 && (
+                    <Text style={[styles.taxAmount, { color: colors.error }]}>
+                      {formatPrice(tax.montantFixe)}
                     </Text>
                   )}
                 </View>
-                <Text style={[styles.taxRate, { color: theme.text }]}>
-                  {tax.tauxTaxe * 100}%
-                </Text>
-                <Text style={[styles.taxAmount, { color: colors.error }]}>
-                  {formatPrice(tax.montantFixe)}
-                </Text>
-              </View>
+                <View style={styles.taxNote}>
+                  <Ionicons name="information-circle-outline" size={13} color={theme.text} />
+                  <Text style={[styles.taxNoteText, { color: theme.text }]}>
+                    {tax.tauxTaxe > 0
+                      ? lang === 'fr'
+                        ? `${tax.tauxTaxe * 100}% est prélevé sur chacune des réservations.`
+                        : `${tax.tauxTaxe * 100}% is deducted from each reservation.`
+                      : lang === 'fr'
+                        ? 'Ce montant fixe est appliqué sur chaque réservation effectuée via la plateforme.'
+                        : 'This fixed amount applies to each booking made through the platform.'}
+                  </Text>
+                </View>
+              </React.Fragment>
             ))}
 
             <TouchableOpacity

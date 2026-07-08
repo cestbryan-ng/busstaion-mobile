@@ -443,7 +443,7 @@ export default function OrgAgencyDetail() {
         </View>
         <View style={styles.navCardText}>
           <Text style={[styles.navCardTitle, { color: theme.textStrong }]}>
-            {t.manageVehicles}
+            {lang === 'fr' ? 'Gérer les classes et véhicules' : 'Manage classes & vehicles'}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={theme.text} />

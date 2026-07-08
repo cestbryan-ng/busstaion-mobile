@@ -16,6 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useToast } from '../../../../components/toast';
+import { SkeletonTaxDetail } from '../../../../components/skeleton';
 import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
@@ -210,13 +211,7 @@ export default function TaxFormBsm() {
       setSaving(false);
     }
   };
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonTaxDetail />;
 
   return (
     <KeyboardAvoidingView

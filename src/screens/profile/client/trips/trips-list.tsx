@@ -26,6 +26,7 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import type { TripFilters } from './trips-filter';
 import { EmptyState } from '../../../../components/empty-state';
+import { SkeletonListScreen } from '../../../../components/skeleton';
 import {
   DatePickerModal,
   formatDateDisplay,
@@ -483,13 +484,7 @@ export default function TripsList() {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonListScreen />;
 
   return (
     <KeyboardAvoidingView

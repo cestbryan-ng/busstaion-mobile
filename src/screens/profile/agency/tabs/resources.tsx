@@ -70,7 +70,7 @@ type Employee = {
 };
 
 type TravelClass = {
-  idClassVoyage: string;
+  id: string;
   nom: string;
   prix?: number;
   tauxAnnulation?: number;
@@ -1020,7 +1020,7 @@ export default function AgencyResources() {
         const iconColor = CLASS_ICON_COLORS[classKey] || colors.primary;
         return (
           <View
-            key={c.idClassVoyage}
+            key={c.id ?? `class-${i}`}
             style={[
               styles.classCard,
               { backgroundColor: theme.background, borderColor: theme.border },
@@ -1702,7 +1702,7 @@ const styles = StyleSheet.create({
   },
 
   // List
-  listContainer: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  listContainer: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm },
   listCard: {
     flexDirection: 'row',
     alignItems: 'center',

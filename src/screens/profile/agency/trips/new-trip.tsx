@@ -25,6 +25,7 @@ import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import { DatePickerModal, formatDateDisplay } from '../../../../components/date-picker-modal';
 import TimePickerModal from '../../../../components/time-picker-modal';
+import { SkeletonAgencyTripDetail } from '../../../../components/skeleton';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -695,13 +696,7 @@ export default function AgencyNewTrip() {
     </View>
   );
 
-  if (loading) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  if (loading) return <SkeletonAgencyTripDetail />;
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

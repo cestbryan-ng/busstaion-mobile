@@ -21,6 +21,7 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import ConfirmModal from '../../../../components/confirm-modal';
+import { useToast } from '../../../../components/toast';
 import { SkeletonAgencyTripDetail } from '../../../../components/skeleton';
 import type { RootStackParamList } from '../../../../navigation';
 
@@ -70,6 +71,7 @@ export default function AgencyTripDetail() {
   const route = useRoute<RouteProp<RootStackParamList, 'AgencyTripDetail'>>();
   const { tripId } = route.params;
 
+  const toast = useToast();
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [trip, setTrip] = useState<TripDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,6 +100,8 @@ export default function AgencyTripDetail() {
         'Voulez-vous vraiment annuler ce voyage ? Les passagers seront notifiés.',
       confirm: 'Oui, annuler',
       no: 'Non',
+      cancelSuccess: 'Voyage annulé avec succès',
+      cancelError: 'Erreur lors de l\'annulation',
     },
     en: {
       title: 'Trip detail',
@@ -119,6 +123,8 @@ export default function AgencyTripDetail() {
         'Are you sure you want to cancel this trip? Passengers will be notified.',
       confirm: 'Yes, cancel',
       no: 'No',
+      cancelSuccess: 'Trip cancelled successfully',
+      cancelError: 'Error while cancelling',
     },
   }[lang];
 
@@ -190,16 +196,21 @@ export default function AgencyTripDetail() {
     setCancelling(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      await fetch(`${API_URL}/voyage/${tripId}/annuler`, {
+      const res = await fetch(`${API_URL}/voyage/${tripId}/annuler`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       setCancelModal(false);
-      navigation.goBack();
+      if (res.ok) {
+        toast.success(t.cancelSuccess);
+        navigation.goBack();
+      } else {
+        toast.error(t.cancelError);
+      }
     } catch {
-      // silent
+      toast.error(t.cancelError);
     } finally {
       setCancelling(false);
     }

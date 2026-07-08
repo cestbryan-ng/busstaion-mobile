@@ -348,12 +348,6 @@ export default function OrgServiceLines() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primary }]}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
     </View>
   );
 }

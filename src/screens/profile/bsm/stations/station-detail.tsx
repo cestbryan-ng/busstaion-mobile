@@ -118,6 +118,7 @@ export default function StationDetailBsm() {
       const detailRes = await fetch(`${API_URL}/gare/${stationBasic.idGareRoutiere}`, { headers });
       if (detailRes.ok) {
         const detail: Station = await detailRes.json();
+        console.log('Station detail:', detail);
         setStation(detail);
       } else {
         setStation(stationBasic);
@@ -335,27 +336,6 @@ export default function StationDetailBsm() {
               ))}
             </View>
           )}
-        </View>
-
-        {/* Stats */}
-        <View
-          style={[
-            styles.section,
-            {
-              backgroundColor: theme.background,
-              borderColor: theme.border,
-              marginBottom: spacing.md,
-            },
-          ]}
-        >
-          <View style={styles.statRow}>
-            <Text style={[styles.statLabel, { color: theme.text }]}>
-              {t.affiliatedAgencies}
-            </Text>
-            <Text style={[styles.statValue, { color: theme.textStrong }]}>
-              {station.nbreAgence ?? '—'}
-            </Text>
-          </View>
         </View>
 
         {/* Address */}

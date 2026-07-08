@@ -39,7 +39,7 @@ type Vehicle = {
 };
 
 type TravelClass = {
-  idClassVoyage: string;
+  id: string;
   nom: string;
   prix?: number;
 };
@@ -171,9 +171,9 @@ export default function OrgVehicles() {
           nom: vNom.trim(),
           modele: vModele.trim() || undefined,
           description: vDescription.trim() || undefined,
-          nbrPlaces: parseInt(vNbrPlaces, 10),
+          nbrPlaces: Number(vNbrPlaces),
           plaqueMatricule: vPlaque.trim(),
-          lienPhoto: '',
+          carburant: 'Diesel',
           idAgenceVoyage: agencyId,
         }),
       });
@@ -391,13 +391,6 @@ export default function OrgVehicles() {
           <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
             {t.title}
           </Text>
-          <TouchableOpacity onPress={() => setShowVehicleModal(true)}>
-            <View
-              style={[styles.addSmallBtn, { backgroundColor: colors.primary }]}
-            >
-              <Ionicons name="add" size={16} color="#fff" />
-            </View>
-          </TouchableOpacity>
         </View>
 
         {filteredVehicles.length === 0 ? (
@@ -407,9 +400,9 @@ export default function OrgVehicles() {
             textColor={theme.text}
           />
         ) : (
-          filteredVehicles.map(v => (
+          filteredVehicles.map((v, i) => (
             <View
-              key={v.idVehicule}
+              key={v.idVehicule ?? `vehicle-${i}`}
               style={[
                 styles.vehicleCard,
                 {
@@ -509,12 +502,12 @@ export default function OrgVehicles() {
             textColor={theme.text}
           />
         ) : (
-          classes.map(cls => {
+          classes.map((cls, i) => {
             const classKey = cls.nom.toUpperCase().split(' ')[0];
             const classColor = CLASS_COLORS[classKey] || colors.primary;
             return (
               <View
-                key={cls.idClassVoyage}
+                key={cls.id ?? `class-${i}`}
                 style={[
                   styles.classCard,
                   {
@@ -541,25 +534,11 @@ export default function OrgVehicles() {
                     </Text>
                   )}
                 </View>
-                <TouchableOpacity>
-                  <Ionicons
-                    name="ellipsis-vertical"
-                    size={18}
-                    color={theme.text}
-                  />
-                </TouchableOpacity>
               </View>
             );
           })
         )}
 
-        {classes.length > 0 && (
-          <TouchableOpacity style={styles.seeMoreClasses}>
-            <Text style={[styles.seeMoreText, { color: colors.primary }]}>
-              {lang === 'fr' ? 'Voir toutes les classes' : 'View all classes'}
-            </Text>
-          </TouchableOpacity>
-        )}
 
         <View style={{ height: spacing.xl }} />
       </ScrollView>
