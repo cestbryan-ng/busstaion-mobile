@@ -72,7 +72,7 @@ export type RootStackParamList = {
   SignUpError: undefined;
   PinSetup: { fromSettings?: boolean };
   PinVerify: undefined;
-  ClientMain: undefined;
+  ClientMain: { screen?: string } | undefined;
   BookingDetails: { reservationId: string };
   TripsList: { filters?: TripFilters };
   TripsFilter: { filters?: TripFilters };

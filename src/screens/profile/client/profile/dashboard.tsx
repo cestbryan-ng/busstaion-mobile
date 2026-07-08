@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   useColorScheme,
   RefreshControl,
 } from 'react-native';
@@ -38,37 +37,85 @@ type Historique = {
   dateAnnulation?: string;
 };
 
-type ReservationApiItem = {
-  reservation: { idReservation: string };
+type Reservation = {
+  reservation: {
+    idReservation: string;
+    statutReservation: string;
+    statutPayement: string;
+    nbrPassager: number;
+    prixTotal: number;
+  };
   voyage: {
     lieuDepart: string;
     lieuArrive: string;
     dateDepartPrev: string;
+    heureDepartEffectif: string;
     smallImage?: string | null;
   };
-  agence: { longName: string };
-};
-
-type ReservationDetail = {
-  idReservation: string;
-  lieuDepart: string;
-  lieuArrive: string;
-  dateDepartPrev?: string;
-  nomAgence?: string;
-  smallImage?: string | null;
-};
-
-type EnrichedHistorique = Historique & { detail: ReservationDetail | null };
-
-function mapToDetail(item: ReservationApiItem): ReservationDetail {
-  return {
-    idReservation: item.reservation.idReservation,
-    lieuDepart: item.voyage.lieuDepart,
-    lieuArrive: item.voyage.lieuArrive,
-    dateDepartPrev: item.voyage.dateDepartPrev,
-    nomAgence: item.agence.longName,
-    smallImage: item.voyage.smallImage,
+  agence: {
+    longName: string;
+    shortName: string;
   };
+};
+
+const STATUS_RESERVATION: Record<
+  string,
+  { label: string; labelEn: string; color: string; bg: string }
+> = {
+  RESERVER: {
+    label: 'Réservé',
+    labelEn: 'Reserved',
+    color: '#d97706',
+    bg: '#fef3c720',
+  },
+  CONFIRMEE: {
+    label: 'Confirmée',
+    labelEn: 'Confirmed',
+    color: colors.primary,
+    bg: `${colors.primary}15`,
+  },
+  EN_ATTENTE: {
+    label: 'En attente',
+    labelEn: 'Pending',
+    color: '#d97706',
+    bg: '#fef3c720',
+  },
+  ANNULEE: {
+    label: 'Annulée',
+    labelEn: 'Cancelled',
+    color: '#6b7280',
+    bg: '#6b728015',
+  },
+};
+
+const STATUS_PAYMENT: Record<
+  string,
+  { label: string; labelEn: string; color: string }
+> = {
+  PAID: { label: 'Payé', labelEn: 'Paid', color: colors.success },
+  NO_PAYMENT: { label: 'Non payé', labelEn: 'Unpaid', color: '#ef4444' },
+  PAIEMENT: { label: 'Paiement', labelEn: 'Payment', color: '#d97706' },
+  ANNULEE: { label: 'Annulé', labelEn: 'Cancelled', color: '#6b7280' },
+};
+
+function formatTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}`;
+}
+
+function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function formatPrice(price: number): string {
+  return price.toLocaleString('fr-FR') + ' FCFA';
 }
 
 export default function Dashboard() {
@@ -79,7 +126,8 @@ export default function Dashboard() {
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [user, setUser] = useState<User | null>(null);
-  const [historiques, setHistoriques] = useState<EnrichedHistorique[]>([]);
+  const [historiques, setHistoriques] = useState<Historique[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -94,12 +142,11 @@ export default function Dashboard() {
       totalReservations: 'Réservations totales',
       destinations: 'Destinations visitées',
       recentReservations: 'Réservations récentes',
-      recentCancellations: 'Annulations récentes',
       seeAll: 'Voir tout',
       noReservations: 'Aucune réservation récente',
-      completed: 'TERMINÉ',
-      cancelled: 'ANNULÉ',
-      pending: 'EN ATTENTE',
+      passengers: (n: number) => `${n} passager${n > 1 ? 's' : ''}`,
+      seeDetails: 'Voir détails',
+      ticket: 'Billet',
     },
     en: {
       title: 'Dashboard',
@@ -111,12 +158,11 @@ export default function Dashboard() {
       totalReservations: 'Total reservations',
       destinations: 'Visited destinations',
       recentReservations: 'Recent reservations',
-      recentCancellations: 'Recent cancellations',
       seeAll: 'See all',
       noReservations: 'No recent reservations',
-      completed: 'COMPLETED',
-      cancelled: 'CANCELLED',
-      pending: 'PENDING',
+      passengers: (n: number) => `${n} passenger${n > 1 ? 's' : ''}`,
+      seeDetails: 'See details',
+      ticket: 'Ticket',
     },
   }[lang];
 
@@ -134,40 +180,24 @@ export default function Dashboard() {
       const userId = userData?.userId || userData?.id;
       if (!userId) return;
 
-      const histRes = await fetch(
-        `${API_URL}/historique/reservation/${userId}`,
-        {
+      const [histRes, resListRes] = await Promise.all([
+        fetch(`${API_URL}/historique/reservation/${userId}`, {
           headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      if (!histRes.ok) return;
+        }),
+        fetch(`${API_URL}/reservation/user/${userId}?page=0&size=100`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
 
-      const data = await histRes.json();
-      const histList: Historique[] = data;
+      if (histRes.ok) {
+        const histData: Historique[] = await histRes.json();
+        setHistoriques(histData);
+      }
 
-      // Récupère la liste complète des réservations en un seul appel
-      const resListRes = await fetch(
-        `${API_URL}/reservation/user/${userId}?page=0&size=100`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      const resListData = resListRes.ok
-        ? await resListRes.json()
-        : { content: [] };
-      const reservationItems: ReservationApiItem[] = resListData.content || [];
-
-      const reservationMap = new Map<string, ReservationDetail>();
-      reservationItems.forEach(item => {
-        reservationMap.set(item.reservation.idReservation, mapToDetail(item));
-      });
-
-      const enriched: EnrichedHistorique[] = histList.map(h => ({
-        ...h,
-        detail: reservationMap.get(h.idReservation) || null,
-      }));
-
-      setHistoriques(enriched);
-
-      setHistoriques(enriched);
+      if (resListRes.ok) {
+        const resData = await resListRes.json();
+        setReservations(resData.content || []);
+      }
     } catch {
       // silent
     } finally {
@@ -188,89 +218,147 @@ export default function Dashboard() {
   const completed = historiques.filter(h => h.statusHistorique === 'TERMINE');
   const cancelled = historiques.filter(h => h.statusHistorique === 'ANNULE');
   const destinations = new Set(
-    historiques.filter(h => h.detail).map(h => h.detail?.lieuArrive),
+    reservations.map(r => r.voyage.lieuArrive),
   ).size;
 
-  const recentCompleted = completed.slice(0, 3);
-  const recentCancelled = cancelled.slice(0, 1);
+  const paidReservations = reservations.filter(
+    r => r.reservation.statutPayement === 'PAID',
+  );
+  const upcoming = paidReservations.filter(
+    r => new Date(r.voyage.dateDepartPrev) > new Date(),
+  );
+  const recentReservations = (upcoming.length > 0 ? upcoming : paidReservations).slice(0, 3);
 
-  const StatusBadge = ({ status }: { status: string }) => {
-    const config = {
-      VALIDER: {
-        label: t.completed,
-        color: colors.primary,
-        bg: `${colors.primary}15`,
-      },
-      TERMINE: {
-        label: t.completed,
-        color: colors.primary,
-        bg: `${colors.primary}15`,
-      },
-      ANNULE: {
-        label: t.cancelled,
-        color: colors.error,
-        bg: `${colors.error}15`,
-      },
-      EN_ATTENTE: { label: t.pending, color: '#d97706', bg: '#fef3c715' },
-    }[status] || { label: status, color: theme.text, bg: theme.backgroundAlt };
+  const ReservationCard = ({ item }: { item: Reservation }) => {
+    const statusRes =
+      STATUS_RESERVATION[item.reservation.statutReservation] ||
+      STATUS_RESERVATION.RESERVER;
+    const statusPay =
+      STATUS_PAYMENT[item.reservation.statutPayement] ||
+      STATUS_PAYMENT.NO_PAYMENT;
+    const isCancelled = item.reservation.statutReservation === 'ANNULEE';
 
     return (
-      <View style={[styles.badge, { backgroundColor: config.bg }]}>
-        <Text style={[styles.badgeText, { color: config.color }]}>
-          {config.label}
-        </Text>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: theme.background, borderColor: theme.border },
+        ]}
+      >
+        <View style={styles.cardTop}>
+          <View
+            style={[styles.cardImage, { backgroundColor: theme.backgroundAlt }]}
+          >
+            {item.voyage.smallImage?.startsWith('http') ? (
+              <Image
+                source={{ uri: item.voyage.smallImage }}
+                style={styles.cardImageInner}
+                resizeMode="cover"
+              />
+            ) : (
+              <TripPlaceholder width="100%" height="100%" />
+            )}
+          </View>
+
+          <View style={styles.cardInfo}>
+            <View style={styles.cardBadges}>
+              <Text style={[styles.agencyName, { color: theme.text }]}>
+                {item.agence.longName}
+              </Text>
+              <View style={[styles.badge, { backgroundColor: statusRes.bg }]}>
+                <Text style={[styles.badgeText, { color: statusRes.color }]}>
+                  {lang === 'fr' ? statusRes.label : statusRes.labelEn}
+                </Text>
+              </View>
+              <View style={styles.paymentRow}>
+                <View
+                  style={[styles.dot, { backgroundColor: statusPay.color }]}
+                />
+                <Text style={[styles.paymentText, { color: statusPay.color }]}>
+                  {lang === 'fr' ? statusPay.label : statusPay.labelEn}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={[styles.cardRoute, { color: theme.textStrong }]}>
+              {lang === 'fr'
+                ? `De ${item.voyage.lieuDepart} vers ${item.voyage.lieuArrive}`
+                : `from ${item.voyage.lieuDepart} to ${item.voyage.lieuArrive}`}
+            </Text>
+
+            <View style={styles.cardMeta}>
+              <Ionicons name="calendar-outline" size={12} color={theme.text} />
+              <Text style={[styles.cardMetaText, { color: theme.text }]}>
+                {' '}
+                {formatDate(item.voyage.dateDepartPrev, lang)}
+                {item.voyage.heureDepartEffectif
+                  ? ` · ${formatTime(item.voyage.heureDepartEffectif)}`
+                  : ''}
+              </Text>
+            </View>
+
+            <View style={styles.cardFooterRow}>
+              <View style={styles.cardMetaItem}>
+                <Ionicons name="person-outline" size={12} color={theme.text} />
+                <Text style={[styles.cardMetaText, { color: theme.text }]}>
+                  {' '}
+                  {t.passengers(item.reservation.nbrPassager)}
+                </Text>
+              </View>
+              <Text style={[styles.cardPrice, { color: colors.primary }]}>
+                {formatPrice(item.reservation.prixTotal)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[styles.cardDivider, { backgroundColor: theme.border }]} />
+
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={styles.detailsBtn}
+            onPress={() =>
+              navigation.navigate('BookingDetails', {
+                reservationId: item.reservation.idReservation,
+              })
+            }
+          >
+            <Text style={[styles.detailsBtnText, { color: theme.text }]}>
+              {t.seeDetails}
+            </Text>
+          </TouchableOpacity>
+
+          {!isCancelled && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { borderColor: theme.border }]}
+              onPress={() =>
+                navigation.navigate('BookingDetails', {
+                  reservationId: item.reservation.idReservation,
+                })
+              }
+            >
+              <Ionicons
+                name="qr-code-outline"
+                size={14}
+                color={theme.textStrong}
+              />
+              <Text
+                style={[styles.actionBtnText, { color: theme.textStrong }]}
+              >
+                {t.ticket}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {isCancelled && (
+            <TouchableOpacity style={styles.detailsBtn}>
+              <Ionicons name="chevron-forward" size={18} color={theme.text} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     );
   };
-
-  const HistoriqueCard = ({ item }: { item: EnrichedHistorique }) => (
-    <TouchableOpacity
-      style={[
-        styles.histCard,
-        { backgroundColor: theme.background, borderColor: theme.border },
-      ]}
-      activeOpacity={0.85}
-      onPress={() =>
-        navigation.navigate('BookingDetails', {
-          reservationId: item.idReservation,
-        })
-      }
-    >
-      <View
-        style={[styles.histImage, { backgroundColor: theme.backgroundAlt }]}
-      >
-        {item.detail?.smallImage ? (
-          <Image
-            source={{ uri: item.detail.smallImage }}
-            style={styles.histImageInner}
-            resizeMode="cover"
-          />
-        ) : (
-          <TripPlaceholder width="100%" height="100%" />
-        )}
-      </View>
-      <View style={styles.histInfo}>
-        <Text
-          style={[styles.histRoute, { color: theme.textStrong }]}
-          numberOfLines={1}
-        >
-          {item.detail?.lieuDepart || '—'} → {item.detail?.lieuArrive || '—'}
-        </Text>
-        <Text style={[styles.histMeta, { color: theme.text }]}>
-          {item.detail?.dateDepartPrev
-            ? new Date(item.detail.dateDepartPrev).toLocaleDateString(
-                lang === 'fr' ? 'fr-FR' : 'en-GB',
-                { day: 'numeric', month: 'long', year: 'numeric' },
-              )
-            : '—'}
-        </Text>
-        <Text style={[styles.histAgency, { color: theme.text }]}>
-          {item.detail?.nomAgence || '—'}
-        </Text>
-      </View>
-      <StatusBadge status={item.statusHistorique} />
-    </TouchableOpacity>
-  );
 
   if (loading) return <SkeletonClientDashboard />;
 
@@ -342,23 +430,13 @@ export default function Dashboard() {
             <View
               style={[
                 styles.statCard,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
+                { backgroundColor: theme.background, borderColor: theme.border },
               ]}
             >
               <View
-                style={[
-                  styles.statIcon,
-                  { backgroundColor: `${colors.primary}10` },
-                ]}
+                style={[styles.statIcon, { backgroundColor: `${colors.primary}10` }]}
               >
-                <Ionicons
-                  name="calendar-outline"
-                  size={22}
-                  color={colors.primary}
-                />
+                <Ionicons name="calendar-outline" size={22} color={colors.primary} />
               </View>
               <Text style={[styles.statValue, { color: theme.textStrong }]}>
                 {completed.length}
@@ -370,23 +448,13 @@ export default function Dashboard() {
             <View
               style={[
                 styles.statCard,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
+                { backgroundColor: theme.background, borderColor: theme.border },
               ]}
             >
               <View
-                style={[
-                  styles.statIcon,
-                  { backgroundColor: `${colors.error}10` },
-                ]}
+                style={[styles.statIcon, { backgroundColor: `${colors.error}10` }]}
               >
-                <Ionicons
-                  name="close-circle-outline"
-                  size={22}
-                  color={colors.error}
-                />
+                <Ionicons name="close-circle-outline" size={22} color={colors.error} />
               </View>
               <Text style={[styles.statValue, { color: theme.textStrong }]}>
                 {cancelled.length}
@@ -398,10 +466,7 @@ export default function Dashboard() {
             <View
               style={[
                 styles.statCard,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
+                { backgroundColor: theme.background, borderColor: theme.border },
               ]}
             >
               <View style={[styles.statIcon, { backgroundColor: '#f0fdf415' }]}>
@@ -417,10 +482,7 @@ export default function Dashboard() {
             <View
               style={[
                 styles.statCard,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
+                { backgroundColor: theme.background, borderColor: theme.border },
               ]}
             >
               <View style={[styles.statIcon, { backgroundColor: '#fef9c310' }]}>
@@ -437,43 +499,36 @@ export default function Dashboard() {
         </View>
 
         {/* Recent Reservations */}
-        <View style={styles.listSection}>
+        <View style={[styles.listSection, { paddingBottom: spacing.xl }]}>
           <View style={styles.listHeader}>
             <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
               {t.recentReservations}
             </Text>
-            <TouchableOpacity onPress={() => {}}>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate('ClientMain', { screen: 'bookings' })
+              }
+            >
               <Text style={[styles.seeAll, { color: colors.primary }]}>
                 {t.seeAll}
               </Text>
             </TouchableOpacity>
           </View>
-          {recentCompleted.length === 0
-            ? <EmptyState type="result" message={t.noReservations} textColor={theme.text} />
-            : recentCompleted.map(item => (
-                <HistoriqueCard key={item.idHistorique} item={item} />
-              ))
-          }
+          {recentReservations.length === 0 ? (
+            <EmptyState
+              type="result"
+              message={t.noReservations}
+              textColor={theme.text}
+            />
+          ) : (
+            recentReservations.map(item => (
+              <ReservationCard
+                key={item.reservation.idReservation}
+                item={item}
+              />
+            ))
+          )}
         </View>
-
-        {/* Recent Cancellations */}
-        {recentCancelled.length > 0 && (
-          <View style={[styles.listSection, { paddingBottom: spacing.xl }]}>
-            <View style={styles.listHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
-                {t.recentCancellations}
-              </Text>
-              <TouchableOpacity onPress={() => {}}>
-                <Text style={[styles.seeAll, { color: colors.primary }]}>
-                  {t.seeAll}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {recentCancelled.map(item => (
-              <HistoriqueCard key={item.idHistorique} item={item} />
-            ))}
-          </View>
-        )}
       </ScrollView>
     </View>
   );
@@ -481,7 +536,6 @@ export default function Dashboard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -547,28 +601,71 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   seeAll: { ...typography.bodyBold, fontSize: typography.sizes.sm },
-  histCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+  card: {
     borderWidth: 1,
     borderRadius: 4,
-    padding: spacing.md,
     marginBottom: spacing.md,
+    overflow: 'hidden',
   },
-  histImage: {
-    width: 64,
-    height: 52,
+  cardTop: {
+    flexDirection: 'row',
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  cardImage: {
+    width: 80,
+    height: 80,
     borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
-  histImageInner: { width: '100%', height: '100%' },
-  histInfo: { flex: 1 },
-  histRoute: { ...typography.bodyBold, fontSize: typography.sizes.md },
-  histMeta: { ...typography.body, fontSize: typography.sizes.xs, marginTop: 2 },
-  histAgency: { ...typography.body, fontSize: typography.sizes.xs },
-  badge: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: 4 },
+  cardImageInner: { width: '100%', height: '100%' },
+  cardInfo: { flex: 1, gap: spacing.xs },
+  cardBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  agencyName: { ...typography.body, fontSize: typography.sizes.xs },
+  badge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
   badgeText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
+  paymentRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  paymentText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
+  cardRoute: { ...typography.heading, fontSize: typography.sizes.md },
+  cardMeta: { flexDirection: 'row', alignItems: 'center' },
+  cardMetaText: { ...typography.body, fontSize: typography.sizes.xs },
+  cardFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardMetaItem: { flexDirection: 'row', alignItems: 'center' },
+  cardPrice: { ...typography.bodyBold, fontSize: typography.sizes.md },
+  cardDivider: { height: 1 },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  detailsBtn: { paddingVertical: spacing.xs },
+  detailsBtnText: { ...typography.body, fontSize: typography.sizes.sm },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    gap: spacing.xs,
+  },
+  actionBtnText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
 });
