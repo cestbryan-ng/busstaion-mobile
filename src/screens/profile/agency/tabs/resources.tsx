@@ -99,6 +99,12 @@ const VEHICLE_STATUS: Record<
     color: colors.success,
     bg: `${colors.success}15`,
   },
+  EN_SERVICE: {
+    label: 'En service',
+    labelEn: 'In service',
+    color: colors.primary,
+    bg: `${colors.primary}15`,
+  },
   EN_VOYAGE: {
     label: 'En voyage',
     labelEn: 'On trip',
@@ -1015,7 +1021,7 @@ export default function AgencyResources() {
                 )}
               </View>
             </View>
-            <ThreeDotMenu item={v} />
+            {v.statut !== 'EN_SERVICE' && <ThreeDotMenu item={v} />}
           </View>
         );
       })}

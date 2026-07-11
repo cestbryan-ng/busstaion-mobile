@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import { API_URL } from '../../../../utils/config';
 import { setCache, getCache } from '../../../../utils/offlineCache';
 import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
 import { OfflineBanner } from '../../../../components/offline-banner';
+import ConfirmModal from '../../../../components/confirm-modal';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonListScreen } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -39,12 +40,16 @@ type Vehicle = {
   nbrPlaces?: number;
   lienPhoto?: string;
   description?: string;
+  carburant?: string;
+  statut?: string;
 };
 
 type TravelClass = {
   id: string;
   nom: string;
   prix?: number;
+  tauxAnnulation?: number;
+  description?: string;
 };
 
 const CLASS_COLORS: Record<string, string> = {
@@ -79,18 +84,33 @@ export default function OrgVehicles() {
   >('all');
   const debouncedSearch = useDebounce(search);
 
+  // Vehicle form
   const [showVehicleModal, setShowVehicleModal] = useState(false);
+  const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
   const [vNom, setVNom] = useState('');
   const [vModele, setVModele] = useState('');
   const [vDescription, setVDescription] = useState('');
   const [vNbrPlaces, setVNbrPlaces] = useState('');
   const [vPlaque, setVPlaque] = useState('');
 
+  // Class form
   const [showClassModal, setShowClassModal] = useState(false);
+  const [editClass, setEditClass] = useState<TravelClass | null>(null);
   const [cNom, setCNom] = useState('');
   const [cPrix, setCPrix] = useState('');
+  const [cTaux, setCTaux] = useState('');
 
-  const [creating, setCreating] = useState(false);
+  // Menu & delete
+  const [menuItem, setMenuItem] = useState<{
+    item: any;
+    type: 'vehicle' | 'class';
+  } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    type: 'vehicle' | 'class';
+  } | null>(null);
+  const [confirmModal, setConfirmModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const t = {
     fr: {
@@ -102,6 +122,21 @@ export default function OrgVehicles() {
       travelClasses: 'Classes de voyage',
       noVehicles: 'Aucun véhicule',
       noClasses: 'Aucune classe',
+      newVehicle: 'Nouveau véhicule',
+      editVehicle: 'Modifier le véhicule',
+      newClass: 'Nouvelle classe',
+      editClass: 'Modifier la classe',
+      save: 'Enregistrer',
+      create: 'Créer',
+      cancel: 'Annuler',
+      delete: 'Supprimer',
+      edit: 'Modifier',
+      deleteTitle: 'Confirmer la suppression',
+      deleteMessage: 'Voulez-vous vraiment supprimer cet élément ?',
+      savedSuccess: 'Enregistré avec succès',
+      deletedSuccess: 'Supprimé avec succès',
+      error: 'Une erreur est survenue',
+      required: 'Champs obligatoires manquants',
     },
     en: {
       title: 'Vehicles',
@@ -112,19 +147,34 @@ export default function OrgVehicles() {
       travelClasses: 'Travel classes',
       noVehicles: 'No vehicles',
       noClasses: 'No classes',
+      newVehicle: 'New vehicle',
+      editVehicle: 'Edit vehicle',
+      newClass: 'New class',
+      editClass: 'Edit class',
+      save: 'Save',
+      create: 'Create',
+      cancel: 'Cancel',
+      delete: 'Delete',
+      edit: 'Edit',
+      deleteTitle: 'Confirm deletion',
+      deleteMessage: 'Are you sure you want to delete this item?',
+      savedSuccess: 'Saved successfully',
+      deletedSuccess: 'Deleted successfully',
+      error: 'An error occurred',
+      required: 'Required fields missing',
     },
   }[lang];
 
   const loadData = useCallback(async () => {
     try {
-      const [token, storedLang] = await Promise.all([
+      const [tok, storedLang] = await Promise.all([
         AsyncStorage.getItem('token'),
         AsyncStorage.getItem('app_lang'),
       ]);
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
-      setToken(token ?? '');
+      setToken(tok ?? '');
 
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = { Authorization: `Bearer ${tok}` };
       const [vRes, cRes] = await Promise.allSettled([
         fetch(`${API_URL}/vehicule/agence/${agencyId}`, { headers }),
         fetch(`${API_URL}/class-voyage/agence/${agencyId}`, { headers }),
@@ -182,94 +232,137 @@ export default function OrgVehicles() {
     setRefreshing(false);
   }, [loadData]);
 
-  const handleCreateVehicle = async () => {
+  const openCreateVehicle = () => {
+    setEditVehicle(null);
+    setVNom('');
+    setVModele('');
+    setVDescription('');
+    setVNbrPlaces('');
+    setVPlaque('');
+    setShowVehicleModal(true);
+  };
+
+  const openEditVehicle = (v: Vehicle) => {
+    setEditVehicle(v);
+    setVNom(v.nom || '');
+    setVModele(v.modele || '');
+    setVDescription(v.description || '');
+    setVNbrPlaces(String(v.nbrPlaces || ''));
+    setVPlaque(v.plaqueMatricule || '');
+    setShowVehicleModal(true);
+  };
+
+  const openCreateClass = () => {
+    setEditClass(null);
+    setCNom('');
+    setCPrix('');
+    setCTaux('');
+    setShowClassModal(true);
+  };
+
+  const openEditClass = (c: TravelClass) => {
+    setEditClass(c);
+    setCNom(c.nom || '');
+    setCPrix(String(c.prix || ''));
+    setCTaux(String(c.tauxAnnulation || ''));
+    setShowClassModal(true);
+  };
+
+  const handleSubmitVehicle = async () => {
     if (!vNom.trim() || !vNbrPlaces.trim() || !vPlaque.trim()) {
-      toast.warning(
-        lang === 'fr'
-          ? 'Champs obligatoires manquants'
-          : 'Required fields missing',
-      );
+      toast.warning(t.required);
       return;
     }
-    setCreating(true);
+    setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/vehicule`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          nom: vNom.trim(),
-          modele: vModele.trim() || undefined,
-          description: vDescription.trim() || undefined,
-          nbrPlaces: Number(vNbrPlaces),
-          plaqueMatricule: vPlaque.trim(),
-          carburant: 'Diesel',
-          idAgenceVoyage: agencyId,
-        }),
-      });
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+      const body = {
+        nom: vNom.trim(),
+        modele: vModele.trim() || undefined,
+        description: vDescription.trim() || undefined,
+        nbrPlaces: Number(vNbrPlaces),
+        plaqueMatricule: vPlaque.trim(),
+        carburant: 'Diesel',
+        idAgenceVoyage: agencyId,
+      };
+      const url = editVehicle
+        ? `${API_URL}/vehicule/${editVehicle.idVehicule}`
+        : `${API_URL}/vehicule`;
+      const method = editVehicle ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers, body: JSON.stringify(body) });
       if (res.ok) {
-        const created = await res.json();
-        setVehicles(prev => [...prev, created]);
-        toast.success(lang === 'fr' ? 'Véhicule créé' : 'Vehicle created');
+        toast.success(t.savedSuccess);
+        await loadData();
         setShowVehicleModal(false);
-        setVNom('');
-        setVModele('');
-        setVDescription('');
-        setVNbrPlaces('');
-        setVPlaque('');
       } else {
-        toast.error(
-          lang === 'fr' ? 'Erreur lors de la création' : 'Creation failed',
-        );
+        toast.error(t.error);
       }
     } catch {
-      toast.error(lang === 'fr' ? 'Erreur réseau' : 'Network error');
+      toast.error(t.error);
     } finally {
-      setCreating(false);
+      setSubmitting(false);
     }
   };
 
-  const handleCreateClass = async () => {
+  const handleSubmitClass = async () => {
     if (!cNom.trim() || !cPrix.trim()) {
-      toast.warning(
-        lang === 'fr'
-          ? 'Champs obligatoires manquants'
-          : 'Required fields missing',
-      );
+      toast.warning(t.required);
       return;
     }
-    setCreating(true);
+    setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/class-voyage`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          nom: cNom.trim(),
-          prix: parseFloat(cPrix),
-          idAgenceVoyage: agencyId,
-        }),
-      });
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+      const body = {
+        nom: cNom.trim(),
+        prix: parseFloat(cPrix),
+        tauxAnnulation: cTaux ? parseFloat(cTaux) : undefined,
+        idAgenceVoyage: agencyId,
+      };
+      const url = editClass
+        ? `${API_URL}/class-voyage/${editClass.id}`
+        : `${API_URL}/class-voyage`;
+      const method = editClass ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers, body: JSON.stringify(body) });
       if (res.ok) {
-        const created = await res.json();
-        setClasses(prev => [...prev, created]);
-        toast.success(lang === 'fr' ? 'Classe créée' : 'Class created');
+        toast.success(t.savedSuccess);
+        await loadData();
         setShowClassModal(false);
-        setCNom('');
-        setCPrix('');
       } else {
-        toast.error(
-          lang === 'fr' ? 'Erreur lors de la création' : 'Creation failed',
-        );
+        toast.error(t.error);
       }
     } catch {
-      toast.error(lang === 'fr' ? 'Erreur réseau' : 'Network error');
+      toast.error(t.error);
     } finally {
-      setCreating(false);
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const url =
+        deleteTarget.type === 'vehicle'
+          ? `${API_URL}/vehicule/${deleteTarget.id}`
+          : `${API_URL}/class-voyage/${deleteTarget.id}`;
+      const res = await fetch(url, { method: 'DELETE', headers });
+      if (res.ok) {
+        toast.success(t.deletedSuccess);
+        await loadData();
+      } else {
+        toast.error(t.error);
+      }
+    } catch {
+      toast.error(t.error);
+    } finally {
+      setConfirmModal(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -419,11 +512,16 @@ export default function OrgVehicles() {
         }
         contentContainerStyle={styles.list}
       >
-        {/* Vehicles section header */}
-        <View style={styles.classesSectionHeader}>
+        {/* Vehicles section */}
+        <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
             {t.title}
           </Text>
+          <TouchableOpacity onPress={openCreateVehicle}>
+            <View style={[styles.addSmallBtn, { backgroundColor: colors.primary }]}>
+              <Ionicons name="add" size={16} color="#fff" />
+            </View>
+          </TouchableOpacity>
         </View>
 
         {filteredVehicles.length === 0 ? (
@@ -475,13 +573,32 @@ export default function OrgVehicles() {
                   <View
                     style={[
                       styles.statusBadge,
-                      { backgroundColor: `${colors.success}15` },
+                      {
+                        backgroundColor:
+                          v.statut === 'EN_SERVICE'
+                            ? `${colors.primary}15`
+                            : `${colors.success}15`,
+                      },
                     ]}
                   >
                     <Text
-                      style={[styles.statusText, { color: colors.success }]}
+                      style={[
+                        styles.statusText,
+                        {
+                          color:
+                            v.statut === 'EN_SERVICE'
+                              ? colors.primary
+                              : colors.success,
+                        },
+                      ]}
                     >
-                      {t.active}
+                      {v.statut === 'EN_SERVICE'
+                        ? lang === 'fr'
+                          ? 'En service'
+                          : 'In service'
+                        : lang === 'fr'
+                        ? 'Disponible'
+                        : 'Available'}
                     </Text>
                   </View>
                 </View>
@@ -510,16 +627,24 @@ export default function OrgVehicles() {
                   </View>
                 ) : null}
               </View>
+            {v.statut !== 'EN_SERVICE' && (
+              <TouchableOpacity
+                onPress={() => setMenuItem({ item: v, type: 'vehicle' })}
+                style={styles.dotMenuBtn}
+              >
+                <Ionicons name="ellipsis-vertical" size={18} color={theme.text} />
+              </TouchableOpacity>
+            )}
             </View>
           ))
         )}
 
         {/* Travel classes */}
-        <View style={styles.classesSectionHeader}>
+        <View style={[styles.sectionHeader, { marginTop: spacing.md }]}>
           <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
             {t.travelClasses}
           </Text>
-          <TouchableOpacity onPress={() => setShowClassModal(true)}>
+          <TouchableOpacity onPress={openCreateClass}>
             <View
               style={[styles.addSmallBtn, { backgroundColor: colors.primary }]}
             >
@@ -567,16 +692,21 @@ export default function OrgVehicles() {
                     </Text>
                   )}
                 </View>
+                <TouchableOpacity
+                  onPress={() => setMenuItem({ item: cls, type: 'class' })}
+                  style={styles.dotMenuBtn}
+                >
+                  <Ionicons name="ellipsis-vertical" size={18} color={theme.text} />
+                </TouchableOpacity>
               </View>
             );
           })
         )}
 
-
         <View style={{ height: spacing.xl }} />
       </ScrollView>
 
-      {/* Modal — Créer un véhicule */}
+      {/* Modal — Véhicule (create / edit) */}
       <Modal
         visible={showVehicleModal}
         animationType="slide"
@@ -594,7 +724,7 @@ export default function OrgVehicles() {
               style={[styles.modalHeader, { borderBottomColor: theme.border }]}
             >
               <Text style={[styles.modalTitle, { color: theme.textStrong }]}>
-                {lang === 'fr' ? 'Nouveau véhicule' : 'New vehicle'}
+                {editVehicle ? t.editVehicle : t.newVehicle}
               </Text>
               <TouchableOpacity onPress={() => setShowVehicleModal(false)}>
                 <Ionicons name="close" size={24} color={theme.textStrong} />
@@ -680,19 +810,19 @@ export default function OrgVehicles() {
                 <Text
                   style={[styles.modalBtnText, { color: theme.textStrong }]}
                 >
-                  {lang === 'fr' ? 'Annuler' : 'Cancel'}
+                  {t.cancel}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: colors.primary }]}
-                onPress={handleCreateVehicle}
-                disabled={creating}
+                onPress={handleSubmitVehicle}
+                disabled={submitting}
               >
-                {creating ? (
+                {submitting ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text style={[styles.modalBtnText, { color: '#fff' }]}>
-                    {lang === 'fr' ? 'Créer' : 'Create'}
+                    {editVehicle ? t.save : t.create}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -701,7 +831,7 @@ export default function OrgVehicles() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Modal — Créer une classe de voyage */}
+      {/* Modal — Classe de voyage (create / edit) */}
       <Modal
         visible={showClassModal}
         animationType="slide"
@@ -719,7 +849,7 @@ export default function OrgVehicles() {
               style={[styles.modalHeader, { borderBottomColor: theme.border }]}
             >
               <Text style={[styles.modalTitle, { color: theme.textStrong }]}>
-                {lang === 'fr' ? 'Nouvelle classe' : 'New class'}
+                {editClass ? t.editClass : t.newClass}
               </Text>
               <TouchableOpacity onPress={() => setShowClassModal(false)}>
                 <Ionicons name="close" size={24} color={theme.textStrong} />
@@ -778,6 +908,27 @@ export default function OrgVehicles() {
                   keyboardType="numeric"
                 />
               </View>
+              <View style={styles.modalField}>
+                <Text style={[styles.modalLabel, { color: theme.text }]}>
+                  {lang === 'fr' ? "Taux d'annulation (%)" : 'Cancellation rate (%)'}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.modalInput,
+                    {
+                      borderColor: theme.border,
+                      color: theme.textStrong,
+                      backgroundColor: theme.backgroundAlt,
+                      height: 44,
+                    },
+                  ]}
+                  value={cTaux}
+                  onChangeText={setCTaux}
+                  placeholder="5"
+                  placeholderTextColor={theme.placeholder}
+                  keyboardType="numeric"
+                />
+              </View>
             </View>
             <View
               style={[styles.modalFooter, { borderTopColor: theme.border }]}
@@ -795,19 +946,19 @@ export default function OrgVehicles() {
                 <Text
                   style={[styles.modalBtnText, { color: theme.textStrong }]}
                 >
-                  {lang === 'fr' ? 'Annuler' : 'Cancel'}
+                  {t.cancel}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: colors.primary }]}
-                onPress={handleCreateClass}
-                disabled={creating}
+                onPress={handleSubmitClass}
+                disabled={submitting}
               >
-                {creating ? (
+                {submitting ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text style={[styles.modalBtnText, { color: '#fff' }]}>
-                    {lang === 'fr' ? 'Créer' : 'Create'}
+                    {editClass ? t.save : t.create}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -815,13 +966,75 @@ export default function OrgVehicles() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Bottom sheet menu */}
+      <Modal
+        visible={menuItem !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuItem(null)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setMenuItem(null)}
+        >
+          <View
+            style={[styles.menuSheet, { backgroundColor: theme.background }]}
+          >
+            <TouchableOpacity
+              style={styles.menuSheetItem}
+              onPress={() => {
+                if (menuItem?.type === 'vehicle') openEditVehicle(menuItem.item);
+                else if (menuItem?.type === 'class') openEditClass(menuItem.item);
+                setMenuItem(null);
+              }}
+            >
+              <Ionicons name="create-outline" size={20} color={theme.textStrong} />
+              <Text style={[styles.menuSheetText, { color: theme.textStrong }]}>
+                {t.edit}
+              </Text>
+            </TouchableOpacity>
+            <View style={[styles.menuSheetDivider, { backgroundColor: theme.border }]} />
+            <TouchableOpacity
+              style={styles.menuSheetItem}
+              onPress={() => {
+                const id =
+                  menuItem?.type === 'vehicle'
+                    ? menuItem.item.idVehicule
+                    : menuItem?.item.id;
+                setDeleteTarget({ id, type: menuItem!.type });
+                setMenuItem(null);
+                setConfirmModal(true);
+              }}
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.error} />
+              <Text style={[styles.menuSheetText, { color: colors.error }]}>
+                {t.delete}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <ConfirmModal
+        visible={confirmModal}
+        title={t.deleteTitle}
+        message={t.deleteMessage}
+        confirmText={t.delete}
+        cancelText={t.cancel}
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setConfirmModal(false);
+          setDeleteTarget(null);
+        }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -880,18 +1093,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   list: { padding: spacing.lg },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  sectionTitle: { ...typography.bodyBold, fontSize: typography.sizes.md },
+  addSmallBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   vehicleCard: {
     flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: spacing.md,
-  },
-  vehicleImage: {
-    width: 90,
-    height: 90,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   vehicleImageBox: {
     width: 56,
@@ -903,8 +1125,7 @@ const styles = StyleSheet.create({
     margin: spacing.md,
   },
   vehicleImageFull: { width: '100%', height: '100%' },
-  vehicleImageInner: { width: '100%', height: '100%' },
-  vehicleInfo: { flex: 1, padding: spacing.md },
+  vehicleInfo: { flex: 1, paddingVertical: spacing.md },
   vehicleTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -931,24 +1152,9 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     marginTop: 2,
   },
-  vehicleMeta: { flexDirection: 'row', gap: spacing.md, marginTop: 4 },
-  metaItem: { flexDirection: 'row', alignItems: 'center' },
+  metaItem: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
   metaText: { ...typography.body, fontSize: typography.sizes.xs },
-  classesSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-    marginTop: spacing.md,
-  },
-  sectionTitle: { ...typography.bodyBold, fontSize: typography.sizes.md },
-  addSmallBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  dotMenuBtn: { padding: spacing.md },
   classCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -972,8 +1178,6 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     marginTop: 2,
   },
-  seeMoreClasses: { alignItems: 'center', paddingVertical: spacing.md },
-  seeMoreText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -1026,4 +1230,24 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   classChipText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'flex-end',
+  },
+  menuSheet: {
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
+  },
+  menuSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
+  },
+  menuSheetText: { ...typography.body, fontSize: typography.sizes.md },
+  menuSheetDivider: { height: 1, marginHorizontal: spacing.lg },
 });

@@ -41,7 +41,7 @@ type Vehicle = {
 };
 type Driver = { userId: string; first_name?: string; last_name?: string };
 type TClass = { id: string; nom: string };
-type Destination = { lieuArrive: string; pointArriveeId: string; pointArriveeNom: string };
+type Destination = { lieuArrive: string; pointArriveeId: string; pointArriveeNom: string; agenceId?: string; agenceNom?: string };
 
 type FormData = {
   titre: string;
@@ -81,6 +81,7 @@ const STEP_LABELS_EN = ['Itinerary', 'Resources', 'Details', 'Confirmation'];
 function Field({
   label,
   value,
+  subtitle,
   onChangeText,
   placeholder,
   keyboardType,
@@ -91,6 +92,7 @@ function Field({
 }: {
   label: string;
   value: string;
+  subtitle?: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
   keyboardType?: any;
@@ -118,9 +120,23 @@ function Field({
             },
           ]}
         >
-          <Text style={{ ...typography.body, fontSize: typography.sizes.sm, color: theme.textStrong }}>
-            {value || placeholder}
-          </Text>
+          {(() => {
+            const idx = value ? value.indexOf('-') : -1;
+            const main = idx > -1 ? value.slice(0, idx) : (value || placeholder || '');
+            const sub = subtitle || (idx > -1 ? value.slice(idx + 1) : undefined);
+            return (
+              <>
+                <Text style={{ ...typography.body, fontSize: typography.sizes.sm, color: theme.textStrong }}>
+                  {main}
+                </Text>
+                {sub ? (
+                  <Text style={{ ...typography.body, fontSize: typography.sizes.xs, color: theme.text, marginTop: 2 }}>
+                    {sub}
+                  </Text>
+                ) : null}
+              </>
+            );
+          })()}
         </View>
       ) : (
         <TextInput
@@ -155,6 +171,7 @@ function Field({
 function CityPicker({
   label,
   value,
+  subtitle,
   onSelect,
   readOnly,
   error,
@@ -162,6 +179,7 @@ function CityPicker({
 }: {
   label: string;
   value: string;
+  subtitle?: string;
   onSelect: (v: string) => void;
   readOnly?: boolean;
   error?: string;
@@ -187,9 +205,16 @@ function CityPicker({
           ]}
         >
           <Ionicons name="location-outline" size={18} color={theme.text} />
-          <Text style={[styles.pickerBtnText, { color: theme.textStrong }]}>
-            {value || '—'}
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.pickerBtnText, { color: theme.textStrong, flex: 0 }]}>
+              {value || '—'}
+            </Text>
+            {subtitle ? (
+              <Text style={[{ ...typography.body, fontSize: typography.sizes.xs, color: theme.text, marginTop: 1 }]}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
         </View>
       ) : (
         <TouchableOpacity
@@ -385,6 +410,7 @@ function DestinationPicker({
   label,
   value,
   cityValue,
+  agenceValue,
   onSelect,
   destinations,
   loading,
@@ -394,6 +420,7 @@ function DestinationPicker({
   label: string;
   value: string;
   cityValue?: string;
+  agenceValue?: string;
   onSelect: (d: Destination) => void;
   destinations: Destination[];
   loading: boolean;
@@ -410,18 +437,28 @@ function DestinationPicker({
           {
             borderColor: error ? colors.error : theme.border,
             backgroundColor: theme.backgroundAlt,
+            height: 'auto',
+            minHeight: 48,
+            paddingVertical: spacing.sm,
           },
         ]}
         onPress={() => setOpen(true)}
         activeOpacity={0.7}
       >
         <Ionicons name="location-outline" size={18} color={theme.text} />
-        <Text
-          style={[styles.pickerBtnText, { color: cityValue ? theme.textStrong : theme.text }]}
-          numberOfLines={1}
-        >
-          {cityValue || '—'}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={[styles.pickerBtnText, { color: cityValue ? theme.textStrong : theme.text, flex: 0 }]}
+            numberOfLines={1}
+          >
+            {cityValue || '—'}
+          </Text>
+          {agenceValue ? (
+            <Text style={[{ ...typography.body, fontSize: typography.sizes.xs, color: theme.text, marginTop: 1 }]}>
+              {agenceValue}
+            </Text>
+          ) : null}
+        </View>
         <Ionicons name="chevron-down" size={16} color={theme.text} />
       </TouchableOpacity>
       {error && (
@@ -465,6 +502,11 @@ function DestinationPicker({
                     <Text style={[{ ...typography.body, fontSize: typography.sizes.xs, color: theme.text, marginTop: 2 }]}>
                       {item.pointArriveeNom}
                     </Text>
+                    {item.agenceNom ? (
+                      <Text style={[{ ...typography.body, fontSize: typography.sizes.xs, color: colors.primary, marginTop: 1 }]}>
+                        {item.agenceNom}
+                      </Text>
+                    ) : null}
                   </View>
                   {value === item.pointArriveeNom && (
                     <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
@@ -495,6 +537,7 @@ export default function AgencyNewTrip() {
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [step, setStep] = useState<Step>(1);
   const [agencyId, setAgencyId] = useState('');
+  const [destAgenceId, setDestAgenceId] = useState('');
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [classes, setClasses] = useState<TClass[]>([]);
@@ -661,7 +704,9 @@ export default function AgencyNewTrip() {
                 setForm(prev => ({
                   ...prev,
                   lieuDepart: gare.ville || '',
-                  pointDeDepart: gare.nomGareRoutiere || '',
+                  pointDeDepart: gare.nomGareRoutiere
+                    ? `${gare.nomGareRoutiere}-${agencyData.longName || agencyData.nom || ''}`
+                    : '',
                 }));
               }
             } catch {
@@ -671,8 +716,8 @@ export default function AgencyNewTrip() {
         }
 
         const [vRes, dRes, cRes] = await Promise.allSettled([
-          fetch(`${API_URL}/vehicule/agence/${agencyData.id}`, { headers }),
-          fetch(`${API_URL}/utilisateur/chauffeurs/${agencyData.id}`, {
+          fetch(`${API_URL}/vehicule/agence/${agencyData.id}?statut=DISPONIBLE`, { headers }),
+          fetch(`${API_URL}/utilisateur/chauffeurs/${agencyData.id}?statut=LIBRE`, {
             headers,
           }),
           fetch(`${API_URL}/class-voyage/agence/${agencyData.id}`, { headers }),
@@ -798,6 +843,24 @@ export default function AgencyNewTrip() {
         body: JSON.stringify(body),
       });
       if (res.ok) {
+        if (!isEdit && destAgenceId && status === 'PUBLIE') {
+          try {
+            const created = await res.json();
+            const tripId = created.idVoyage || created.id;
+            if (tripId) {
+              await fetch(`${API_URL}/voyage/${tripId}/notifier-destination`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ agenceDestinationId: destAgenceId }),
+              });
+            }
+          } catch {
+            // notification silencieuse — le voyage est déjà créé
+          }
+        }
         toast.success(t.tripSaved);
         navigation.goBack();
       } else {
@@ -818,24 +881,6 @@ export default function AgencyNewTrip() {
         {t.baseInfo}
       </Text>
 
-      <Field
-        label={t.tripTitle}
-        value={form.titre}
-        onChangeText={v => update('titre', v)}
-        placeholder={t.titlePlaceholder}
-        error={errors.titre}
-        theme={theme}
-      />
-      <Field
-        label={t.description}
-        value={form.description}
-        onChangeText={v => update('description', v)}
-        placeholder={t.descPlaceholder}
-        multiline
-        error={errors.description}
-        theme={theme}
-      />
-
       <View style={styles.twoCol}>
         <CityPicker
           label={t.departure}
@@ -851,7 +896,8 @@ export default function AgencyNewTrip() {
           cityValue={form.lieuArrive}
           onSelect={d => {
             update('lieuArrive', d.lieuArrive);
-            update('pointArrivee', d.pointArriveeNom);
+            update('pointArrivee', d.agenceNom ? `${d.pointArriveeNom}-${d.agenceNom}` : d.pointArriveeNom);
+            setDestAgenceId(d.agenceId || '');
           }}
           destinations={destinations}
           loading={destinationsLoading}
@@ -883,6 +929,24 @@ export default function AgencyNewTrip() {
           />
         </View>
       </View>
+
+      <Field
+        label={t.tripTitle}
+        value={form.titre}
+        onChangeText={v => update('titre', v)}
+        placeholder={t.titlePlaceholder}
+        error={errors.titre}
+        theme={theme}
+      />
+      <Field
+        label={t.description}
+        value={form.description}
+        onChangeText={v => update('description', v)}
+        placeholder={t.descPlaceholder}
+        multiline
+        error={errors.description}
+        theme={theme}
+      />
 
       {/* Date picker */}
       <View style={styles.field}>
