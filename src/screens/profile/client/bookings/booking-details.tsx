@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -1066,13 +1066,14 @@ export default function BookingDetails() {
               {/* Phone */}
               <Text style={[styles.payFieldLabel, { color: theme.text, marginTop: spacing.md }]}>{t.phoneLabel}</Text>
               <View style={[styles.payPhoneInput, { borderColor: payPhoneError ? colors.error : theme.border, backgroundColor: theme.backgroundAlt }]}>
-                <Ionicons name="phone-portrait-outline" size={18} color={payPhoneError ? colors.error : theme.text} />
+                <Text style={[styles.phoneFlag, { color: theme.textStrong }]}>🇨🇲</Text>
+                <Text style={[styles.phonePrefix, { color: theme.textStrong, borderRightColor: theme.border }]}>+237</Text>
                 <TextInput
                   style={[{ flex: 1, color: theme.textStrong, ...typography.body, fontSize: typography.sizes.md }]}
                   value={payPhone}
                   onChangeText={v => { setPayPhone(v.replace(/\D/g, '').slice(0, 9)); setPayPhoneError(''); setPayApiError(''); }}
                   placeholder={t.phonePlaceholder}
-                  placeholderTextColor={theme.text}
+                  placeholderTextColor={theme.placeholder}
                   keyboardType="phone-pad"
                   maxLength={9}
                 />
@@ -1450,11 +1451,22 @@ const styles = StyleSheet.create({
   payPhoneInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
     height: 44,
     borderWidth: 1,
     borderRadius: 4,
     paddingHorizontal: spacing.md,
+    gap: 0,
+  },
+  phoneFlag: {
+    fontSize: 18,
+    marginRight: 4,
+  },
+  phonePrefix: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+    marginRight: spacing.sm,
+    paddingRight: spacing.sm,
+    borderRightWidth: 1,
   },
   payConfirmBtn: {
     flexDirection: 'row',

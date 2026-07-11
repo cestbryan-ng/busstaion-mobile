@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -136,7 +136,6 @@ export default function SignUp() {
   const [errors3, setErrors3] = useState<Errors3>({});
   const [serverError, setServerError] = useState('');
 
-
   useEffect(() => {
     AsyncStorage.getItem('app_lang').then(l => {
       if (l === 'en' || l === 'fr') setLang(l);
@@ -175,7 +174,8 @@ export default function SignUp() {
       client: 'Client',
       clientDesc: 'Compte simple pour voyager facilement sur la plateforme.',
       agency: 'Organisation',
-      agencyDesc: 'Compte pour gérer une organisation et vos agences de voyage.',
+      agencyDesc:
+        'Compte pour gérer une organisation et vos agences de voyage.',
       longName: "Nom complet de l'organisation",
       ceoName: 'Nom du directeur général',
       agencyEmail: 'Email professionnel',
@@ -436,9 +436,7 @@ export default function SignUp() {
         <View style={styles.header}>
           {step !== 2 && (
             <TouchableOpacity
-              onPress={() =>
-                step === 1 ? navigation.goBack() : setStep(2)
-              }
+              onPress={() => (step === 1 ? navigation.goBack() : setStep(2))}
             >
               <Image
                 source={
@@ -540,7 +538,7 @@ export default function SignUp() {
               <TextInput
                 style={[styles.input, { color: theme.textStrong }]}
                 placeholder={t.firstNamePlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form1.first_name}
                 onChangeText={v => update1('first_name', v)}
               />
@@ -565,7 +563,7 @@ export default function SignUp() {
               <TextInput
                 style={[styles.input, { color: theme.textStrong }]}
                 placeholder={t.lastNamePlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form1.last_name}
                 onChangeText={v => update1('last_name', v)}
               />
@@ -590,7 +588,7 @@ export default function SignUp() {
               <TextInput
                 style={[styles.input, { color: theme.textStrong }]}
                 placeholder={t.usernamePlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form1.username}
                 onChangeText={v => update1('username', v)}
                 autoCapitalize="none"
@@ -616,7 +614,7 @@ export default function SignUp() {
               <TextInput
                 style={[styles.input, { color: theme.textStrong }]}
                 placeholder={t.agePlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form1.age}
                 onChangeText={v => update1('age', v.replace(/[^0-9]/g, ''))}
                 keyboardType="numeric"
@@ -677,7 +675,7 @@ export default function SignUp() {
               <TextInput
                 style={[styles.input, { color: theme.textStrong }]}
                 placeholder={t.emailPlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form1.email}
                 onChangeText={v => update1('email', v)}
                 keyboardType="email-address"
@@ -717,7 +715,7 @@ export default function SignUp() {
               <TextInput
                 style={[styles.input, { color: theme.textStrong }]}
                 placeholder={t.phonePlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form1.phone_number}
                 onChangeText={v =>
                   update1('phone_number', v.replace(/[^0-9]/g, ''))
@@ -746,7 +744,7 @@ export default function SignUp() {
               <TextInput
                 style={[styles.input, { color: theme.textStrong }]}
                 placeholder={t.passwordPlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form1.password}
                 onChangeText={v => update1('password', v)}
                 secureTextEntry={!showPassword}
@@ -781,7 +779,7 @@ export default function SignUp() {
               <TextInput
                 style={[styles.input, { color: theme.textStrong }]}
                 placeholder={t.confirmPasswordPlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form1.confirmPassword}
                 onChangeText={v => update1('confirmPassword', v)}
                 secureTextEntry={!showConfirmPassword}
@@ -826,11 +824,7 @@ export default function SignUp() {
                 {t.acceptCGU}
                 <Text
                   style={[styles.cguLink, { color: colors.primary }]}
-                  onPress={() =>
-                    Linking.openURL(
-                      `${CGU_URL}`,
-                    )
-                  }
+                  onPress={() => Linking.openURL(`${CGU_URL}`)}
                 >
                   {t.cguLink}
                 </Text>
@@ -1025,7 +1019,7 @@ export default function SignUp() {
               <TextInput
                 style={[styles.input, { color: theme.textStrong }]}
                 placeholder="General Voyages"
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form3.long_name}
                 onChangeText={v => update3('long_name', v)}
               />
@@ -1050,7 +1044,7 @@ export default function SignUp() {
               <TextInput
                 style={[styles.input, { color: theme.textStrong }]}
                 placeholder="KENFACK Adam"
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form3.ceo_name}
                 onChangeText={v => update3('ceo_name', v)}
               />
@@ -1075,7 +1069,7 @@ export default function SignUp() {
               <TextInput
                 style={[styles.input, { color: theme.textStrong }]}
                 placeholder="contact@voyages.com"
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form3.email}
                 onChangeText={v => update3('email', v)}
                 keyboardType="email-address"
@@ -1094,7 +1088,9 @@ export default function SignUp() {
               style={[
                 styles.inputWrapper,
                 {
-                  borderColor: errors3.year_founded ? colors.error : theme.border,
+                  borderColor: errors3.year_founded
+                    ? colors.error
+                    : theme.border,
                   backgroundColor: theme.background,
                 },
               ]}
@@ -1108,7 +1104,11 @@ export default function SignUp() {
               >
                 {form3.year_founded || '2025'}
               </Text>
-              <Ionicons name="chevron-down-outline" size={18} color={theme.text} />
+              <Ionicons
+                name="chevron-down-outline"
+                size={18}
+                color={theme.text}
+              />
             </TouchableOpacity>
             {errors3.year_founded && (
               <Text style={styles.fieldError}>{errors3.year_founded}</Text>
@@ -1117,7 +1117,9 @@ export default function SignUp() {
             <DatePickerModal
               visible={showYearPicker}
               lang={lang}
-              selectedDate={form3.year_founded ? `${form3.year_founded}-01-01` : null}
+              selectedDate={
+                form3.year_founded ? `${form3.year_founded}-01-01` : null
+              }
               onApply={date => {
                 if (date) update3('year_founded', date.split('-')[0]);
               }}
@@ -1142,7 +1144,7 @@ export default function SignUp() {
               <TextInput
                 style={[styles.input, { color: theme.textStrong }]}
                 placeholder="IM075123456"
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form3.business_registration_number}
                 onChangeText={v => update3('business_registration_number', v)}
                 autoCapitalize="characters"
@@ -1170,7 +1172,7 @@ export default function SignUp() {
               <TextInput
                 style={[styles.input, { color: theme.textStrong }]}
                 placeholder="FR12345678901"
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form3.tax_number}
                 onChangeText={v => update3('tax_number', v)}
                 autoCapitalize="characters"

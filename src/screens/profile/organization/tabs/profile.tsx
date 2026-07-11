@@ -56,6 +56,8 @@ export default function OrgProfil({
     fr: {
       title: 'Profil',
       myAccount: 'Mon compte',
+      credentials: 'Mes identifiants',
+      credentialsDesc: 'Email, nom, mot de passe',
       myOrg: 'Mon organisation',
       myOrgDesc: "Voir et modifier les informations de l'organisation",
       personalInfo: 'Informations personnelles',
@@ -72,11 +74,15 @@ export default function OrgProfil({
       helpCenterDesc: 'FAQ et assistance',
       terms: "Conditions d'utilisation",
       termsDesc: 'Lire nos conditions',
+      cache: 'Gestion du cache',
+      cacheDesc: 'Données hors ligne et stockage local',
       logout: 'Déconnexion',
     },
     en: {
       title: 'Profile',
       myAccount: 'My account',
+      credentials: 'My credentials',
+      credentialsDesc: 'Email, name, password',
       myOrg: 'My organization',
       myOrgDesc: 'View and edit organization information',
       personalInfo: 'Personal information',
@@ -93,6 +99,8 @@ export default function OrgProfil({
       helpCenterDesc: 'FAQ and assistance',
       terms: 'Terms of use',
       termsDesc: 'Read our terms',
+      cache: 'Cache management',
+      cacheDesc: 'Offline data and local storage',
       logout: 'Logout',
     },
   }[lang];
@@ -274,6 +282,12 @@ export default function OrgProfil({
             {t.myAccount}
           </Text>
           <MenuItem
+            icon="key-outline"
+            label={t.credentials}
+            desc={t.credentialsDesc}
+            onPress={() => navigation.navigate('EditCredentials')}
+          />
+          <MenuItem
             icon="person-outline"
             label={t.personalInfo}
             desc={t.personalInfoDesc}
@@ -372,6 +386,12 @@ export default function OrgProfil({
             label={t.terms}
             desc={t.termsDesc}
             onPress={() => Linking.openURL(CGU_URL)}
+          />
+          <MenuItem
+            icon="server-outline"
+            label={t.cache}
+            desc={t.cacheDesc}
+            onPress={() => navigation.navigate('CacheSettings')}
           />
         </View>
 

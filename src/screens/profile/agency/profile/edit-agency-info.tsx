@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -44,7 +44,7 @@ export default function AgencyEditInfo() {
   const t = {
     fr: {
       title: "Modifier l'agence",
-      longName: "Nom complet",
+      longName: 'Nom complet',
       shortName: 'Nom court',
       location: 'Localisation',
       description: 'Description',
@@ -156,18 +156,25 @@ export default function AgencyEditInfo() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+      <View
+        style={[styles.container, { backgroundColor: theme.backgroundAlt }]}
+      >
         {/* Header */}
         <View
           style={[
             styles.header,
-            { backgroundColor: theme.background, borderBottomColor: theme.border },
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
           ]}
         >
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: theme.textStrong }]}>{t.title}</Text>
+          <Text style={[styles.title, { color: theme.textStrong }]}>
+            {t.title}
+          </Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -191,8 +198,11 @@ export default function AgencyEditInfo() {
                 },
               ]}
               value={longName}
-              onChangeText={v => { setLongName(v); setLongNameError(''); }}
-              placeholderTextColor={theme.text}
+              onChangeText={v => {
+                setLongName(v);
+                setLongNameError('');
+              }}
+              placeholderTextColor={theme.placeholder}
             />
             {longNameError !== '' && (
               <Text style={[styles.fieldError, { color: colors.error }]}>
@@ -209,12 +219,16 @@ export default function AgencyEditInfo() {
             <TextInput
               style={[
                 styles.fieldInput,
-                { borderColor: theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong },
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                  color: theme.textStrong,
+                },
               ]}
               value={shortName}
               onChangeText={setShortName}
               placeholder="CAV"
-              placeholderTextColor={theme.text}
+              placeholderTextColor={theme.placeholder}
             />
           </View>
 
@@ -226,7 +240,10 @@ export default function AgencyEditInfo() {
             <View
               style={[
                 styles.locationInput,
-                { borderColor: theme.border, backgroundColor: theme.backgroundAlt },
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                },
               ]}
             >
               <Ionicons name="location-outline" size={16} color={theme.text} />
@@ -235,7 +252,7 @@ export default function AgencyEditInfo() {
                 value={location}
                 onChangeText={setLocation}
                 placeholder="Yaoundé, Centre"
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
               />
             </View>
           </View>
@@ -249,11 +266,15 @@ export default function AgencyEditInfo() {
               style={[
                 styles.fieldInput,
                 styles.fieldTextarea,
-                { borderColor: theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong },
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                  color: theme.textStrong,
+                },
               ]}
               value={description}
               onChangeText={setDescription}
-              placeholderTextColor={theme.text}
+              placeholderTextColor={theme.placeholder}
               multiline
               textAlignVertical="top"
             />
@@ -268,12 +289,16 @@ export default function AgencyEditInfo() {
               style={[
                 styles.fieldInput,
                 styles.fieldTextarea,
-                { borderColor: theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong },
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                  color: theme.textStrong,
+                },
               ]}
               value={greetingMessage}
               onChangeText={setGreetingMessage}
               placeholder={t.greetingPlaceholder}
-              placeholderTextColor={theme.text}
+              placeholderTextColor={theme.placeholder}
               multiline
               textAlignVertical="top"
             />
@@ -287,16 +312,23 @@ export default function AgencyEditInfo() {
             <View
               style={[
                 styles.locationInput,
-                { borderColor: theme.border, backgroundColor: theme.backgroundAlt },
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                },
               ]}
             >
-              <Ionicons name="share-social-outline" size={16} color={theme.text} />
+              <Ionicons
+                name="share-social-outline"
+                size={16}
+                color={theme.text}
+              />
               <TextInput
                 style={[styles.locationTextInput, { color: theme.textStrong }]}
                 value={socialNetwork}
                 onChangeText={setSocialNetwork}
                 placeholder={t.socialPlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 autoCapitalize="none"
                 keyboardType="url"
               />
@@ -320,7 +352,10 @@ export default function AgencyEditInfo() {
           ]}
         >
           <TouchableOpacity
-            style={[styles.cancelBtn, { borderColor: theme.border, backgroundColor: theme.background }]}
+            style={[
+              styles.cancelBtn,
+              { borderColor: theme.border, backgroundColor: theme.background },
+            ]}
             onPress={() => navigation.goBack()}
           >
             <Text style={[styles.cancelBtnText, { color: theme.textStrong }]}>
@@ -330,7 +365,10 @@ export default function AgencyEditInfo() {
           <TouchableOpacity
             style={[
               styles.saveBtn,
-              { backgroundColor: colors.primary, opacity: submitting ? 0.7 : 1 },
+              {
+                backgroundColor: colors.primary,
+                opacity: submitting ? 0.7 : 1,
+              },
             ]}
             onPress={handleSave}
             disabled={submitting}
@@ -381,7 +419,11 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
   },
   fieldTextarea: { height: 90, paddingTop: spacing.sm },
-  fieldError: { ...typography.body, fontSize: typography.sizes.xs, marginTop: 3 },
+  fieldError: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+    marginTop: 3,
+  },
 
   locationInput: {
     flexDirection: 'row',
@@ -392,7 +434,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     height: 48,
   },
-  locationTextInput: { flex: 1, ...typography.body, fontSize: typography.sizes.sm },
+  locationTextInput: {
+    flex: 1,
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+  },
 
   apiError: {
     ...typography.body,
@@ -424,5 +470,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  saveBtnText: { ...typography.bodyBold, fontSize: typography.sizes.md, color: '#fff' },
+  saveBtnText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+    color: '#fff',
+  },
 });

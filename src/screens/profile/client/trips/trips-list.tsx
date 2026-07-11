@@ -1,4 +1,4 @@
-// screens/client/trips/trips-list.tsx
+﻿// screens/client/trips/trips-list.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -589,7 +589,7 @@ export default function TripsList() {
                 <TextInput
                   style={[styles.searchFieldLabel, { color: theme.textStrong }]}
                   placeholder={t.departurePlaceholder}
-                  placeholderTextColor={theme.text}
+                  placeholderTextColor={theme.placeholder}
                   value={departure}
                   onChangeText={setDeparture}
                 />
@@ -612,7 +612,7 @@ export default function TripsList() {
                 <TextInput
                   style={[styles.searchFieldLabel, { color: theme.textStrong }]}
                   placeholder={t.arrivalPlaceholder}
-                  placeholderTextColor={theme.text}
+                  placeholderTextColor={theme.placeholder}
                   value={arrival}
                   onChangeText={setArrival}
                 />

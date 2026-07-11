@@ -81,6 +81,7 @@ export default function Login() {
       loginSuccess: 'Connexion réussie !',
       wrongCredentials: 'Identifiants incorrects',
       networkError: 'Erreur réseau, réessayez',
+      bsmRequestLink: 'Gestionnaire de gare ? Ouvrez votre espace',
     },
     en: {
       title: 'Login',
@@ -106,6 +107,7 @@ export default function Login() {
       loginSuccess: 'Logged in successfully!',
       wrongCredentials: 'Incorrect credentials',
       networkError: 'Network error, please try again',
+      bsmRequestLink: 'Station manager? Open your space',
     },
   }[lang];
 
@@ -250,7 +252,7 @@ export default function Login() {
             <TextInput
               style={[styles.input, { color: theme.textStrong }]}
               placeholder={t.usernamePlaceholder}
-              placeholderTextColor={theme.text}
+              placeholderTextColor={theme.placeholder}
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
@@ -275,7 +277,7 @@ export default function Login() {
             <TextInput
               style={[styles.input, { color: theme.textStrong }]}
               placeholder={t.passwordPlaceholder}
-              placeholderTextColor={theme.text}
+              placeholderTextColor={theme.placeholder}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -316,6 +318,21 @@ export default function Login() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* BSM request link */}
+          <TouchableOpacity
+            style={styles.bsmRequestRow}
+            onPress={() => navigation.navigate('BsmRequest')}
+          >
+            <Ionicons
+              name="person-add-outline"
+              size={15}
+              color={colors.primary}
+            />
+            <Text style={[styles.bsmRequestText, { color: colors.primary }]}>
+              {t.bsmRequestLink}
+            </Text>
+          </TouchableOpacity>
 
           {/* CGU */}
           <Text style={[styles.cguText, { color: theme.text }]}>
@@ -436,6 +453,18 @@ const styles = StyleSheet.create({
   signupLink: {
     ...typography.bodyBold,
     fontSize: typography.sizes.sm,
+  },
+  bsmRequestRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: spacing.md,
+  },
+  bsmRequestText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+    textDecorationLine: 'underline',
   },
   cguText: {
     ...typography.body,

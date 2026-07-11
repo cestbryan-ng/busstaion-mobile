@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useState,
   useEffect,
   useCallback,
@@ -642,7 +642,7 @@ export default function Explore() {
               <TextInput
                 style={[styles.searchText, { color: theme.textStrong }]}
                 placeholder={tab === 'agencies' ? t.searchAgency : t.searchGare}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={search}
                 onChangeText={setSearch}
                 onFocus={() => setSearchFocused(true)}

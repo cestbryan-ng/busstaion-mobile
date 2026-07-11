@@ -32,6 +32,9 @@ export default function ProfileSettings() {
   const t = {
     fr: {
       title: 'Paramètres',
+      account: 'Mon compte',
+      credentials: 'Mes identifiants',
+      credentialsDesc: 'Email, nom, mot de passe',
       preferences: 'Préférences',
       changeLanguage: 'Changer de langue',
       currentLang: 'Français (FR)',
@@ -43,10 +46,15 @@ export default function ProfileSettings() {
       general: 'Général',
       about: 'À propos',
       version: 'Version 1.0.0',
+      cache: 'Gestion du cache',
+      cacheDesc: 'Données hors ligne et stockage local',
       logout: 'Déconnexion',
     },
     en: {
       title: 'Settings',
+      account: 'My account',
+      credentials: 'My credentials',
+      credentialsDesc: 'Email, name, password',
       preferences: 'Preferences',
       changeLanguage: 'Change language',
       currentLang: 'English (EN)',
@@ -58,6 +66,8 @@ export default function ProfileSettings() {
       general: 'General',
       about: 'About',
       version: 'Version 1.0.0',
+      cache: 'Cache management',
+      cacheDesc: 'Offline data and local storage',
       logout: 'Logout',
     },
   }[lang];
@@ -177,6 +187,16 @@ export default function ProfileSettings() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Account */}
+        <Section title={t.account}>
+          <MenuItem
+            icon="key-outline"
+            label={t.credentials}
+            desc={t.credentialsDesc}
+            onPress={() => navigation.navigate('EditCredentials')}
+          />
+        </Section>
+
         {/* Preferences */}
         <Section title={t.preferences}>
           <MenuItem
@@ -253,6 +273,12 @@ export default function ProfileSettings() {
 
         {/* General */}
         <Section title={t.general}>
+          <MenuItem
+            icon="server-outline"
+            label={t.cache}
+            desc={t.cacheDesc}
+            onPress={() => navigation.navigate('CacheSettings')}
+          />
           <MenuItem
             icon="information-circle-outline"
             label={t.about}

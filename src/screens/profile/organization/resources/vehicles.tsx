@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -337,7 +337,7 @@ export default function OrgVehicles() {
           <TextInput
             style={[styles.searchText, { color: theme.textStrong }]}
             placeholder={t.search}
-            placeholderTextColor={theme.text}
+            placeholderTextColor={theme.placeholder}
             value={search}
             onChangeText={setSearch}
           />
@@ -657,7 +657,7 @@ export default function OrgVehicles() {
                     value={field.value}
                     onChangeText={field.set}
                     placeholder={field.placeholder}
-                    placeholderTextColor={theme.text}
+                    placeholderTextColor={theme.placeholder}
                     keyboardType={field.keyboardType || 'default'}
                     multiline={field.multiline}
                   />
@@ -774,7 +774,7 @@ export default function OrgVehicles() {
                   value={cPrix}
                   onChangeText={setCPrix}
                   placeholder="8000"
-                  placeholderTextColor={theme.text}
+                  placeholderTextColor={theme.placeholder}
                   keyboardType="numeric"
                 />
               </View>

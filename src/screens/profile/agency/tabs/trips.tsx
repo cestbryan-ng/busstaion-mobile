@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useState,
   useEffect,
   useCallback,
@@ -73,11 +73,36 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; labelEn: string; color: string; bg: string }
 > = {
-  PUBLIE: { label: 'Publié', labelEn: 'Published', color: colors.primary, bg: `${colors.primary}15` },
-  EN_COURS: { label: 'En cours', labelEn: 'Ongoing', color: colors.success, bg: `${colors.success}15` },
-  EN_ATTENTE: { label: 'Brouillon', labelEn: 'Draft', color: '#d97706', bg: '#fef3c715' },
-  TERMINE: { label: 'Terminé', labelEn: 'Completed', color: '#6b7280', bg: '#6b728015' },
-  ANNULE: { label: 'Annulé', labelEn: 'Cancelled', color: colors.error, bg: `${colors.error}15` },
+  PUBLIE: {
+    label: 'Publié',
+    labelEn: 'Published',
+    color: colors.primary,
+    bg: `${colors.primary}15`,
+  },
+  EN_COURS: {
+    label: 'En cours',
+    labelEn: 'Ongoing',
+    color: colors.success,
+    bg: `${colors.success}15`,
+  },
+  EN_ATTENTE: {
+    label: 'Brouillon',
+    labelEn: 'Draft',
+    color: '#d97706',
+    bg: '#fef3c715',
+  },
+  TERMINE: {
+    label: 'Terminé',
+    labelEn: 'Completed',
+    color: '#6b7280',
+    bg: '#6b728015',
+  },
+  ANNULE: {
+    label: 'Annulé',
+    labelEn: 'Cancelled',
+    color: colors.error,
+    bg: `${colors.error}15`,
+  },
 };
 
 function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
@@ -161,7 +186,10 @@ export default function AgencyTrips({
       if (!currentAgencyId) {
         const chefId = userParsed?.userId || userParsed?.id;
         if (!chefId) return;
-        const agencyRes = await fetch(`${API_URL}/agence/chef-agence/${chefId}`, { headers });
+        const agencyRes = await fetch(
+          `${API_URL}/agence/chef-agence/${chefId}`,
+          { headers },
+        );
         if (!agencyRes.ok) return;
         const agencyData = await agencyRes.json();
         currentAgencyId = agencyData.id;
@@ -271,12 +299,19 @@ export default function AgencyTrips({
 
   const SeatProgress = ({ trip }: { trip: Trip }) => {
     const sold = Math.max(0, trip.nbrPlaceRestante - trip.nbrPlaceReservable);
-    const ratio = trip.nbrPlaceReservable > 0 ? sold / trip.nbrPlaceReservable : 0;
-    const barColor = ratio > 0.8 ? colors.error : ratio > 0.5 ? '#d97706' : colors.success;
+    const ratio =
+      trip.nbrPlaceReservable > 0 ? sold / trip.nbrPlaceReservable : 0;
+    const barColor =
+      ratio > 0.8 ? colors.error : ratio > 0.5 ? '#d97706' : colors.success;
     return (
       <View style={styles.progressContainer}>
         <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
-          <View style={[styles.progressFill, { width: `${ratio * 100}%`, backgroundColor: barColor }]} />
+          <View
+            style={[
+              styles.progressFill,
+              { width: `${ratio * 100}%`, backgroundColor: barColor },
+            ]}
+          />
         </View>
         <View style={styles.progressLabel}>
           <Text style={[styles.progressText, { color: barColor }]}>
@@ -299,38 +334,78 @@ export default function AgencyTrips({
 
     return (
       <TouchableOpacity
-        style={[styles.tripCard, { backgroundColor: theme.background, borderColor: theme.border }]}
+        style={[
+          styles.tripCard,
+          { backgroundColor: theme.background, borderColor: theme.border },
+        ]}
         activeOpacity={0.85}
-        onPress={() => navigation.navigate('AgencyTripDetail', { tripId: item.idVoyage })}
+        onPress={() =>
+          navigation.navigate('AgencyTripDetail', { tripId: item.idVoyage })
+        }
       >
         {/* Image */}
-        <View style={[styles.tripImage, { backgroundColor: theme.backgroundAlt }]}>
+        <View
+          style={[styles.tripImage, { backgroundColor: theme.backgroundAlt }]}
+        >
           {item.smallImage && item.smallImage.startsWith('http') ? (
-            <Image source={{ uri: item.smallImage }} style={styles.tripImageInner} resizeMode="cover" />
+            <Image
+              source={{ uri: item.smallImage }}
+              style={styles.tripImageInner}
+              resizeMode="cover"
+            />
           ) : (
             <ImagePlaceholder width="90%" height="90%" />
           )}
           {item.statusVoyage !== 'PUBLIE' && (
-            <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg, position: 'absolute', top: spacing.sm, left: spacing.sm }]}>
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: statusCfg.bg,
+                  position: 'absolute',
+                  top: spacing.sm,
+                  left: spacing.sm,
+                },
+              ]}
+            >
               <Text style={[styles.statusText, { color: statusCfg.color }]}>
                 {lang === 'fr' ? statusCfg.label : statusCfg.labelEn}
               </Text>
             </View>
           )}
-          <View style={[styles.classPill, { backgroundColor: `${classColor}dd`, position: 'absolute', top: spacing.sm, right: spacing.sm }]}>
-            <Text style={[styles.classPillText, { color: '#fff' }]}>{classLabel}</Text>
+          <View
+            style={[
+              styles.classPill,
+              {
+                backgroundColor: `${classColor}dd`,
+                position: 'absolute',
+                top: spacing.sm,
+                right: spacing.sm,
+              },
+            ]}
+          >
+            <Text style={[styles.classPillText, { color: '#fff' }]}>
+              {classLabel}
+            </Text>
           </View>
         </View>
 
         {/* Info */}
         <View style={styles.tripInfo}>
           <View style={styles.tripHeader}>
-            <Text style={[styles.tripRoute, { color: theme.textStrong }]} numberOfLines={1}>
+            <Text
+              style={[styles.tripRoute, { color: theme.textStrong }]}
+              numberOfLines={1}
+            >
               {item.lieuDepart} → {item.lieuArrive}
             </Text>
             <TouchableOpacity
               style={styles.moreBtn}
-              onPress={() => navigation.navigate('AgencyTripDetail', { tripId: item.idVoyage })}
+              onPress={() =>
+                navigation.navigate('AgencyTripDetail', {
+                  tripId: item.idVoyage,
+                })
+              }
             >
               <Ionicons name="ellipsis-vertical" size={18} color={theme.text} />
             </TouchableOpacity>
@@ -339,7 +414,8 @@ export default function AgencyTrips({
           <View style={styles.tripMeta}>
             <Ionicons name="calendar-outline" size={12} color={theme.text} />
             <Text style={[styles.tripMetaText, { color: theme.text }]}>
-              {' '}{formatDate(item.dateDepartPrev, lang)}
+              {' '}
+              {formatDate(item.dateDepartPrev, lang)}
             </Text>
           </View>
 
@@ -347,7 +423,8 @@ export default function AgencyTrips({
             <View style={styles.tripMeta}>
               <Ionicons name="bus-outline" size={12} color={theme.text} />
               <Text style={[styles.tripMetaText, { color: theme.text }]}>
-                {' '}Bus: {item.vehiculeNom}
+                {' '}
+                Bus: {item.vehiculeNom}
               </Text>
             </View>
           )}
@@ -366,10 +443,15 @@ export default function AgencyTrips({
       <View
         style={[
           styles.header,
-          { backgroundColor: theme.background, borderBottomColor: theme.border },
+          {
+            backgroundColor: theme.background,
+            borderBottomColor: theme.border,
+          },
         ]}
       >
-        <Text style={[styles.headerTitle, { color: theme.textStrong }]}>{t.title}</Text>
+        <Text style={[styles.headerTitle, { color: theme.textStrong }]}>
+          {t.title}
+        </Text>
       </View>
 
       {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
@@ -378,7 +460,10 @@ export default function AgencyTrips({
       <View
         style={[
           styles.searchRow,
-          { backgroundColor: theme.background, borderBottomColor: theme.border },
+          {
+            backgroundColor: theme.background,
+            borderBottomColor: theme.border,
+          },
         ]}
       >
         <View
@@ -391,7 +476,7 @@ export default function AgencyTrips({
           <TextInput
             style={[styles.searchText, { color: theme.textStrong }]}
             placeholder={t.search}
-            placeholderTextColor={theme.text}
+            placeholderTextColor={theme.placeholder}
             value={search}
             onChangeText={setSearch}
           />
@@ -406,7 +491,9 @@ export default function AgencyTrips({
             styles.filterBtn,
             {
               borderColor: showChips ? colors.primary : theme.border,
-              backgroundColor: showChips ? `${colors.primary}15` : 'transparent',
+              backgroundColor: showChips
+                ? `${colors.primary}15`
+                : 'transparent',
             },
           ]}
           onPress={() => setShowChips(v => !v)}
@@ -424,7 +511,13 @@ export default function AgencyTrips({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={[styles.chipsScroll, { backgroundColor: theme.background, borderBottomColor: theme.border }]}
+          style={[
+            styles.chipsScroll,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
+          ]}
           contentContainerStyle={styles.chipsContent}
         >
           {FILTER_TABS.map(tab => {
@@ -435,12 +528,23 @@ export default function AgencyTrips({
                 style={[
                   styles.chip,
                   active
-                    ? { backgroundColor: colors.primary, borderColor: colors.primary }
-                    : { backgroundColor: 'transparent', borderColor: theme.border },
+                    ? {
+                        backgroundColor: colors.primary,
+                        borderColor: colors.primary,
+                      }
+                    : {
+                        backgroundColor: 'transparent',
+                        borderColor: theme.border,
+                      },
                 ]}
                 onPress={() => setActiveFilter(tab.key)}
               >
-                <Text style={[styles.chipText, { color: active ? '#fff' : theme.text }]}>
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: active ? '#fff' : theme.text },
+                  ]}
+                >
                   {tab.label}
                 </Text>
               </TouchableOpacity>
@@ -466,12 +570,20 @@ export default function AgencyTrips({
         }
       >
         {filtered.length === 0 ? (
-          <EmptyState type="result" message={t.noTrips} textColor={theme.text} />
+          <EmptyState
+            type="result"
+            message={t.noTrips}
+            textColor={theme.text}
+          />
         ) : (
           filtered.map(item => <TripCard key={item.idVoyage} item={item} />)
         )}
         {loadingMore && (
-          <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: spacing.md }} />
+          <ActivityIndicator
+            size="small"
+            color={colors.primary}
+            style={{ marginVertical: spacing.md }}
+          />
         )}
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -580,7 +692,11 @@ const styles = StyleSheet.create({
   moreBtn: { padding: spacing.xs },
   tripMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   tripMetaText: { ...typography.body, fontSize: typography.sizes.xs },
-  statusBadge: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: 4 },
+  statusBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
   statusText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
   progressContainer: { marginTop: spacing.sm, gap: 4 },
   progressBar: { height: 4, borderRadius: 2, overflow: 'hidden' },

@@ -49,7 +49,13 @@ type Station = {
   nbreAgence: number | null;
 };
 
-export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: { setDrawerOpen: (open: boolean) => void; setLang?: (lang: 'fr' | 'en') => void }) {
+export default function BsmProfil({
+  setDrawerOpen,
+  setLang: notifyParentLang,
+}: {
+  setDrawerOpen: (open: boolean) => void;
+  setLang?: (lang: 'fr' | 'en') => void;
+}) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
   const isOnline = useNetworkStatus();
@@ -94,14 +100,18 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
       permissions: 'Permissions',
       fullAccess: 'Accès complet',
       actions: 'Actions',
+      credentials: 'Mes identifiants',
+      credentialsDesc: 'Email, nom, mot de passe',
       changeLanguage: 'Changer de langue',
       pinCode: 'Code PIN',
       pinDesc: 'Modifier votre code PIN',
       help: 'Aide & support',
       helpDesc: "Centre d'aide et contact",
       about: 'À propos',
-      aboutDesc: "Version et informations légales",
+      aboutDesc: 'Version et informations légales',
       support: 'Support',
+      cache: 'Gestion du cache',
+      cacheDesc: 'Données hors ligne et stockage local',
       logout: 'Déconnexion',
     },
     en: {
@@ -127,6 +137,8 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
       permissions: 'Permissions',
       fullAccess: 'Full access',
       actions: 'Actions',
+      credentials: 'My credentials',
+      credentialsDesc: 'Email, name, password',
       changeLanguage: 'Change language',
       pinCode: 'PIN code',
       pinDesc: 'Change your PIN code',
@@ -135,6 +147,8 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
       about: 'About',
       aboutDesc: 'Version and legal information',
       support: 'Support',
+      cache: 'Cache management',
+      cacheDesc: 'Offline data and local storage',
       logout: 'Logout',
     },
   }[lang];
@@ -165,11 +179,19 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
           setIsOffline(false);
         } else {
           const cached = await getCache('bsm_profile_unknown');
-          if (cached) { setUser(cached); managerId = cached.userId || ''; setIsOffline(true); }
+          if (cached) {
+            setUser(cached);
+            managerId = cached.userId || '';
+            setIsOffline(true);
+          }
         }
       } catch {
         const cached = await getCache('bsm_profile_unknown');
-        if (cached) { setUser(cached); managerId = cached.userId || ''; setIsOffline(true); }
+        if (cached) {
+          setUser(cached);
+          managerId = cached.userId || '';
+          setIsOffline(true);
+        }
       }
 
       if (managerId) {
@@ -182,7 +204,10 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
 
         let gareId = '';
         try {
-          const stationRes = await fetch(`${API_URL}/gare/manager/${managerId}`, { headers });
+          const stationRes = await fetch(
+            `${API_URL}/gare/manager/${managerId}`,
+            { headers },
+          );
           if (stationRes.ok) {
             const stationData = await stationRes.json();
             setStation(stationData);
@@ -191,16 +216,27 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
             setIsOffline(false);
           } else {
             const cached = await getCache(`bsm_station_${managerId}`);
-            if (cached) { setStation(cached); gareId = cached.idGareRoutiere ?? ''; setIsOffline(true); }
+            if (cached) {
+              setStation(cached);
+              gareId = cached.idGareRoutiere ?? '';
+              setIsOffline(true);
+            }
           }
         } catch {
           const cached = await getCache(`bsm_station_${managerId}`);
-          if (cached) { setStation(cached); gareId = cached.idGareRoutiere ?? ''; setIsOffline(true); }
+          if (cached) {
+            setStation(cached);
+            gareId = cached.idGareRoutiere ?? '';
+            setIsOffline(true);
+          }
         }
 
         if (gareId) {
           try {
-            const agenciesRes = await fetch(`${API_URL}/gare/${gareId}/agences`, { headers });
+            const agenciesRes = await fetch(
+              `${API_URL}/gare/${gareId}/agences`,
+              { headers },
+            );
             if (agenciesRes.ok) {
               const agData = await agenciesRes.json();
               const count = (agData.content || agData || []).length;
@@ -209,15 +245,24 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
               setIsOffline(false);
             } else {
               const cached = await getCache(`bsm_agencies_${gareId}`);
-              if (cached) { setAgenciesCount((cached.content || cached || []).length); setIsOffline(true); }
+              if (cached) {
+                setAgenciesCount((cached.content || cached || []).length);
+                setIsOffline(true);
+              }
             }
           } catch {
             const cached = await getCache(`bsm_agencies_${gareId}`);
-            if (cached) { setAgenciesCount((cached.content || cached || []).length); setIsOffline(true); }
+            if (cached) {
+              setAgenciesCount((cached.content || cached || []).length);
+              setIsOffline(true);
+            }
           }
 
           try {
-            const taxesRes = await fetch(`${API_URL}/politique-et-taxes/gare-routiere/${gareId}`, { headers });
+            const taxesRes = await fetch(
+              `${API_URL}/politique-et-taxes/gare-routiere/${gareId}`,
+              { headers },
+            );
             if (taxesRes.ok) {
               const taxData = await taxesRes.json();
               const total = Array.isArray(taxData)
@@ -232,7 +277,12 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
               const cached = await getCache(`bsm_taxes_${gareId}`);
               if (cached) {
                 const total = Array.isArray(cached)
-                  ? cached.filter((x: any) => x.type === 'TAXE').reduce((s: number, x: any) => s + (x.montantFixe || 0), 0)
+                  ? cached
+                      .filter((x: any) => x.type === 'TAXE')
+                      .reduce(
+                        (s: number, x: any) => s + (x.montantFixe || 0),
+                        0,
+                      )
                   : 0;
                 setTaxesCollected(total);
                 setIsOffline(true);
@@ -242,7 +292,9 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
             const cached = await getCache(`bsm_taxes_${gareId}`);
             if (cached) {
               const total = Array.isArray(cached)
-                ? cached.filter((x: any) => x.type === 'TAXE').reduce((s: number, x: any) => s + (x.montantFixe || 0), 0)
+                ? cached
+                    .filter((x: any) => x.type === 'TAXE')
+                    .reduce((s: number, x: any) => s + (x.montantFixe || 0), 0)
                 : 0;
               setTaxesCollected(total);
               setIsOffline(true);
@@ -319,7 +371,9 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
     </TouchableOpacity>
   );
 
-  if (loading) { return <SkeletonProfileScreen subtitle />; }
+  if (loading) {
+    return <SkeletonProfileScreen subtitle />;
+  }
 
   const fullName = user ? `${user.first_name} ${user.last_name}` : '—';
   const stationName = station?.nomGareRoutiere || '—';
@@ -372,10 +426,7 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
         >
           <View style={styles.profileTopRow}>
             <View
-              style={[
-                styles.avatar,
-                { backgroundColor: theme.backgroundAlt },
-              ]}
+              style={[styles.avatar, { backgroundColor: theme.backgroundAlt }]}
             >
               <AvatarPlaceholder width="100%" height="100%" />
             </View>
@@ -669,6 +720,14 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
             {t.actions}
           </Text>
           <MenuItem
+            icon="key-outline"
+            iconColor={colors.primary}
+            iconBg={`${colors.primary}10`}
+            label={t.credentials}
+            desc={t.credentialsDesc}
+            onPress={() => navigation.navigate('EditCredentials')}
+          />
+          <MenuItem
             icon="language-outline"
             iconColor={colors.primary}
             iconBg={`${colors.primary}10`}
@@ -766,6 +825,14 @@ export default function BsmProfil({ setDrawerOpen, setLang: notifyParentLang }: 
             label={t.help}
             desc={t.helpDesc}
             onPress={() => Linking.openURL(SUPPORT_URL)}
+          />
+          <MenuItem
+            icon="server-outline"
+            iconColor={colors.primary}
+            iconBg={`${colors.primary}10`}
+            label={t.cache}
+            desc={t.cacheDesc}
+            onPress={() => navigation.navigate('CacheSettings')}
           />
           <MenuItem
             icon="information-circle-outline"

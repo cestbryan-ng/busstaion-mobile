@@ -62,6 +62,8 @@ export default function AgencyProfil({
       title: 'Profil',
       agencyType: 'Agence de voyage',
       myAccount: 'Mon compte',
+      credentials: 'Mes identifiants',
+      credentialsDesc: 'Email, nom, mot de passe',
       agencyInfo: 'Informations agence',
       agencyInfoDesc: 'Voir et modifier les informations',
       subscription: 'Abonnement',
@@ -78,12 +80,16 @@ export default function AgencyProfil({
       helpDesc: 'FAQ et assistance',
       terms: "Conditions d'utilisation",
       termsDesc: 'Lire nos conditions',
+      cache: 'Gestion du cache',
+      cacheDesc: 'Données hors ligne et stockage local',
       logout: 'Déconnexion',
     },
     en: {
       title: 'Profile',
       agencyType: 'Travel agency',
       myAccount: 'My account',
+      credentials: 'My credentials',
+      credentialsDesc: 'Email, name, password',
       agencyInfo: 'Agency information',
       agencyInfoDesc: 'View and edit information',
       subscription: 'Subscription',
@@ -100,6 +106,8 @@ export default function AgencyProfil({
       helpDesc: 'FAQ and assistance',
       terms: 'Terms of use',
       termsDesc: 'Read our terms',
+      cache: 'Cache management',
+      cacheDesc: 'Offline data and local storage',
       logout: 'Logout',
     },
   }[lang];
@@ -129,7 +137,7 @@ export default function AgencyProfil({
         setCache(`agency_profile_${chefId}`, data);
         setIsOffline(false);
       } else {
-        const cached = await getCache(`agency_profile_${chefId}`);
+        const cached = await getCache<Agency>(`agency_profile_${chefId}`);
         if (cached) {
           setAgency(cached);
           setIsOffline(true);
@@ -141,7 +149,7 @@ export default function AgencyProfil({
         const user = userRaw ? JSON.parse(userRaw) : null;
         const chefId = user?.userId || user?.id;
         if (chefId) {
-          const cached = await getCache(`agency_profile_${chefId}`);
+          const cached = await getCache<Agency>(`agency_profile_${chefId}`);
           if (cached) {
             setAgency(cached);
             setIsOffline(true);
@@ -235,14 +243,22 @@ export default function AgencyProfil({
       <View
         style={[
           styles.header,
-          { backgroundColor: theme.background, borderBottomColor: theme.border },
+          {
+            backgroundColor: theme.background,
+            borderBottomColor: theme.border,
+          },
         ]}
       >
         <Text style={[styles.title, { color: theme.textStrong }]}>
           {t.title}
         </Text>
         <TouchableOpacity onPress={() => setDrawerOpen?.(true)}>
-          <View style={[styles.avatarSmall, { backgroundColor: theme.backgroundAlt }]}>
+          <View
+            style={[
+              styles.avatarSmall,
+              { backgroundColor: theme.backgroundAlt },
+            ]}
+          >
             <Ionicons name="menu-outline" size={22} color={theme.text} />
           </View>
         </TouchableOpacity>
@@ -269,7 +285,12 @@ export default function AgencyProfil({
           onPress={() => navigation.navigate('AgencyInfo')}
           activeOpacity={0.85}
         >
-          <View style={[styles.agencyLogo, { backgroundColor: `${colors.primary}15` }]}>
+          <View
+            style={[
+              styles.agencyLogo,
+              { backgroundColor: `${colors.primary}15` },
+            ]}
+          >
             {agency?.logoUrl && agency.logoUrl.startsWith('http') ? (
               <Image
                 source={{ uri: agency.logoUrl }}
@@ -290,7 +311,8 @@ export default function AgencyProfil({
             <View style={styles.agencyLocationRow}>
               <Ionicons name="location-outline" size={12} color={theme.text} />
               <Text style={[styles.agencyLocation, { color: theme.text }]}>
-                {' '}{agency?.location || '—'}
+                {' '}
+                {agency?.location || '—'}
               </Text>
             </View>
           </View>
@@ -307,6 +329,12 @@ export default function AgencyProfil({
           <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
             {t.myAccount}
           </Text>
+          <MenuItem
+            icon="key-outline"
+            label={t.credentials}
+            desc={t.credentialsDesc}
+            onPress={() => navigation.navigate('EditCredentials')}
+          />
           <MenuItem
             icon="business-outline"
             label={t.agencyInfo}
@@ -348,7 +376,9 @@ export default function AgencyProfil({
             icon="keypad-outline"
             label={t.security}
             desc={pinEnabled ? t.pinActive : t.pinInactive}
-            onPress={() => navigation.navigate('PinSetup', { fromSettings: true })}
+            onPress={() =>
+              navigation.navigate('PinSetup', { fromSettings: true })
+            }
             rightEl={
               <View
                 style={[
@@ -363,7 +393,11 @@ export default function AgencyProfil({
                 <View
                   style={[
                     styles.pinDot,
-                    { backgroundColor: pinEnabled ? colors.success : colors.error },
+                    {
+                      backgroundColor: pinEnabled
+                        ? colors.success
+                        : colors.error,
+                    },
                   ]}
                 />
                 <Text
@@ -400,6 +434,12 @@ export default function AgencyProfil({
             label={t.terms}
             desc={t.termsDesc}
             onPress={() => Linking.openURL(CGU_URL)}
+          />
+          <MenuItem
+            icon="server-outline"
+            label={t.cache}
+            desc={t.cacheDesc}
+            onPress={() => navigation.navigate('CacheSettings')}
           />
         </View>
 
@@ -461,8 +501,16 @@ const styles = StyleSheet.create({
   agencyLogoImage: { width: '100%', height: '100%' },
   agencyInfo: { flex: 1 },
   agencyName: { ...typography.bodyBold, fontSize: typography.sizes.md },
-  agencyType: { ...typography.body, fontSize: typography.sizes.sm, marginTop: 1 },
-  agencyLocationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  agencyType: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    marginTop: 1,
+  },
+  agencyLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
   agencyLocation: { ...typography.body, fontSize: typography.sizes.xs },
 
   menuSection: {

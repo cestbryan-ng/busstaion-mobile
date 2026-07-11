@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -39,7 +39,7 @@ type Props = {
 
 type Step = 'passenger' | 'payment' | 'processing' | 'result';
 type PayStatus = 'SUCCESS' | 'ERROR' | 'FAILED';
-type Operator = 'MTN' | 'ORANGE';
+type PaymentMethod = 'MTN' | 'ORANGE' | 'CASH';
 
 function formatTime(dateStr: string | null | undefined): string {
   if (!dateStr) return '';
@@ -79,7 +79,7 @@ export default function PaymentModal({
   const [nbrBaggage, setNbrBaggage] = useState('0');
 
   // Payment form
-  const [operator, setOperator] = useState<Operator>('MTN');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('MTN');
   const [phone, setPhone] = useState('');
 
   // Field errors
@@ -112,19 +112,24 @@ export default function PaymentModal({
       ageLabel: 'Âge',
       agePlaceholder: '25',
       baggageLabel: 'Nombre de bagages',
-      operatorLabel: 'Opérateur',
+      operatorLabel: 'Méthode de paiement',
       phoneLabel: 'Numéro de téléphone',
       phonePlaceholder: '6XX XXX XXX',
+      cashLabel: 'Paiement en espèces',
+      cashDesc: 'Réglez directement auprès de l\'agence',
+      cashInfo: 'Votre réservation sera confirmée. Présentez-vous à l\'agence pour régler le montant avant le départ.',
       pricePerPerson: 'Prix par personne',
       totalToPay: 'Total à payer',
       selectedSeats: 'Sièges',
       next: 'Suivant',
       pay: 'Payer maintenant',
+      payCash: 'Confirmer la réservation',
       processingReservation: 'Création de la réservation...',
       processingPayment: 'Initialisation du paiement...',
       processingPolling: 'Vérification du paiement...',
-      successTitle: 'Paiement réussi !',
+      successTitle: 'Réservation confirmée !',
       successMsg: 'Votre réservation a été confirmée.',
+      successMsgCash: 'Présentez-vous à l\'agence pour régler le montant avant le départ.',
       failedTitle: 'Paiement échoué',
       failedMsg: 'Le paiement n\'a pas pu être traité. Veuillez réessayer.',
       errorTitle: 'Erreur',
@@ -155,19 +160,24 @@ export default function PaymentModal({
       ageLabel: 'Age',
       agePlaceholder: '25',
       baggageLabel: 'Number of bags',
-      operatorLabel: 'Operator',
+      operatorLabel: 'Payment method',
       phoneLabel: 'Phone number',
       phonePlaceholder: '6XX XXX XXX',
+      cashLabel: 'Cash payment',
+      cashDesc: 'Pay directly at the agency',
+      cashInfo: 'Your reservation will be confirmed. Visit the agency to pay before departure.',
       pricePerPerson: 'Price per person',
       totalToPay: 'Total to pay',
       selectedSeats: 'Seats',
       next: 'Next',
       pay: 'Pay now',
+      payCash: 'Confirm reservation',
       processingReservation: 'Creating reservation...',
       processingPayment: 'Initiating payment...',
       processingPolling: 'Checking payment status...',
-      successTitle: 'Payment successful!',
+      successTitle: 'Reservation confirmed!',
       successMsg: 'Your booking has been confirmed.',
+      successMsgCash: 'Visit the agency to pay before departure.',
       failedTitle: 'Payment failed',
       failedMsg: 'The payment could not be processed. Please try again.',
       errorTitle: 'Error',
@@ -216,6 +226,7 @@ export default function PaymentModal({
   };
 
   const validatePayment = (): boolean => {
+    if (paymentMethod === 'CASH') return true;
     const errors: Record<string, string> = {};
     const digits = phone.replace(/\D/g, '');
     if (!digits) errors.phone = t.errorPhoneRequired;
@@ -238,13 +249,15 @@ export default function PaymentModal({
       const user = userRaw ? JSON.parse(userRaw) : null;
       const userId = user?.userId || user?.id;
 
-      // TODO: Step 1 – appeler l'API de paiement mobile money (MTN/Orange) avant toute création.
-      // Données disponibles : amount = totalPrice, mobilePhone, operator, userId.
-      // Si le paiement retourne false → setPayStatus('FAILED') + setStep('result') et return.
-      // Si le paiement retourne true → continuer vers la création de réservation.
-      setProcessingMsg(t.processingPayment);
+      if (paymentMethod !== 'CASH') {
+        // TODO: Step 1 – appeler l'API de paiement mobile money (MTN/Orange) avant toute création.
+        // Données disponibles : amount = totalPrice, mobilePhone, operator, userId.
+        // Si le paiement retourne false → setPayStatus('FAILED') + setStep('result') et return.
+        // Si le paiement retourne true → continuer vers la création de réservation.
+        setProcessingMsg(t.processingPayment);
+      }
 
-      // Step 2 – create reservation (uniquement si le paiement est validé)
+      // Step 2 – create reservation
       setProcessingMsg(t.processingReservation);
       const reserveRes = await fetch(`${API_URL}/reservation/reserver`, {
         method: 'POST',
@@ -280,7 +293,15 @@ export default function PaymentModal({
       setReservationId(resId);
       toast.success(lang === 'fr' ? 'Réservation créée avec succès' : 'Reservation created successfully');
 
-      // Step 3 – confirm reservation
+      // CASH : pas de confirmation, le paiement se fait à l'agence
+      if (paymentMethod === 'CASH') {
+        setPayStatus('SUCCESS');
+        setStep('result');
+        onSuccess(resId);
+        return;
+      }
+
+      // Step 3 – confirm reservation (Mobile Money uniquement)
       const confirmRes = await fetch(`${API_URL}/reservation/confirmer`, {
         method: 'POST',
         headers: {
@@ -292,7 +313,7 @@ export default function PaymentModal({
           userId,
           amount: totalPrice,
           mobilePhone: phone.replace(/\D/g, ''),
-          mobilePhoneName: operator,
+          mobilePhoneName: paymentMethod,
         }),
       });
 
@@ -322,6 +343,7 @@ export default function PaymentModal({
     setAge('');
     setNbrBaggage('0');
     setPhone('');
+    setPaymentMethod('MTN');
     setFieldErrors({});
     setPayStatus(null);
     setReservationId('');
@@ -500,7 +522,7 @@ export default function PaymentModal({
                   value={passengerName}
                   onChangeText={v => { setPassengerName(v); clearFieldError('name'); }}
                   placeholder={t.namePlaceholder}
-                  placeholderTextColor={theme.text}
+                  placeholderTextColor={theme.placeholder}
                   autoCapitalize="words"
                   returnKeyType="next"
                 />
@@ -525,7 +547,7 @@ export default function PaymentModal({
                   value={cni}
                   onChangeText={v => { setCni(v.replace(/\s/g, '')); clearFieldError('cni'); }}
                   placeholder={t.cniPlaceholder}
-                  placeholderTextColor={theme.text}
+                  placeholderTextColor={theme.placeholder}
                   keyboardType="default"
                   returnKeyType="next"
                 />
@@ -585,7 +607,7 @@ export default function PaymentModal({
                     value={age}
                     onChangeText={v => { setAge(v.replace(/\D/g, '').slice(0, 3)); clearFieldError('age'); }}
                     placeholder={t.agePlaceholder}
-                    placeholderTextColor={theme.text}
+                    placeholderTextColor={theme.placeholder}
                     keyboardType="numeric"
                     maxLength={3}
                     returnKeyType="next"
@@ -645,7 +667,7 @@ export default function PaymentModal({
         <View style={[styles.card, { backgroundColor: theme.background, borderColor: theme.border }]}>
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>{t.stepPayment}</Text>
           <View style={styles.formBody}>
-            {/* Operator selection */}
+            {/* Payment method selection */}
             <View style={styles.fieldGroup}>
               <Text style={[styles.fieldLabel, { color: theme.text }]}>{t.operatorLabel}</Text>
               <View style={styles.operatorRow}>
@@ -653,17 +675,17 @@ export default function PaymentModal({
                   style={[
                     styles.operatorBtn,
                     {
-                      borderColor: operator === 'MTN' ? '#f59e0b' : theme.border,
-                      backgroundColor: operator === 'MTN' ? '#fef3c7' : theme.backgroundAlt,
+                      borderColor: paymentMethod === 'MTN' ? '#f59e0b' : theme.border,
+                      backgroundColor: paymentMethod === 'MTN' ? '#fef3c7' : theme.backgroundAlt,
                     },
                   ]}
-                  onPress={() => setOperator('MTN')}
+                  onPress={() => setPaymentMethod('MTN')}
                 >
-                  <View style={[styles.operatorRadio, { borderColor: operator === 'MTN' ? '#f59e0b' : theme.border }]}>
-                    {operator === 'MTN' && <View style={[styles.operatorRadioInner, { backgroundColor: '#f59e0b' }]} />}
+                  <View style={[styles.operatorRadio, { borderColor: paymentMethod === 'MTN' ? '#f59e0b' : theme.border }]}>
+                    {paymentMethod === 'MTN' && <View style={[styles.operatorRadioInner, { backgroundColor: '#f59e0b' }]} />}
                   </View>
                   <View style={styles.operatorInfo}>
-                    <Text style={[styles.operatorName, { color: operator === 'MTN' ? '#92400e' : theme.textStrong }]}>
+                    <Text style={[styles.operatorName, { color: paymentMethod === 'MTN' ? '#92400e' : theme.textStrong }]}>
                       MTN Mobile Money
                     </Text>
                     <Text style={[styles.operatorDesc, { color: theme.text }]}>MoMo</Text>
@@ -679,17 +701,17 @@ export default function PaymentModal({
                   style={[
                     styles.operatorBtn,
                     {
-                      borderColor: operator === 'ORANGE' ? '#ea580c' : theme.border,
-                      backgroundColor: operator === 'ORANGE' ? '#fff7ed' : theme.backgroundAlt,
+                      borderColor: paymentMethod === 'ORANGE' ? '#ea580c' : theme.border,
+                      backgroundColor: paymentMethod === 'ORANGE' ? '#fff7ed' : theme.backgroundAlt,
                     },
                   ]}
-                  onPress={() => setOperator('ORANGE')}
+                  onPress={() => setPaymentMethod('ORANGE')}
                 >
-                  <View style={[styles.operatorRadio, { borderColor: operator === 'ORANGE' ? '#ea580c' : theme.border }]}>
-                    {operator === 'ORANGE' && <View style={[styles.operatorRadioInner, { backgroundColor: '#ea580c' }]} />}
+                  <View style={[styles.operatorRadio, { borderColor: paymentMethod === 'ORANGE' ? '#ea580c' : theme.border }]}>
+                    {paymentMethod === 'ORANGE' && <View style={[styles.operatorRadioInner, { backgroundColor: '#ea580c' }]} />}
                   </View>
                   <View style={styles.operatorInfo}>
-                    <Text style={[styles.operatorName, { color: operator === 'ORANGE' ? '#9a3412' : theme.textStrong }]}>
+                    <Text style={[styles.operatorName, { color: paymentMethod === 'ORANGE' ? '#9a3412' : theme.textStrong }]}>
                       Orange Money
                     </Text>
                     <Text style={[styles.operatorDesc, { color: theme.text }]}>OM</Text>
@@ -700,45 +722,85 @@ export default function PaymentModal({
                     resizeMode="contain"
                   />
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.operatorBtn,
+                    {
+                      borderColor: paymentMethod === 'CASH' ? colors.success : theme.border,
+                      backgroundColor: paymentMethod === 'CASH' ? `${colors.success}0d` : theme.backgroundAlt,
+                    },
+                  ]}
+                  onPress={() => setPaymentMethod('CASH')}
+                >
+                  <View style={[styles.operatorRadio, { borderColor: paymentMethod === 'CASH' ? colors.success : theme.border }]}>
+                    {paymentMethod === 'CASH' && <View style={[styles.operatorRadioInner, { backgroundColor: colors.success }]} />}
+                  </View>
+                  <View style={styles.operatorInfo}>
+                    <Text style={[styles.operatorName, { color: paymentMethod === 'CASH' ? colors.success : theme.textStrong }]}>
+                      {t.cashLabel}
+                    </Text>
+                    <Text style={[styles.operatorDesc, { color: theme.text }]}>{t.cashDesc}</Text>
+                  </View>
+                  <View style={[styles.cashIcon, { backgroundColor: `${colors.success}15` }]}>
+                    <Ionicons name="cash-outline" size={22} color={colors.success} />
+                  </View>
+                </TouchableOpacity>
               </View>
             </View>
 
-            {/* Phone number */}
-            <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, { color: theme.text }]}>{t.phoneLabel}</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons
-                  name="phone-portrait-outline"
-                  size={18}
-                  color={fieldErrors.phone ? colors.error : theme.text}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={inputStyle('phone')}
-                  value={phone}
-                  onChangeText={v => { setPhone(formatPhone(v)); clearFieldError('phone'); }}
-                  placeholder={t.phonePlaceholder}
-                  placeholderTextColor={theme.text}
-                  keyboardType="phone-pad"
-                  maxLength={11}
-                  returnKeyType="done"
-                />
+            {/* Phone number — masqué en mode CASH */}
+            {paymentMethod !== 'CASH' && (
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: theme.text }]}>{t.phoneLabel}</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons
+                    name="phone-portrait-outline"
+                    size={18}
+                    color={fieldErrors.phone ? colors.error : theme.text}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={inputStyle('phone')}
+                    value={phone}
+                    onChangeText={v => { setPhone(formatPhone(v)); clearFieldError('phone'); }}
+                    placeholder={t.phonePlaceholder}
+                    placeholderTextColor={theme.placeholder}
+                    keyboardType="phone-pad"
+                    maxLength={11}
+                    returnKeyType="done"
+                  />
+                </View>
+                {fieldErrors.phone ? (
+                  <Text style={[styles.fieldError, { color: colors.error }]}>{fieldErrors.phone}</Text>
+                ) : null}
               </View>
-              {fieldErrors.phone ? (
-                <Text style={[styles.fieldError, { color: colors.error }]}>{fieldErrors.phone}</Text>
-              ) : null}
-            </View>
+            )}
+
+            {/* Info CASH */}
+            {paymentMethod === 'CASH' && (
+              <View style={[styles.cashInfoBox, { backgroundColor: `${colors.success}0d`, borderColor: `${colors.success}30` }]}>
+                <Ionicons name="information-circle-outline" size={16} color={colors.success} />
+                <Text style={[styles.cashInfoText, { color: colors.success }]}>{t.cashInfo}</Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
         <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: colors.primary }]}
+          style={[styles.actionBtn, { backgroundColor: paymentMethod === 'CASH' ? colors.success : colors.primary }]}
           onPress={handleSubmit}
         >
-          <Ionicons name="lock-closed-outline" size={18} color="#fff" />
-          <Text style={styles.actionBtnText}>{t.pay}</Text>
+          <Ionicons
+            name={paymentMethod === 'CASH' ? 'checkmark-circle-outline' : 'lock-closed-outline'}
+            size={18}
+            color="#fff"
+          />
+          <Text style={styles.actionBtnText}>
+            {paymentMethod === 'CASH' ? t.payCash : t.pay}
+          </Text>
         </TouchableOpacity>
       </View>
     </>
@@ -775,7 +837,7 @@ export default function PaymentModal({
       <Modal visible={step === 'result' && payStatus === 'SUCCESS'} animationType="slide">
         <SuccessComponent
           title={t.successTitle}
-          message={t.successMsg}
+          message={paymentMethod === 'CASH' ? t.successMsgCash : t.successMsg}
           buttonText={t.done}
           onPress={() => { handleClose(); navigation.navigate('ClientMain'); }}
           details={[
@@ -975,6 +1037,16 @@ const styles = StyleSheet.create({
   },
   operatorIconText: { ...typography.bodyBold, fontSize: 16, color: '#fff' },
   operatorLogo: { width: 40, height: 40, borderRadius: 4 },
+  cashIcon: { width: 40, height: 40, borderRadius: 4, justifyContent: 'center', alignItems: 'center' },
+  cashInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderRadius: 4,
+    padding: spacing.md,
+  },
+  cashInfoText: { ...typography.body, fontSize: typography.sizes.xs, flex: 1, lineHeight: 18 },
 
   footer: {
     paddingHorizontal: spacing.lg,

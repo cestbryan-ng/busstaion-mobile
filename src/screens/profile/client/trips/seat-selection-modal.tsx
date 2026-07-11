@@ -133,6 +133,7 @@ export default function SeatSelectionModal({
       connecting: 'Connexion...',
       reconnecting: 'Reconnexion...',
       routeLabel: (from: string, to: string) => `De ${from} vers ${to}`,
+      autoSelect: 'Siège au hasard',
     },
     en: {
       title: 'Seat selection',
@@ -146,6 +147,7 @@ export default function SeatSelectionModal({
       connecting: 'Connecting...',
       reconnecting: 'Reconnecting...',
       routeLabel: (from: string, to: string) => `From ${from} to ${to}`,
+      autoSelect: 'Random seat',
     },
   }[lang];
 
@@ -216,6 +218,37 @@ export default function SeatSelectionModal({
       }
     };
   }, [visible, connectWebSocket, trip.idVoyage, trip.placeReservees]);
+
+  const handleAutoSelect = () => {
+    // Release currently selected seats via WebSocket
+    selectedSeats.forEach(seatNum => {
+      if (stompClient.current?.connected) {
+        stompClient.current.publish({
+          destination: `/app/voyage/${trip.idVoyage}/reserver`,
+          body: JSON.stringify({ placeNumber: seatNum, status: 'FREE' }),
+        });
+      }
+    });
+    mySeats.current = [];
+
+    // Pick a random available seat
+    const allSeats = Array.from({ length: nbrPlaces }, (_, i) => i + 1);
+    const available = allSeats.filter(
+      s => !permanentSeats.includes(s) && !temporarySeats.includes(s),
+    );
+    if (available.length === 0) return;
+
+    const randomSeat = available[Math.floor(Math.random() * available.length)];
+    setSelectedSeats([randomSeat]);
+    mySeats.current = [randomSeat];
+
+    if (stompClient.current?.connected) {
+      stompClient.current.publish({
+        destination: `/app/voyage/${trip.idVoyage}/reserver`,
+        body: JSON.stringify({ placeNumber: randomSeat, status: 'RESERVED' }),
+      });
+    }
+  };
 
   const getSeatStatus = (seatNum: number): SeatStatus => {
     if (permanentSeats.includes(seatNum)) return 'permanent';
@@ -430,6 +463,19 @@ export default function SeatSelectionModal({
               </Text>
             </View>
             <ConnectionIndicator />
+          </View>
+
+          {/* Auto seat selection */}
+          <View style={[styles.autoSelectRow, { borderBottomColor: theme.border }]}>
+            <TouchableOpacity
+              style={[styles.autoSelectBtn, { borderColor: colors.primary }]}
+              onPress={handleAutoSelect}
+            >
+              <Ionicons name="shuffle-outline" size={16} color={colors.primary} />
+              <Text style={[styles.autoSelectText, { color: colors.primary }]}>
+                {t.autoSelect}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Bus layout */}
@@ -677,6 +723,26 @@ const styles = StyleSheet.create({
   },
   connectionDot: { width: 8, height: 8, borderRadius: 4 },
   connectionText: { ...typography.body, fontSize: typography.sizes.xs },
+
+  autoSelectRow: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    alignItems: 'flex-end',
+    borderBottomWidth: 1,
+  },
+  autoSelectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  autoSelectText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+  },
 
   // Bus
   busContainer: {

@@ -24,6 +24,7 @@ import TripDetailScreen from '../screens/profile/client/trips/trip-detail';
 import AgencyDetail from '../screens/profile/client/explore/agency-detail';
 import StationDetail from '../screens/profile/client/explore/station-detail';
 import ProfileSettings from '../screens/profile/client/profile/settings';
+import CacheSettings from '../screens/profile/client/profile/cache-settings';
 import Dashboard from '../screens/profile/client/profile/dashboard';
 import CouponsScreen from '../screens/profile/client/profile/coupons';
 import AgencyMain from '../screens/profile/agency/agency-main';
@@ -51,6 +52,10 @@ import OrgCreateAgencySuccess from '../screens/profile/organization/agencies/cre
 import OrgEmployees from '../screens/profile/organization/resources/employees';
 import OrgMyOrganization from '../screens/profile/organization/profile/my-organization';
 import OrgEditOrganization from '../screens/profile/organization/profile/edit-organization';
+import BsmRequest from '../screens/auth/bsm-request';
+import BsmRequestSuccess from '../screens/auth/bsm-request-success';
+import BsmRequestError from '../screens/auth/bsm-request-error';
+import EditCredentials from '../screens/profile/shared/edit-credentials';
 import BsmMain from '../screens/profile/bsm/bsm-main';
 import StationDetailBsm from '../screens/profile/bsm/stations/station-detail';
 import AgencyDetailBsm from '../screens/profile/bsm/agencies/agency-detail';
@@ -70,6 +75,9 @@ export type RootStackParamList = {
   SignUp: undefined;
   SignUpSuccess: undefined;
   SignUpError: undefined;
+  BsmRequest: undefined;
+  BsmRequestSuccess: undefined;
+  BsmRequestError: { message?: string };
   PinSetup: { fromSettings?: boolean };
   PinVerify: undefined;
   ClientMain: { screen?: string } | undefined;
@@ -80,6 +88,7 @@ export type RootStackParamList = {
   AgencyDetail: { agencyId: string };
   StationDetail: { stationId: string };
   ProfileSettings: undefined;
+  CacheSettings: undefined;
   Dashboard: undefined;
   Coupons: undefined;
   AgencyMain: undefined;
@@ -107,6 +116,7 @@ export type RootStackParamList = {
   OrgEmployees: { agencyId: string; agencyName?: string };
   OrgMyOrganization: undefined;
   OrgEditOrganization: undefined;
+  EditCredentials: undefined;
   BsmMain: undefined;
   StationDetailBsm: undefined;
   AgencyDetailBsm: { agencyId: string };
@@ -142,6 +152,12 @@ export default function Navigation() {
           <Stack.Screen name="SignUp" component={SignUp} />
           <Stack.Screen name="SignUpSuccess" component={SignUpSuccess} />
           <Stack.Screen name="SignUpError" component={SignUpError} />
+          <Stack.Screen name="BsmRequest" component={BsmRequest} />
+          <Stack.Screen
+            name="BsmRequestSuccess"
+            component={BsmRequestSuccess}
+          />
+          <Stack.Screen name="BsmRequestError" component={BsmRequestError} />
           <Stack.Screen name="PinSetup" component={PinSetup} />
           <Stack.Screen name="PinVerify" component={PinVerify} />
           <Stack.Screen name="ClientMain" component={ClientMain} />
@@ -152,6 +168,7 @@ export default function Navigation() {
           <Stack.Screen name="AgencyDetail" component={AgencyDetail} />
           <Stack.Screen name="StationDetail" component={StationDetail} />
           <Stack.Screen name="ProfileSettings" component={ProfileSettings} />
+          <Stack.Screen name="CacheSettings" component={CacheSettings} />
           <Stack.Screen name="Dashboard" component={Dashboard} />
           <Stack.Screen name="Coupons" component={CouponsScreen} />
           <Stack.Screen name="AgencyMain" component={AgencyMain} />
@@ -203,6 +220,7 @@ export default function Navigation() {
             name="OrgEditOrganization"
             component={OrgEditOrganization}
           />
+          <Stack.Screen name="EditCredentials" component={EditCredentials} />
           <Stack.Screen name="BsmMain" component={BsmMain} />
           <Stack.Screen name="StationDetailBsm" component={StationDetailBsm} />
           <Stack.Screen name="AgencyDetailBsm" component={AgencyDetailBsm} />

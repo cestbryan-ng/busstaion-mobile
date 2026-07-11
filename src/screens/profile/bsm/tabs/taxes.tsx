@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+﻿import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -178,7 +178,9 @@ export default function BsmTaxes() {
         .filter(
           i =>
             !debouncedSearch.trim() ||
-            i.nomPolitique.toLowerCase().includes(debouncedSearch.toLowerCase()),
+            i.nomPolitique
+              .toLowerCase()
+              .includes(debouncedSearch.toLowerCase()),
         ),
     [items, tab, debouncedSearch],
   );
@@ -376,7 +378,7 @@ export default function BsmTaxes() {
               <TextInput
                 style={[styles.searchText, { color: theme.textStrong }]}
                 placeholder={t.search}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={search}
                 onChangeText={setSearch}
               />
@@ -385,7 +387,10 @@ export default function BsmTaxes() {
               style={[
                 styles.filterBtn,
                 showFilter
-                  ? { borderColor: colors.primary, backgroundColor: `${colors.primary}15` }
+                  ? {
+                      borderColor: colors.primary,
+                      backgroundColor: `${colors.primary}15`,
+                    }
                   : { borderColor: theme.border },
               ]}
               onPress={() => setShowFilter(v => !v)}
@@ -399,37 +404,39 @@ export default function BsmTaxes() {
           </View>
 
           {/* Tabs */}
-          {showFilter && <View style={styles.tabsRow}>
-            {(
-              [
-                { key: 'ALL', label: t.all },
-                { key: 'TAXE', label: t.taxes },
-                { key: 'POLITIQUE', label: t.policies },
-              ] as { key: TabFilter; label: string }[]
-            ).map(tabItem => (
-              <TouchableOpacity
-                key={tabItem.key}
-                style={[
-                  styles.tabChip,
-                  tab === tabItem.key && {
-                    backgroundColor: colors.primary,
-                    borderColor: colors.primary,
-                  },
-                  tab !== tabItem.key && { borderColor: theme.border },
-                ]}
-                onPress={() => setTab(tabItem.key)}
-              >
-                <Text
+          {showFilter && (
+            <View style={styles.tabsRow}>
+              {(
+                [
+                  { key: 'ALL', label: t.all },
+                  { key: 'TAXE', label: t.taxes },
+                  { key: 'POLITIQUE', label: t.policies },
+                ] as { key: TabFilter; label: string }[]
+              ).map(tabItem => (
+                <TouchableOpacity
+                  key={tabItem.key}
                   style={[
-                    styles.tabChipText,
-                    { color: tab === tabItem.key ? '#fff' : theme.text },
+                    styles.tabChip,
+                    tab === tabItem.key && {
+                      backgroundColor: colors.primary,
+                      borderColor: colors.primary,
+                    },
+                    tab !== tabItem.key && { borderColor: theme.border },
                   ]}
+                  onPress={() => setTab(tabItem.key)}
                 >
-                  {tabItem.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>}
+                  <Text
+                    style={[
+                      styles.tabChipText,
+                      { color: tab === tabItem.key ? '#fff' : theme.text },
+                    ]}
+                  >
+                    {tabItem.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* List */}
           <View style={styles.list}>

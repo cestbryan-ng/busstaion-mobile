@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+﻿import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -29,7 +29,10 @@ import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
-import { DatePickerModal, formatDateDisplay } from '../../../../components/date-picker-modal';
+import {
+  DatePickerModal,
+  formatDateDisplay,
+} from '../../../../components/date-picker-modal';
 
 type TaxeAffiliation = {
   idTaxe: string;
@@ -59,7 +62,8 @@ function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
 }
 
 function formatAmount(item: TaxeAffiliation): string {
-  if (item.montantFixe) return item.montantFixe.toLocaleString('fr-FR') + ' FCFA';
+  if (item.montantFixe)
+    return item.montantFixe.toLocaleString('fr-FR') + ' FCFA';
   if (item.tauxTaxe) return `${item.tauxTaxe}%`;
   return '—';
 }
@@ -221,7 +225,14 @@ export default function TaxeAffiliationBsm() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ nomTaxe: '', description: '', amountKind: 'FIXE', montantFixe: '', tauxTaxe: '', dateEffet: '' });
+    setForm({
+      nomTaxe: '',
+      description: '',
+      amountKind: 'FIXE',
+      montantFixe: '',
+      tauxTaxe: '',
+      dateEffet: '',
+    });
     setModalVisible(true);
   };
 
@@ -249,8 +260,10 @@ export default function TaxeAffiliationBsm() {
         gareRoutiereId: gareId,
         nomTaxe: form.nomTaxe.trim(),
         description: form.description.trim() || undefined,
-        montantFixe: form.amountKind === 'FIXE' ? parseFloat(form.montantFixe) || 0 : 0,
-        tauxTaxe: form.amountKind === 'TAUX' ? parseFloat(form.tauxTaxe) || 0 : 0,
+        montantFixe:
+          form.amountKind === 'FIXE' ? parseFloat(form.montantFixe) || 0 : 0,
+        tauxTaxe:
+          form.amountKind === 'TAUX' ? parseFloat(form.tauxTaxe) || 0 : 0,
         dateEffet: form.dateEffet.trim() || undefined,
       };
 
@@ -270,7 +283,9 @@ export default function TaxeAffiliationBsm() {
       if (res.ok || res.status === 201) {
         const saved: TaxeAffiliation = await res.json();
         if (editingId) {
-          setItems(prev => prev.map(i => (i.idTaxe === saved.idTaxe ? saved : i)));
+          setItems(prev =>
+            prev.map(i => (i.idTaxe === saved.idTaxe ? saved : i)),
+          );
         } else {
           setItems(prev => [saved, ...prev]);
         }
@@ -338,7 +353,16 @@ export default function TaxeAffiliationBsm() {
 
       {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={isOnline ? onRefresh : undefined}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <View style={styles.list}>
           {items.length === 0 ? (
             <EmptyState
@@ -384,8 +408,11 @@ export default function TaxeAffiliationBsm() {
                       {formatAmount(item)}
                     </Text>
                     {item.dateEffet && (
-                      <Text style={[styles.typeBadgeText, { color: theme.text }]}>
-                        {lang === 'fr' ? 'Dès le' : 'From'} {formatDate(item.dateEffet, lang)}
+                      <Text
+                        style={[styles.typeBadgeText, { color: theme.text }]}
+                      >
+                        {lang === 'fr' ? 'Dès le' : 'From'}{' '}
+                        {formatDate(item.dateEffet, lang)}
                       </Text>
                     )}
                   </View>
@@ -478,13 +505,18 @@ export default function TaxeAffiliationBsm() {
                 },
               ]}
               placeholder={t.nomPh}
-              placeholderTextColor={theme.text}
+              placeholderTextColor={theme.placeholder}
               value={form.nomTaxe}
               onChangeText={v => setForm(f => ({ ...f, nomTaxe: v }))}
             />
 
             {/* Description */}
-            <Text style={[styles.label, { color: theme.text, marginTop: spacing.md }]}>
+            <Text
+              style={[
+                styles.label,
+                { color: theme.text, marginTop: spacing.md },
+              ]}
+            >
               {t.description}
             </Text>
             <TextInput
@@ -499,7 +531,7 @@ export default function TaxeAffiliationBsm() {
                 },
               ]}
               placeholder={t.descPh}
-              placeholderTextColor={theme.text}
+              placeholderTextColor={theme.placeholder}
               value={form.description}
               onChangeText={v => setForm(f => ({ ...f, description: v }))}
               multiline
@@ -525,7 +557,9 @@ export default function TaxeAffiliationBsm() {
                       borderColor:
                         form.amountKind === opt ? colors.primary : theme.border,
                     },
-                    form.amountKind === opt && { backgroundColor: colors.primary },
+                    form.amountKind === opt && {
+                      backgroundColor: colors.primary,
+                    },
                   ]}
                   onPress={() => setForm(f => ({ ...f, amountKind: opt }))}
                 >
@@ -552,7 +586,7 @@ export default function TaxeAffiliationBsm() {
                   },
                 ]}
                 placeholder={t.montantFixePh}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form.montantFixe}
                 onChangeText={v => setForm(f => ({ ...f, montantFixe: v }))}
                 keyboardType="decimal-pad"
@@ -569,7 +603,7 @@ export default function TaxeAffiliationBsm() {
                   },
                 ]}
                 placeholder={t.tauxPh}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form.tauxTaxe}
                 onChangeText={v => setForm(f => ({ ...f, tauxTaxe: v }))}
                 keyboardType="decimal-pad"
@@ -577,20 +611,35 @@ export default function TaxeAffiliationBsm() {
             )}
 
             {/* Date d'effet */}
-            <Text style={[styles.label, { color: theme.text, marginTop: spacing.md }]}>
+            <Text
+              style={[
+                styles.label,
+                { color: theme.text, marginTop: spacing.md },
+              ]}
+            >
               {t.dateEffet}
             </Text>
             <TouchableOpacity
               style={[
                 styles.input,
                 styles.dateRow,
-                { borderColor: theme.border, backgroundColor: theme.backgroundAlt },
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                },
               ]}
               onPress={() => setShowDatePicker(true)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.dateText, { color: form.dateEffet ? theme.textStrong : theme.text }]}>
-                {form.dateEffet ? formatDateDisplay(form.dateEffet, lang) : t.datePh}
+              <Text
+                style={[
+                  styles.dateText,
+                  { color: form.dateEffet ? theme.textStrong : theme.text },
+                ]}
+              >
+                {form.dateEffet
+                  ? formatDateDisplay(form.dateEffet, lang)
+                  : t.datePh}
               </Text>
               <Ionicons name="calendar-outline" size={18} color={theme.text} />
             </TouchableOpacity>
@@ -628,7 +677,10 @@ export default function TaxeAffiliationBsm() {
         visible={showDatePicker}
         lang={lang}
         selectedDate={form.dateEffet || null}
-        onApply={d => { setForm(f => ({ ...f, dateEffet: d ?? '' })); setShowDatePicker(false); }}
+        onApply={d => {
+          setForm(f => ({ ...f, dateEffet: d ?? '' }));
+          setShowDatePicker(false);
+        }}
         onClose={() => setShowDatePicker(false)}
       />
 
@@ -773,7 +825,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   toggleText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
-  dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   dateText: { ...typography.body, fontSize: typography.sizes.sm },
   modalActions: {
     flexDirection: 'row',

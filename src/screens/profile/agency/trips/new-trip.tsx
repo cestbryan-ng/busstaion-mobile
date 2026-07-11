@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,10 @@ import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
-import { DatePickerModal, formatDateDisplay } from '../../../../components/date-picker-modal';
+import {
+  DatePickerModal,
+  formatDateDisplay,
+} from '../../../../components/date-picker-modal';
 import TimePickerModal from '../../../../components/time-picker-modal';
 import { SkeletonAgencyTripDetail } from '../../../../components/skeleton';
 
@@ -57,8 +60,16 @@ type FormData = {
 };
 
 const CITIES = [
-  'Douala', 'Yaoundé', 'Bafoussam', 'Kribi', 'Buea',
-  'Garoua', 'Bertoua', 'Maroua', 'Ngaoundéré', 'Bamenda',
+  'Douala',
+  'Yaoundé',
+  'Bafoussam',
+  'Kribi',
+  'Buea',
+  'Garoua',
+  'Bertoua',
+  'Maroua',
+  'Ngaoundéré',
+  'Bamenda',
 ];
 
 const STEP_LABELS_FR = ['Itinéraire', 'Ressources', 'Détails', 'Confirmation'];
@@ -67,7 +78,14 @@ const STEP_LABELS_EN = ['Itinerary', 'Resources', 'Details', 'Confirmation'];
 // ─── Field ────────────────────────────────────────────────────────────────────
 
 function Field({
-  label, value, onChangeText, placeholder, keyboardType, multiline, error, theme,
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType,
+  multiline,
+  error,
+  theme,
 }: {
   label: string;
   value: string;
@@ -80,21 +98,35 @@ function Field({
 }) {
   return (
     <View style={styles.field}>
-      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
+        {label}
+      </Text>
       <TextInput
         style={[
           styles.fieldInput,
-          { borderColor: error ? colors.error : theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong },
-          multiline && { height: 80, textAlignVertical: 'top', paddingTop: spacing.sm },
+          {
+            borderColor: error ? colors.error : theme.border,
+            backgroundColor: theme.backgroundAlt,
+            color: theme.textStrong,
+          },
+          multiline && {
+            height: 80,
+            textAlignVertical: 'top',
+            paddingTop: spacing.sm,
+          },
         ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={theme.text}
+        placeholderTextColor={theme.placeholder}
         keyboardType={keyboardType}
         multiline={multiline}
       />
-      {error && <Text style={[styles.fieldError, { color: colors.error }]}>{error}</Text>}
+      {error && (
+        <Text style={[styles.fieldError, { color: colors.error }]}>
+          {error}
+        </Text>
+      )}
     </View>
   );
 }
@@ -102,7 +134,11 @@ function Field({
 // ─── CityPicker ───────────────────────────────────────────────────────────────
 
 function CityPicker({
-  label, value, onSelect, error, theme,
+  label,
+  value,
+  onSelect,
+  error,
+  theme,
 }: {
   label: string;
   value: string;
@@ -113,26 +149,57 @@ function CityPicker({
   const [open, setOpen] = useState(false);
   return (
     <View style={[styles.field, { flex: 1 }]}>
-      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
+        {label}
+      </Text>
       <TouchableOpacity
         style={[
           styles.pickerBtn,
-          { borderColor: error ? colors.error : theme.border, backgroundColor: theme.backgroundAlt },
+          {
+            borderColor: error ? colors.error : theme.border,
+            backgroundColor: theme.backgroundAlt,
+          },
         ]}
         onPress={() => setOpen(true)}
       >
         <Ionicons name="location-outline" size={18} color={theme.text} />
-        <Text style={[styles.pickerBtnText, { color: value ? theme.textStrong : theme.text }]} numberOfLines={1}>
+        <Text
+          style={[
+            styles.pickerBtnText,
+            { color: value ? theme.textStrong : theme.text },
+          ]}
+          numberOfLines={1}
+        >
           {value || '—'}
         </Text>
         <Ionicons name="chevron-down" size={16} color={theme.text} />
       </TouchableOpacity>
-      {error && <Text style={[styles.fieldError, { color: colors.error }]}>{error}</Text>}
+      {error && (
+        <Text style={[styles.fieldError, { color: colors.error }]}>
+          {error}
+        </Text>
+      )}
 
-      <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
-        <View style={[styles.cityModalContainer, { backgroundColor: theme.background }]}>
-          <View style={[styles.cityModalHeader, { borderBottomColor: theme.border }]}>
-            <Text style={[styles.cityModalTitle, { color: theme.textStrong }]}>{label}</Text>
+      <Modal
+        visible={open}
+        animationType="slide"
+        onRequestClose={() => setOpen(false)}
+      >
+        <View
+          style={[
+            styles.cityModalContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
+          <View
+            style={[
+              styles.cityModalHeader,
+              { borderBottomColor: theme.border },
+            ]}
+          >
+            <Text style={[styles.cityModalTitle, { color: theme.textStrong }]}>
+              {label}
+            </Text>
             <TouchableOpacity onPress={() => setOpen(false)}>
               <Ionicons name="close" size={24} color={theme.textStrong} />
             </TouchableOpacity>
@@ -147,12 +214,28 @@ function CityPicker({
                   { borderBottomColor: theme.border },
                   value === city && { backgroundColor: `${colors.primary}12` },
                 ]}
-                onPress={() => { onSelect(city); setOpen(false); }}
+                onPress={() => {
+                  onSelect(city);
+                  setOpen(false);
+                }}
               >
-                <Text style={[styles.cityModalItemText, { color: value === city ? colors.primary : theme.textStrong }]}>
+                <Text
+                  style={[
+                    styles.cityModalItemText,
+                    {
+                      color: value === city ? colors.primary : theme.textStrong,
+                    },
+                  ]}
+                >
                   {city}
                 </Text>
-                {value === city && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+                {value === city && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={colors.primary}
+                  />
+                )}
               </TouchableOpacity>
             )}
           />
@@ -165,7 +248,13 @@ function CityPicker({
 // ─── SelectPicker ─────────────────────────────────────────────────────────────
 
 function SelectPicker({
-  label, value, onSelect, options, placeholder, error, theme,
+  label,
+  value,
+  onSelect,
+  options,
+  placeholder,
+  error,
+  theme,
 }: {
   label: string;
   value: string;
@@ -179,33 +268,71 @@ function SelectPicker({
   const selected = options.find(o => o.id === value);
   return (
     <View style={styles.field}>
-      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
+        {label}
+      </Text>
       <TouchableOpacity
-        style={[styles.selectBtn, { borderColor: error ? colors.error : theme.border, backgroundColor: theme.backgroundAlt }]}
+        style={[
+          styles.selectBtn,
+          {
+            borderColor: error ? colors.error : theme.border,
+            backgroundColor: theme.backgroundAlt,
+          },
+        ]}
         onPress={() => setOpen(!open)}
       >
-        <Text style={[styles.selectBtnText, { color: selected ? theme.textStrong : theme.text }]}>
+        <Text
+          style={[
+            styles.selectBtnText,
+            { color: selected ? theme.textStrong : theme.text },
+          ]}
+        >
           {selected?.label || placeholder}
         </Text>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={theme.text} />
+        <Ionicons
+          name={open ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={theme.text}
+        />
       </TouchableOpacity>
       {open && (
-        <View style={[styles.dropdown, { backgroundColor: theme.background, borderColor: theme.border }]}>
+        <View
+          style={[
+            styles.dropdown,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+        >
           {options.map(opt => (
             <TouchableOpacity
               key={opt.id}
               style={[styles.dropdownItem, { borderBottomColor: theme.border }]}
-              onPress={() => { onSelect(opt.id); setOpen(false); }}
+              onPress={() => {
+                onSelect(opt.id);
+                setOpen(false);
+              }}
             >
-              <Text style={[styles.dropdownText, { color: value === opt.id ? colors.primary : theme.textStrong }]}>
+              <Text
+                style={[
+                  styles.dropdownText,
+                  {
+                    color: value === opt.id ? colors.primary : theme.textStrong,
+                  },
+                ]}
+              >
                 {opt.label}
               </Text>
-              {value === opt.id && <Ionicons name="checkmark" size={14} color={colors.primary} />}
+              {value === opt.id && (
+                <Ionicons name="checkmark" size={14} color={colors.primary} />
+              )}
             </TouchableOpacity>
           ))}
         </View>
       )}
-      {error && <Text style={[styles.fieldError, { color: colors.error }]}>{error}</Text>}
+      {error && (
+        <Text style={[styles.fieldError, { color: colors.error }]}>
+          {error}
+        </Text>
+      )}
     </View>
   );
 }
@@ -215,7 +342,8 @@ function SelectPicker({
 export default function AgencyNewTrip() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'AgencyNewTrip'>>();
   const editTripId = route.params?.editTripId;
   const duplicateTripId = route.params?.duplicateTripId;
@@ -230,11 +358,15 @@ export default function AgencyNewTrip() {
   const [classes, setClasses] = useState<TClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>(
+    {},
+  );
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [timePickerTarget, setTimePickerTarget] = useState<'dep' | 'arr'>('dep');
+  const [timePickerTarget, setTimePickerTarget] = useState<'dep' | 'arr'>(
+    'dep',
+  );
 
   const [form, setForm] = useState<FormData>({
     titre: '',
@@ -351,14 +483,19 @@ export default function AgencyNewTrip() {
         if (!chefId) return;
 
         const headers = { Authorization: `Bearer ${token}` };
-        const agencyRes = await fetch(`${API_URL}/agence/chef-agence/${chefId}`, { headers });
+        const agencyRes = await fetch(
+          `${API_URL}/agence/chef-agence/${chefId}`,
+          { headers },
+        );
         if (!agencyRes.ok) return;
         const agencyData = await agencyRes.json();
         setAgencyId(agencyData.id);
 
         const [vRes, dRes, cRes] = await Promise.allSettled([
           fetch(`${API_URL}/vehicule/agence/${agencyData.id}`, { headers }),
-          fetch(`${API_URL}/utilisateur/chauffeurs/${agencyData.id}`, { headers }),
+          fetch(`${API_URL}/utilisateur/chauffeurs/${agencyData.id}`, {
+            headers,
+          }),
           fetch(`${API_URL}/class-voyage/agence/${agencyData.id}`, { headers }),
         ]);
 
@@ -377,7 +514,9 @@ export default function AgencyNewTrip() {
 
         const prefillId = editTripId || duplicateTripId;
         if (prefillId) {
-          const tripRes = await fetch(`${API_URL}/voyage/${prefillId}`, { headers });
+          const tripRes = await fetch(`${API_URL}/voyage/${prefillId}`, {
+            headers,
+          });
           if (tripRes.ok) {
             const trip = await tripRes.json();
             setForm(prev => ({
@@ -467,11 +606,16 @@ export default function AgencyNewTrip() {
         classVoyageId: form.classVoyageId,
         agenceVoyageId: agencyId,
       };
-      const url = isEdit ? `${API_URL}/voyage/${editTripId}` : `${API_URL}/voyage`;
+      const url = isEdit
+        ? `${API_URL}/voyage/${editTripId}`
+        : `${API_URL}/voyage`;
       const method = isEdit ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(body),
       });
       if (res.ok) {
@@ -491,7 +635,9 @@ export default function AgencyNewTrip() {
 
   const step1 = (
     <View style={styles.stepContent}>
-      <Text style={[styles.stepSectionTitle, { color: theme.textStrong }]}>{t.baseInfo}</Text>
+      <Text style={[styles.stepSectionTitle, { color: theme.textStrong }]}>
+        {t.baseInfo}
+      </Text>
 
       <Field
         label={t.tripTitle}
@@ -553,31 +699,56 @@ export default function AgencyNewTrip() {
 
       {/* Date picker */}
       <View style={styles.field}>
-        <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.depDate}</Text>
+        <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
+          {t.depDate}
+        </Text>
         <TouchableOpacity
           style={[
             styles.pickerBtn,
-            { borderColor: errors.dateDepartPrev ? colors.error : theme.border, backgroundColor: theme.backgroundAlt },
+            {
+              borderColor: errors.dateDepartPrev ? colors.error : theme.border,
+              backgroundColor: theme.backgroundAlt,
+            },
           ]}
           onPress={() => setShowDatePicker(true)}
         >
           <Ionicons name="calendar-outline" size={18} color={theme.text} />
-          <Text style={[styles.pickerBtnText, { color: form.dateDepartPrev ? theme.textStrong : theme.text }]}>
-            {form.dateDepartPrev ? formatDateDisplay(form.dateDepartPrev, lang) : t.chooseDate}
+          <Text
+            style={[
+              styles.pickerBtnText,
+              { color: form.dateDepartPrev ? theme.textStrong : theme.text },
+            ]}
+          >
+            {form.dateDepartPrev
+              ? formatDateDisplay(form.dateDepartPrev, lang)
+              : t.chooseDate}
           </Text>
         </TouchableOpacity>
         {errors.dateDepartPrev && (
-          <Text style={[styles.fieldError, { color: colors.error }]}>{errors.dateDepartPrev}</Text>
+          <Text style={[styles.fieldError, { color: colors.error }]}>
+            {errors.dateDepartPrev}
+          </Text>
         )}
       </View>
 
       {/* Time pickers */}
       <View style={styles.twoCol}>
         <View style={[styles.field, { flex: 1 }]}>
-          <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.depHour}</Text>
+          <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
+            {t.depHour}
+          </Text>
           <TouchableOpacity
-            style={[styles.pickerBtn, { borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}
-            onPress={() => { setTimePickerTarget('dep'); setShowTimePicker(true); }}
+            style={[
+              styles.pickerBtn,
+              {
+                borderColor: theme.border,
+                backgroundColor: theme.backgroundAlt,
+              },
+            ]}
+            onPress={() => {
+              setTimePickerTarget('dep');
+              setShowTimePicker(true);
+            }}
           >
             <Ionicons name="time-outline" size={18} color={theme.text} />
             <Text style={[styles.pickerBtnText, { color: theme.textStrong }]}>
@@ -586,10 +757,21 @@ export default function AgencyNewTrip() {
           </TouchableOpacity>
         </View>
         <View style={[styles.field, { flex: 1 }]}>
-          <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.arrHour}</Text>
+          <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
+            {t.arrHour}
+          </Text>
           <TouchableOpacity
-            style={[styles.pickerBtn, { borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}
-            onPress={() => { setTimePickerTarget('arr'); setShowTimePicker(true); }}
+            style={[
+              styles.pickerBtn,
+              {
+                borderColor: theme.border,
+                backgroundColor: theme.backgroundAlt,
+              },
+            ]}
+            onPress={() => {
+              setTimePickerTarget('arr');
+              setShowTimePicker(true);
+            }}
           >
             <Ionicons name="time-outline" size={18} color={theme.text} />
             <Text style={[styles.pickerBtnText, { color: theme.textStrong }]}>
@@ -610,7 +792,9 @@ export default function AgencyNewTrip() {
         placeholder={t.selectVehicle}
         options={vehicles.map(v => ({
           id: v.idVehicule,
-          label: `${v.nom || v.modele || v.plaqueMatricule} (${v.nbrPlaces || '—'} places)`,
+          label: `${v.nom || v.modele || v.plaqueMatricule} (${
+            v.nbrPlaces || '—'
+          } places)`,
         }))}
         error={errors.vehiculeId}
         theme={theme}
@@ -667,29 +851,72 @@ export default function AgencyNewTrip() {
   const selectedClass = classes.find(c => c.id === form.classVoyageId);
   const summaryRows = [
     { label: lang === 'fr' ? 'Titre' : 'Title', value: form.titre },
-    { label: lang === 'fr' ? 'Itinéraire' : 'Route', value: `${form.lieuDepart} → ${form.lieuArrive}` },
-    { label: lang === 'fr' ? 'Point de départ' : 'Boarding point', value: form.pointDeDepart },
-    { label: lang === 'fr' ? "Point d'arrivée" : 'Alighting point', value: form.pointArrivee },
-    { label: lang === 'fr' ? 'Date' : 'Date', value: form.dateDepartPrev ? formatDateDisplay(form.dateDepartPrev, lang) : '—' },
-    { label: lang === 'fr' ? 'Départ' : 'Departure', value: form.heureDepartEffectif },
+    {
+      label: lang === 'fr' ? 'Itinéraire' : 'Route',
+      value: `${form.lieuDepart} → ${form.lieuArrive}`,
+    },
+    {
+      label: lang === 'fr' ? 'Point de départ' : 'Boarding point',
+      value: form.pointDeDepart,
+    },
+    {
+      label: lang === 'fr' ? "Point d'arrivée" : 'Alighting point',
+      value: form.pointArrivee,
+    },
+    {
+      label: lang === 'fr' ? 'Date' : 'Date',
+      value: form.dateDepartPrev
+        ? formatDateDisplay(form.dateDepartPrev, lang)
+        : '—',
+    },
+    {
+      label: lang === 'fr' ? 'Départ' : 'Departure',
+      value: form.heureDepartEffectif,
+    },
     { label: lang === 'fr' ? 'Arrivée' : 'Arrival', value: form.heureArrive },
-    { label: lang === 'fr' ? 'Véhicule' : 'Vehicle', value: selectedVehicle?.modele || selectedVehicle?.nom || '—' },
-    { label: lang === 'fr' ? 'Classe' : 'Class', value: selectedClass?.nom || '—' },
-    { label: lang === 'fr' ? 'Places' : 'Seats', value: form.nbrPlaceReservable },
-    { label: lang === 'fr' ? 'Statut' : 'Status', value: form.statusVoyage === 'PUBLIE' ? t.published : t.draft },
+    {
+      label: lang === 'fr' ? 'Véhicule' : 'Vehicle',
+      value: selectedVehicle?.modele || selectedVehicle?.nom || '—',
+    },
+    {
+      label: lang === 'fr' ? 'Classe' : 'Class',
+      value: selectedClass?.nom || '—',
+    },
+    {
+      label: lang === 'fr' ? 'Places' : 'Seats',
+      value: form.nbrPlaceReservable,
+    },
+    {
+      label: lang === 'fr' ? 'Statut' : 'Status',
+      value: form.statusVoyage === 'PUBLIE' ? t.published : t.draft,
+    },
   ];
 
   const step4 = (
     <View style={styles.stepContent}>
-      <Text style={[styles.stepSectionTitle, { color: theme.textStrong }]}>{t.summary}</Text>
-      <View style={[styles.summaryCard, { backgroundColor: theme.background, borderColor: theme.border }]}>
+      <Text style={[styles.stepSectionTitle, { color: theme.textStrong }]}>
+        {t.summary}
+      </Text>
+      <View
+        style={[
+          styles.summaryCard,
+          { backgroundColor: theme.background, borderColor: theme.border },
+        ]}
+      >
         {summaryRows.map((row, i) => (
           <View
             key={row.label}
-            style={[styles.summaryRow, { borderTopColor: theme.border, borderTopWidth: i === 0 ? 0 : 1 }]}
+            style={[
+              styles.summaryRow,
+              { borderTopColor: theme.border, borderTopWidth: i === 0 ? 0 : 1 },
+            ]}
           >
-            <Text style={[styles.summaryLabel, { color: theme.text }]}>{row.label}</Text>
-            <Text style={[styles.summaryValue, { color: theme.textStrong }]}>{row.value || '—'}</Text>
+            <Text style={[styles.summaryLabel, { color: theme.text }]}>
+              {row.label}
+            </Text>
+            <Text style={[styles.summaryValue, { color: theme.textStrong }]}>
+              {row.value || '—'}
+            </Text>
           </View>
         ))}
       </View>
@@ -699,45 +926,98 @@ export default function AgencyNewTrip() {
   if (loading) return <SkeletonAgencyTripDetail />;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View
+        style={[styles.container, { backgroundColor: theme.backgroundAlt }]}
+      >
         {/* Header */}
-        <View style={[styles.header, { backgroundColor: theme.background, borderBottomColor: theme.border }]}>
-          <TouchableOpacity onPress={() => step === 1 ? navigation.goBack() : setStep((step - 1) as Step)}>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={() =>
+              step === 1 ? navigation.goBack() : setStep((step - 1) as Step)
+            }
+          >
             <Ionicons name="arrow-back" size={24} color={theme.textStrong} />
           </TouchableOpacity>
           <Text style={[styles.title, { color: theme.textStrong }]}>
-            {isEdit ? t.titleEdit : duplicateTripId ? t.titleDuplicate : t.titleNew}
+            {isEdit
+              ? t.titleEdit
+              : duplicateTripId
+              ? t.titleDuplicate
+              : t.titleNew}
           </Text>
           <View style={{ width: 24 }} />
         </View>
 
         {/* Step indicators */}
-        <View style={[styles.stepIndicators, { backgroundColor: theme.background, borderBottomColor: theme.border }]}>
+        <View
+          style={[
+            styles.stepIndicators,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
+          ]}
+        >
           {t.stepLabels.map((label, i) => {
             const s = (i + 1) as Step;
             const isActive = s === step;
             const isDone = s < step;
             return (
-              <TouchableOpacity key={label} style={styles.stepIndicator} onPress={() => isDone && setStep(s)}>
-                <View style={[
-                  styles.stepDot,
-                  isActive && { backgroundColor: colors.primary },
-                  isDone && { backgroundColor: colors.primary },
-                  !isActive && !isDone && { backgroundColor: theme.border },
-                ]}>
-                  {isDone
-                    ? <Ionicons name="checkmark" size={12} color="#fff" />
-                    : <Text style={[styles.stepDotText, { color: isActive ? '#fff' : theme.text }]}>{s}</Text>
-                  }
+              <TouchableOpacity
+                key={label}
+                style={styles.stepIndicator}
+                onPress={() => isDone && setStep(s)}
+              >
+                <View
+                  style={[
+                    styles.stepDot,
+                    isActive && { backgroundColor: colors.primary },
+                    isDone && { backgroundColor: colors.primary },
+                    !isActive && !isDone && { backgroundColor: theme.border },
+                  ]}
+                >
+                  {isDone ? (
+                    <Ionicons name="checkmark" size={12} color="#fff" />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.stepDotText,
+                        { color: isActive ? '#fff' : theme.text },
+                      ]}
+                    >
+                      {s}
+                    </Text>
+                  )}
                 </View>
-                <Text style={[styles.stepLabel, { color: isActive ? colors.primary : theme.text }]}>{label}</Text>
+                <Text
+                  style={[
+                    styles.stepLabel,
+                    { color: isActive ? colors.primary : theme.text },
+                  ]}
+                >
+                  {label}
+                </Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {step === 1 && step1}
           {step === 2 && step2}
           {step === 3 && step3}
@@ -746,9 +1026,17 @@ export default function AgencyNewTrip() {
         </ScrollView>
 
         {/* Footer */}
-        <View style={[styles.footer, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+        <View
+          style={[
+            styles.footer,
+            { backgroundColor: theme.background, borderTopColor: theme.border },
+          ]}
+        >
           {step < 4 ? (
-            <TouchableOpacity style={[styles.nextBtn, { backgroundColor: colors.primary }]} onPress={handleNext}>
+            <TouchableOpacity
+              style={[styles.nextBtn, { backgroundColor: colors.primary }]}
+              onPress={handleNext}
+            >
               <Text style={styles.nextBtnText}>{t.next}</Text>
             </TouchableOpacity>
           ) : (
@@ -759,18 +1047,33 @@ export default function AgencyNewTrip() {
                   onPress={() => handleSubmit('EN_ATTENTE')}
                   disabled={submitting}
                 >
-                  <Text style={[styles.draftBtnText, { color: colors.primary }]}>{t.saveDraft}</Text>
+                  <Text
+                    style={[styles.draftBtnText, { color: colors.primary }]}
+                  >
+                    {t.saveDraft}
+                  </Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
-                style={[styles.publishBtn, { backgroundColor: colors.primary, opacity: submitting ? 0.7 : 1 }]}
-                onPress={() => handleSubmit(isEdit ? form.statusVoyage : 'PUBLIE')}
+                style={[
+                  styles.publishBtn,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity: submitting ? 0.7 : 1,
+                  },
+                ]}
+                onPress={() =>
+                  handleSubmit(isEdit ? form.statusVoyage : 'PUBLIE')
+                }
                 disabled={submitting}
               >
-                {submitting
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={styles.publishBtnText}>{isEdit ? t.edit : t.publish}</Text>
-                }
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.publishBtnText}>
+                    {isEdit ? t.edit : t.publish}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           )}
@@ -781,7 +1084,9 @@ export default function AgencyNewTrip() {
         visible={showDatePicker}
         lang={lang}
         selectedDate={form.dateDepartPrev || null}
-        onApply={d => { if (d) update('dateDepartPrev', d); }}
+        onApply={d => {
+          if (d) update('dateDepartPrev', d);
+        }}
         onClose={() => setShowDatePicker(false)}
       />
 
@@ -789,8 +1094,17 @@ export default function AgencyNewTrip() {
         visible={showTimePicker}
         lang={lang}
         title={timePickerTarget === 'dep' ? t.depHour : t.arrHour}
-        value={timePickerTarget === 'dep' ? form.heureDepartEffectif : form.heureArrive}
-        onApply={v => update(timePickerTarget === 'dep' ? 'heureDepartEffectif' : 'heureArrive', v)}
+        value={
+          timePickerTarget === 'dep'
+            ? form.heureDepartEffectif
+            : form.heureArrive
+        }
+        onApply={v =>
+          update(
+            timePickerTarget === 'dep' ? 'heureDepartEffectif' : 'heureArrive',
+            v,
+          )
+        }
         onClose={() => setShowTimePicker(false)}
       />
     </KeyboardAvoidingView>
@@ -817,7 +1131,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   stepIndicator: { flex: 1, alignItems: 'center', gap: 4 },
-  stepDot: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  stepDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   stepDotText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   stepLabel: { ...typography.body, fontSize: 9, textAlign: 'center' },
   stepContent: { padding: spacing.lg, gap: spacing.md },
@@ -844,7 +1164,12 @@ const styles = StyleSheet.create({
   },
   pickerBtnText: { ...typography.body, fontSize: typography.sizes.sm, flex: 1 },
   twoCol: { flexDirection: 'row', gap: spacing.md },
-  picker: { borderWidth: 1, borderRadius: 4, overflow: 'hidden', maxHeight: 120 },
+  picker: {
+    borderWidth: 1,
+    borderRadius: 4,
+    overflow: 'hidden',
+    maxHeight: 120,
+  },
   pickerOption: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -863,7 +1188,13 @@ const styles = StyleSheet.create({
     height: 48,
   },
   selectBtnText: { ...typography.body, fontSize: typography.sizes.sm },
-  dropdown: { borderWidth: 1, borderRadius: 4, marginTop: 4, overflow: 'hidden', zIndex: 10 },
+  dropdown: {
+    borderWidth: 1,
+    borderRadius: 4,
+    marginTop: 4,
+    overflow: 'hidden',
+    zIndex: 10,
+  },
   dropdownItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -882,15 +1213,49 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   summaryLabel: { ...typography.body, fontSize: typography.sizes.sm },
-  summaryValue: { ...typography.bodyBold, fontSize: typography.sizes.sm, flex: 1, textAlign: 'right' },
-  footer: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderTopWidth: 1 },
-  nextBtn: { height: 52, borderRadius: 4, justifyContent: 'center', alignItems: 'center' },
-  nextBtnText: { ...typography.bodyBold, fontSize: typography.sizes.md, color: '#fff', letterSpacing: 0.3 },
+  summaryValue: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+    flex: 1,
+    textAlign: 'right',
+  },
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+  },
+  nextBtn: {
+    height: 52,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  nextBtnText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
   finalButtons: { gap: spacing.sm },
-  draftBtn: { height: 52, borderRadius: 4, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
+  draftBtn: {
+    height: 52,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   draftBtnText: { ...typography.bodyBold, fontSize: typography.sizes.md },
-  publishBtn: { height: 52, borderRadius: 4, justifyContent: 'center', alignItems: 'center' },
-  publishBtnText: { ...typography.bodyBold, fontSize: typography.sizes.md, color: '#fff' },
+  publishBtn: {
+    height: 52,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  publishBtnText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+    color: '#fff',
+  },
   cityModalContainer: { flex: 1 },
   cityModalHeader: {
     flexDirection: 'row',

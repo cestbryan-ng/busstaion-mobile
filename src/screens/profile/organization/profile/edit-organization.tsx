@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -260,7 +260,7 @@ export default function OrgEditOrganization() {
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={theme.text}
+          placeholderTextColor={theme.placeholder}
           keyboardType={keyboardType || 'default'}
           autoCapitalize={
             keyboardType === 'email-address' ? 'none' : 'sentences'
@@ -351,7 +351,7 @@ export default function OrgEditOrganization() {
                   value={form.phone}
                   onChangeText={v => update('phone', v)}
                   placeholder="691 000 000"
-                  placeholderTextColor={theme.text}
+                  placeholderTextColor={theme.placeholder}
                   keyboardType="phone-pad"
                 />
               </View>
@@ -375,7 +375,7 @@ export default function OrgEditOrganization() {
                   value={form.website_url}
                   onChangeText={v => update('website_url', v)}
                   placeholder="www.tey.cm"
-                  placeholderTextColor={theme.text}
+                  placeholderTextColor={theme.placeholder}
                   autoCapitalize="none"
                 />
               </View>
@@ -530,7 +530,7 @@ export default function OrgEditOrganization() {
                 value={form[s.key] as string}
                 onChangeText={v => update(s.key, v)}
                 placeholder={s.placeholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 autoCapitalize="none"
               />
             </View>

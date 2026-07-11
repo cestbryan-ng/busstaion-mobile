@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,10 @@ import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
 import type { RootStackParamList } from '../../../../navigation';
 import type { PolicyOrTax } from '../tabs/taxes';
-import { DatePickerModal, formatDateDisplay } from '../../../../components/date-picker-modal';
+import {
+  DatePickerModal,
+  formatDateDisplay,
+} from '../../../../components/date-picker-modal';
 
 type FormState = {
   nomPolitique: string;
@@ -262,7 +265,7 @@ export default function TaxFormBsm() {
                 },
               ]}
               placeholder={t.namePh}
-              placeholderTextColor={theme.text}
+              placeholderTextColor={theme.placeholder}
               value={form.nomPolitique}
               onChangeText={v => setField('nomPolitique', v)}
             />
@@ -287,7 +290,7 @@ export default function TaxFormBsm() {
                 },
               ]}
               placeholder={t.descPh}
-              placeholderTextColor={theme.text}
+              placeholderTextColor={theme.placeholder}
               value={form.description}
               onChangeText={v => setField('description', v)}
               multiline
@@ -379,7 +382,7 @@ export default function TaxFormBsm() {
                   },
                 ]}
                 placeholder={t.fixePh}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form.montantFixe}
                 onChangeText={v => setField('montantFixe', v)}
                 keyboardType="decimal-pad"
@@ -396,7 +399,7 @@ export default function TaxFormBsm() {
                   },
                 ]}
                 placeholder={t.tauxPh}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={form.tauxTaxe}
                 onChangeText={v => setField('tauxTaxe', v)}
                 keyboardType="decimal-pad"
@@ -416,7 +419,10 @@ export default function TaxFormBsm() {
               style={[
                 styles.input,
                 styles.dateRow,
-                { borderColor: theme.border, backgroundColor: theme.backgroundAlt },
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundAlt,
+                },
               ]}
               onPress={() => setShowDatePicker(true)}
               activeOpacity={0.8}
@@ -460,7 +466,10 @@ export default function TaxFormBsm() {
         visible={showDatePicker}
         lang={lang}
         selectedDate={form.dateEffet || null}
-        onApply={d => { setField('dateEffet', d ?? ''); setShowDatePicker(false); }}
+        onApply={d => {
+          setField('dateEffet', d ?? '');
+          setShowDatePicker(false);
+        }}
         onClose={() => setShowDatePicker(false)}
       />
     </KeyboardAvoidingView>

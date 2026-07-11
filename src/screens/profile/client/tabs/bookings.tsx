@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -64,7 +64,7 @@ type Reservation = {
 };
 
 type TabType = 'avenir' | 'terminees';
-type FilterType = 'TOUS' | 'PAID' | 'CONFIRMEE' | 'EN_ATTENTE' | 'ANNULEE';
+type FilterType = 'TOUS' | 'PAID' | 'NO_PAYMENT' | 'CONFIRMEE' | 'EN_ATTENTE' | 'ANNULEE';
 
 const STATUS_RESERVATION: Record<
   string,
@@ -161,6 +161,7 @@ export default function Bookings() {
       searchPlaceholder: 'Rechercher un voyage, une agence...',
       all: 'Tous',
       paid: 'Payé',
+      noPayment: 'Cash',
       confirmed: 'Confirmé',
       pending: 'En attente',
       cancelled: 'Annulé',
@@ -178,6 +179,7 @@ export default function Bookings() {
       searchPlaceholder: 'Search a trip, an agency...',
       all: 'All',
       paid: 'Paid',
+      noPayment: 'Cash',
       confirmed: 'Confirmed',
       pending: 'Pending',
       cancelled: 'Cancelled',
@@ -193,6 +195,7 @@ export default function Bookings() {
   const FILTERS: { key: FilterType; label: string }[] = [
     { key: 'TOUS', label: t.all },
     { key: 'PAID', label: t.paid },
+    { key: 'NO_PAYMENT', label: t.noPayment },
     { key: 'CONFIRMEE', label: t.confirmed },
     { key: 'EN_ATTENTE', label: t.pending },
     { key: 'ANNULEE', label: t.cancelled },
@@ -269,13 +272,13 @@ export default function Bookings() {
   }, [loadingMore, currentPage, totalPages, loadReservations]);
 
   const filtered = reservations.filter(r => {
-    if (r.reservation.statutPayement !== 'PAID') return false;
-
     const upcoming = isUpcoming(r.voyage.dateDepartPrev);
     if (tab === 'avenir' && !upcoming) return false;
     if (tab === 'terminees' && upcoming) return false;
 
     if (filter === 'PAID' && r.reservation.statutPayement !== 'PAID')
+      return false;
+    if (filter === 'NO_PAYMENT' && r.reservation.statutPayement !== 'NO_PAYMENT')
       return false;
     if (
       filter === 'CONFIRMEE' &&
@@ -311,6 +314,7 @@ export default function Bookings() {
       STATUS_PAYMENT[item.reservation.statutPayement] ||
       STATUS_PAYMENT.NO_PAYMENT;
     const isCancelled = item.reservation.statutReservation === 'ANNULEE';
+    const isCash = item.reservation.statutPayement === 'NO_PAYMENT';
 
     return (
       <View
@@ -407,7 +411,7 @@ export default function Bookings() {
             </Text>
           </TouchableOpacity>
 
-          {!isCancelled && (
+          {!isCancelled && !isCash && (
             <TouchableOpacity
               style={[styles.actionBtn, { borderColor: theme.border }]}
               onPress={() =>
@@ -416,17 +420,20 @@ export default function Bookings() {
                 })
               }
             >
-              <Ionicons
-                name="qr-code-outline"
-                size={14}
-                color={theme.textStrong}
-              />
-              <Text
-                style={[styles.actionBtnText, { color: theme.textStrong }]}
-              >
+              <Ionicons name="qr-code-outline" size={14} color={theme.textStrong} />
+              <Text style={[styles.actionBtnText, { color: theme.textStrong }]}>
                 {t.ticket}
               </Text>
             </TouchableOpacity>
+          )}
+
+          {isCash && !isCancelled && (
+            <View style={[styles.actionBtn, { borderColor: colors.success, backgroundColor: `${colors.success}0d` }]}>
+              <Ionicons name="cash-outline" size={14} color={colors.success} />
+              <Text style={[styles.actionBtnText, { color: colors.success }]}>
+                {lang === 'fr' ? 'À régler' : 'Pay at agency'}
+              </Text>
+            </View>
           )}
 
           {isCancelled && (
@@ -546,7 +553,7 @@ export default function Bookings() {
               <TextInput
                 style={[styles.searchText, { color: theme.textStrong }]}
                 placeholder={t.searchPlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={search}
                 onChangeText={setSearch}
               />

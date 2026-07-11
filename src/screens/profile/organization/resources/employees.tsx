@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -407,7 +407,7 @@ export default function OrgEmployees() {
                     ]}
                     value={form.first_name}
                     onChangeText={v => setForm(f => ({ ...f, first_name: v }))}
-                    placeholderTextColor={theme.text}
+                    placeholderTextColor={theme.placeholder}
                     placeholder={t.firstName}
                   />
                 </View>
@@ -426,7 +426,7 @@ export default function OrgEmployees() {
                     ]}
                     value={form.last_name}
                     onChangeText={v => setForm(f => ({ ...f, last_name: v }))}
-                    placeholderTextColor={theme.text}
+                    placeholderTextColor={theme.placeholder}
                     placeholder={t.lastName}
                   />
                 </View>
@@ -447,7 +447,7 @@ export default function OrgEmployees() {
                 ]}
                 value={form.username}
                 onChangeText={v => setForm(f => ({ ...f, username: v }))}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 placeholder={t.username}
                 autoCapitalize="none"
               />
@@ -467,7 +467,7 @@ export default function OrgEmployees() {
                 ]}
                 value={form.email}
                 onChangeText={v => setForm(f => ({ ...f, email: v }))}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 placeholder={t.email}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -490,7 +490,7 @@ export default function OrgEmployees() {
                   style={[styles.passwordInput, { color: theme.textStrong }]}
                   value={form.password}
                   onChangeText={v => setForm(f => ({ ...f, password: v }))}
-                  placeholderTextColor={theme.text}
+                  placeholderTextColor={theme.placeholder}
                   placeholder={t.password}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
@@ -506,21 +506,18 @@ export default function OrgEmployees() {
 
               {/* Phone */}
               <Text style={[styles.label, { color: theme.text }]}>{t.phone}</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    color: theme.textStrong,
-                    borderColor: theme.border,
-                    backgroundColor: theme.backgroundAlt,
-                  },
-                ]}
-                value={form.phone_number}
-                onChangeText={v => setForm(f => ({ ...f, phone_number: v }))}
-                placeholderTextColor={theme.text}
-                placeholder={t.phone}
-                keyboardType="phone-pad"
-              />
+              <View style={[styles.phoneRow, { borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}>
+                <Text style={styles.phoneFlag}>🇨🇲</Text>
+                <Text style={[styles.phoneCode, { color: theme.textStrong, borderRightColor: theme.border }]}>+237</Text>
+                <TextInput
+                  style={[styles.phoneInput, { color: theme.textStrong }]}
+                  value={form.phone_number}
+                  onChangeText={v => setForm(f => ({ ...f, phone_number: v }))}
+                  placeholderTextColor={theme.placeholder}
+                  placeholder={t.phone}
+                  keyboardType="phone-pad"
+                />
+              </View>
 
               {/* Gender */}
               <Text style={[styles.label, { color: theme.text }]}>{t.gender}</Text>
@@ -574,7 +571,7 @@ export default function OrgEmployees() {
                 ]}
                 value={form.poste}
                 onChangeText={v => setForm(f => ({ ...f, poste: v }))}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 placeholder="Caissier, Agent..."
               />
 
@@ -593,7 +590,7 @@ export default function OrgEmployees() {
                 ]}
                 value={form.departement}
                 onChangeText={v => setForm(f => ({ ...f, departement: v }))}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 placeholder="Commercial, Opérations..."
               />
 
@@ -687,6 +684,30 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     ...typography.body,
     fontSize: typography.sizes.sm,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    height: 46,
+  },
+  phoneFlag: {
+    fontSize: 18,
+    marginRight: 4,
+  },
+  phoneCode: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+    marginRight: spacing.sm,
+    paddingRight: spacing.sm,
+    borderRightWidth: 1,
+  },
+  phoneInput: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    flex: 1,
   },
   passwordRow: {
     flexDirection: 'row',

@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+﻿import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import {
   View,
   Text,
@@ -170,7 +176,6 @@ const CLASS_ICON_COLORS: Record<string, string> = {
   ECONOMY: '#6b7280',
 };
 
-
 function Field({
   label,
   value,
@@ -179,6 +184,7 @@ function Field({
   keyboardType,
   multiline,
   required,
+  prefix,
 }: {
   label: string;
   value: string;
@@ -187,6 +193,7 @@ function Field({
   keyboardType?: any;
   multiline?: boolean;
   required?: boolean;
+  prefix?: React.ReactNode;
 }) {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
@@ -196,27 +203,41 @@ function Field({
         {label}
         {required && <Text style={{ color: colors.error }}> *</Text>}
       </Text>
-      <TextInput
-        style={[
-          fStyles.input,
-          {
-            borderColor: theme.border,
-            backgroundColor: theme.backgroundAlt,
-            color: theme.textStrong,
-          },
-          multiline && {
-            height: 72,
-            textAlignVertical: 'top',
-            paddingTop: spacing.sm,
-          },
-        ]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={theme.text}
-        keyboardType={keyboardType}
-        multiline={multiline}
-      />
+      {prefix ? (
+        <View style={[fStyles.inputRow, { borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}>
+          {prefix}
+          <TextInput
+            style={[fStyles.inputFlex, { color: theme.textStrong }]}
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={theme.placeholder}
+            keyboardType={keyboardType}
+          />
+        </View>
+      ) : (
+        <TextInput
+          style={[
+            fStyles.input,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.backgroundAlt,
+              color: theme.textStrong,
+            },
+            multiline && {
+              height: 72,
+              textAlignVertical: 'top',
+              paddingTop: spacing.sm,
+            },
+          ]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={theme.placeholder}
+          keyboardType={keyboardType}
+          multiline={multiline}
+        />
+      )}
     </View>
   );
 }
@@ -235,6 +256,30 @@ const fStyles = StyleSheet.create({
     height: 48,
     ...typography.body,
     fontSize: typography.sizes.sm,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    height: 48,
+  },
+  inputFlex: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    flex: 1,
+  },
+  phoneFlag: {
+    fontSize: 18,
+    marginRight: 4,
+  },
+  phoneCode: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+    marginRight: spacing.sm,
+    paddingRight: spacing.sm,
+    borderRightWidth: 1,
   },
 });
 
@@ -470,7 +515,10 @@ export default function AgencyResources() {
         setIsOffline(false);
       } else {
         const cached = await getCache(`${cacheKey}_vehicles`);
-        if (cached) { setVehicles(cached); setIsOffline(true); }
+        if (cached) {
+          setVehicles(cached);
+          setIsOffline(true);
+        }
       }
       if (dRes.status === 'fulfilled' && dRes.value.ok) {
         const d = await dRes.value.json();
@@ -481,7 +529,10 @@ export default function AgencyResources() {
         if (!isOffline) setIsOffline(false);
       } else {
         const cached = await getCache(`${cacheKey}_drivers`);
-        if (cached) { setDrivers(cached); setIsOffline(true); }
+        if (cached) {
+          setDrivers(cached);
+          setIsOffline(true);
+        }
       }
       if (eRes.status === 'fulfilled' && eRes.value.ok) {
         const d = await eRes.value.json();
@@ -491,7 +542,10 @@ export default function AgencyResources() {
         await setCache(`${cacheKey}_employees`, employees);
       } else {
         const cached = await getCache(`${cacheKey}_employees`);
-        if (cached) { setEmployees(cached); setIsOffline(true); }
+        if (cached) {
+          setEmployees(cached);
+          setIsOffline(true);
+        }
       }
       if (cRes.status === 'fulfilled' && cRes.value.ok) {
         const d = await cRes.value.json();
@@ -501,7 +555,10 @@ export default function AgencyResources() {
         await setCache(`${cacheKey}_classes`, classes);
       } else {
         const cached = await getCache(`${cacheKey}_classes`);
-        if (cached) { setClasses(cached); setIsOffline(true); }
+        if (cached) {
+          setClasses(cached);
+          setIsOffline(true);
+        }
       }
 
       if (anySuccess) setIsOffline(false);
@@ -527,7 +584,11 @@ export default function AgencyResources() {
   const filteredVehicles = useMemo(
     () =>
       vehicles.filter(v => {
-        if (filterStatus !== 'ALL' && (v.statut || 'DISPONIBLE').toUpperCase() !== filterStatus) return false;
+        if (
+          filterStatus !== 'ALL' &&
+          (v.statut || 'DISPONIBLE').toUpperCase() !== filterStatus
+        )
+          return false;
         if (!debouncedSearch.trim()) return true;
         return [v.nom, v.modele, v.plaqueMatricule].some(f =>
           f?.toLowerCase().includes(debouncedSearch.toLowerCase()),
@@ -539,7 +600,11 @@ export default function AgencyResources() {
   const filteredDrivers = useMemo(
     () =>
       drivers.filter(d => {
-        if (filterStatus !== 'ALL' && (d.statut || 'DISPONIBLE').toUpperCase() !== filterStatus) return false;
+        if (
+          filterStatus !== 'ALL' &&
+          (d.statut || 'DISPONIBLE').toUpperCase() !== filterStatus
+        )
+          return false;
         if (!debouncedSearch.trim()) return true;
         return [d.first_name, d.last_name, d.phone_number].some(f =>
           f?.toLowerCase().includes(debouncedSearch.toLowerCase()),
@@ -551,11 +616,19 @@ export default function AgencyResources() {
   const filteredEmployees = useMemo(
     () =>
       employees.filter(e => {
-        if (filterStatus !== 'ALL' && (e.statutEmploye || 'ACTIF').toUpperCase() !== filterStatus) return false;
+        if (
+          filterStatus !== 'ALL' &&
+          (e.statutEmploye || 'ACTIF').toUpperCase() !== filterStatus
+        )
+          return false;
         if (!debouncedSearch.trim()) return true;
-        return [e.firstName, e.lastName, e.poste, e.departement, e.phoneNumber].some(f =>
-          f?.toLowerCase().includes(debouncedSearch.toLowerCase()),
-        );
+        return [
+          e.firstName,
+          e.lastName,
+          e.poste,
+          e.departement,
+          e.phoneNumber,
+        ].some(f => f?.toLowerCase().includes(debouncedSearch.toLowerCase()));
       }),
     [employees, debouncedSearch, filterStatus],
   );
@@ -564,7 +637,8 @@ export default function AgencyResources() {
     () =>
       classes.filter(
         c =>
-          !debouncedSearch.trim() || c.nom.toLowerCase().includes(debouncedSearch.toLowerCase()),
+          !debouncedSearch.trim() ||
+          c.nom.toLowerCase().includes(debouncedSearch.toLowerCase()),
       ),
     [classes, debouncedSearch],
   );
@@ -575,7 +649,10 @@ export default function AgencyResources() {
       { key: 'DISPONIBLE', label: lang === 'fr' ? 'Disponible' : 'Available' },
       { key: 'EN_VOYAGE', label: lang === 'fr' ? 'En voyage' : 'On trip' },
       { key: 'MAINTENANCE', label: 'Maintenance' },
-      { key: 'HORS_SERVICE', label: lang === 'fr' ? 'Hors service' : 'Out of service' },
+      {
+        key: 'HORS_SERVICE',
+        label: lang === 'fr' ? 'Hors service' : 'Out of service',
+      },
     ],
     drivers: [
       { key: 'ALL', label: lang === 'fr' ? 'Tous' : 'All' },
@@ -803,7 +880,9 @@ export default function AgencyResources() {
       if (activeTab === 'employees')
         url = `${API_URL}/utilisateur/employe/${deleteItem.employeId}`;
       if (activeTab === 'classes')
-        url = `${API_URL}/class-voyage/${deleteItem.id || deleteItem.idClassVoyage}`;
+        url = `${API_URL}/class-voyage/${
+          deleteItem.id || deleteItem.idClassVoyage
+        }`;
       const res = await fetch(url, { method: 'DELETE', headers });
       if (res.ok) {
         toast.success(t.deletedSuccess);
@@ -838,7 +917,10 @@ export default function AgencyResources() {
   }[activeTab];
 
   const ThreeDotMenu = ({ item }: { item: any }) => (
-    <TouchableOpacity onPress={() => setMenuItem(item)} style={styles.dotMenuBtn}>
+    <TouchableOpacity
+      onPress={() => setMenuItem(item)}
+      style={styles.dotMenuBtn}
+    >
       <Ionicons name="ellipsis-vertical" size={18} color={theme.text} />
     </TouchableOpacity>
   );
@@ -846,7 +928,11 @@ export default function AgencyResources() {
   const VehiclesTab = () => (
     <>
       {filteredVehicles.length === 0 && (
-        <EmptyState type="result" message={lang === 'fr' ? 'Aucun véhicule' : 'No vehicles'} textColor={theme.text} />
+        <EmptyState
+          type="result"
+          message={lang === 'fr' ? 'Aucun véhicule' : 'No vehicles'}
+          textColor={theme.text}
+        />
       )}
       {filteredVehicles.map((v, i) => {
         const statusKey = (v.statut || 'DISPONIBLE')
@@ -939,7 +1025,11 @@ export default function AgencyResources() {
   const DriversTab = () => (
     <>
       {filteredDrivers.length === 0 && (
-        <EmptyState type="result" message={lang === 'fr' ? 'Aucun chauffeur' : 'No drivers'} textColor={theme.text} />
+        <EmptyState
+          type="result"
+          message={lang === 'fr' ? 'Aucun chauffeur' : 'No drivers'}
+          textColor={theme.text}
+        />
       )}
       {filteredDrivers.map(d => {
         const statusKey = (d.statut || 'DISPONIBLE')
@@ -965,7 +1055,12 @@ export default function AgencyResources() {
                 >
                   {d.first_name} {d.last_name}
                 </Text>
-                <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    { backgroundColor: statusCfg.bg },
+                  ]}
+                >
                   <Text style={[styles.statusText, { color: statusCfg.color }]}>
                     {lang === 'fr' ? statusCfg.label : statusCfg.labelEn}
                   </Text>
@@ -978,7 +1073,8 @@ export default function AgencyResources() {
                 <View style={styles.listMeta}>
                   <Ionicons name="card-outline" size={12} color={theme.text} />
                   <Text style={[styles.listMetaText, { color: theme.text }]}>
-                    {' '}{t.permit} {d.permis}
+                    {' '}
+                    {t.permit} {d.permis}
                   </Text>
                 </View>
               )}
@@ -992,7 +1088,11 @@ export default function AgencyResources() {
   const EmployeesTab = () => (
     <>
       {filteredEmployees.length === 0 && (
-        <EmptyState type="result" message={lang === 'fr' ? 'Aucun employé' : 'No employees'} textColor={theme.text} />
+        <EmptyState
+          type="result"
+          message={lang === 'fr' ? 'Aucun employé' : 'No employees'}
+          textColor={theme.text}
+        />
       )}
       {filteredEmployees.map(e => {
         const statusKey = (e.statutEmploye || 'ACTIF')
@@ -1018,18 +1118,26 @@ export default function AgencyResources() {
                 >
                   {e.firstName} {e.lastName}
                 </Text>
-                <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    { backgroundColor: statusCfg.bg },
+                  ]}
+                >
                   <Text style={[styles.statusText, { color: statusCfg.color }]}>
                     {lang === 'fr' ? statusCfg.label : statusCfg.labelEn}
                   </Text>
                 </View>
               </View>
-              <Text style={[styles.listSub, { color: theme.text }]}>{e.poste}</Text>
+              <Text style={[styles.listSub, { color: theme.text }]}>
+                {e.poste}
+              </Text>
               {e.phoneNumber && (
                 <View style={styles.listMeta}>
                   <Ionicons name="call-outline" size={12} color={theme.text} />
                   <Text style={[styles.listMetaText, { color: theme.text }]}>
-                    {' '}{e.phoneNumber}
+                    {' '}
+                    {e.phoneNumber}
                   </Text>
                 </View>
               )}
@@ -1049,7 +1157,11 @@ export default function AgencyResources() {
   const ClassesTab = () => (
     <>
       {filteredClasses.length === 0 && (
-        <EmptyState type="result" message={lang === 'fr' ? 'Aucune classe' : 'No classes'} textColor={theme.text} />
+        <EmptyState
+          type="result"
+          message={lang === 'fr' ? 'Aucune classe' : 'No classes'}
+          textColor={theme.text}
+        />
       )}
       {filteredClasses.map((c, i) => {
         const classKey = c.nom.toUpperCase().split(' ')[0];
@@ -1093,7 +1205,9 @@ export default function AgencyResources() {
     </>
   );
 
-  if (loading) { return <SkeletonResourcesScreen />; }
+  if (loading) {
+    return <SkeletonResourcesScreen />;
+  }
 
   const TAB_ITEMS: { key: ResourceTab; label: string }[] = [
     { key: 'vehicles', label: t.vehicles },
@@ -1111,7 +1225,10 @@ export default function AgencyResources() {
         <View
           style={[
             styles.header,
-            { backgroundColor: theme.background, borderBottomColor: theme.border },
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
           ]}
         >
           <Text style={[styles.title, { color: theme.textStrong }]}>
@@ -1271,7 +1388,7 @@ export default function AgencyResources() {
               <TextInput
                 style={[styles.searchText, { color: theme.textStrong }]}
                 placeholder={searchPlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={search}
                 onChangeText={setSearch}
               />
@@ -1286,8 +1403,12 @@ export default function AgencyResources() {
                 style={[
                   styles.filterBtn,
                   {
-                    borderColor: filterStatus !== 'ALL' ? colors.primary : theme.border,
-                    backgroundColor: filterStatus !== 'ALL' ? `${colors.primary}10` : 'transparent',
+                    borderColor:
+                      filterStatus !== 'ALL' ? colors.primary : theme.border,
+                    backgroundColor:
+                      filterStatus !== 'ALL'
+                        ? `${colors.primary}10`
+                        : 'transparent',
                   },
                 ]}
                 onPress={() => setShowFilter(v => !v)}
@@ -1295,7 +1416,9 @@ export default function AgencyResources() {
                 <Ionicons
                   name="options-outline"
                   size={20}
-                  color={filterStatus !== 'ALL' ? colors.primary : theme.textStrong}
+                  color={
+                    filterStatus !== 'ALL' ? colors.primary : theme.textStrong
+                  }
                 />
               </TouchableOpacity>
             )}
@@ -1317,13 +1440,20 @@ export default function AgencyResources() {
                     style={[
                       styles.chip,
                       {
-                        backgroundColor: active ? colors.primary : 'transparent',
+                        backgroundColor: active
+                          ? colors.primary
+                          : 'transparent',
                         borderColor: active ? colors.primary : theme.border,
                       },
                     ]}
                     onPress={() => setFilterStatus(chip.key)}
                   >
-                    <Text style={[styles.chipText, { color: active ? '#fff' : theme.text }]}>
+                    <Text
+                      style={[
+                        styles.chipText,
+                        { color: active ? '#fff' : theme.text },
+                      ]}
+                    >
                       {chip.label}
                     </Text>
                   </TouchableOpacity>
@@ -1362,8 +1492,15 @@ export default function AgencyResources() {
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+          <View
+            style={[
+              styles.modalContainer,
+              { backgroundColor: theme.background },
+            ]}
+          >
+            <View
+              style={[styles.modalHeader, { borderBottomColor: theme.border }]}
+            >
               <Text style={[styles.modalTitle, { color: theme.textStrong }]}>
                 {formTitle}
               </Text>
@@ -1394,7 +1531,9 @@ export default function AgencyResources() {
                   <Field
                     label={t.plate}
                     value={vForm.plaqueMatricule}
-                    onChangeText={v => setVForm(f => ({ ...f, plaqueMatricule: v }))}
+                    onChangeText={v =>
+                      setVForm(f => ({ ...f, plaqueMatricule: v }))
+                    }
                     placeholder="1234AB56"
                     required
                   />
@@ -1409,7 +1548,9 @@ export default function AgencyResources() {
                   <Field
                     label={t.desc}
                     value={vForm.description}
-                    onChangeText={v => setVForm(f => ({ ...f, description: v }))}
+                    onChangeText={v =>
+                      setVForm(f => ({ ...f, description: v }))
+                    }
                     multiline
                   />
                 </>
@@ -1422,7 +1563,9 @@ export default function AgencyResources() {
                       <Field
                         label={t.firstName}
                         value={dForm.first_name}
-                        onChangeText={v => setDForm(f => ({ ...f, first_name: v }))}
+                        onChangeText={v =>
+                          setDForm(f => ({ ...f, first_name: v }))
+                        }
                         placeholder={t.firstName}
                         required
                       />
@@ -1431,7 +1574,9 @@ export default function AgencyResources() {
                       <Field
                         label={t.lastName}
                         value={dForm.last_name}
-                        onChangeText={v => setDForm(f => ({ ...f, last_name: v }))}
+                        onChangeText={v =>
+                          setDForm(f => ({ ...f, last_name: v }))
+                        }
                         placeholder={t.lastName}
                         required
                       />
@@ -1448,10 +1593,15 @@ export default function AgencyResources() {
                   <Field
                     label={t.phone}
                     value={dForm.phone_number}
-                    onChangeText={v => setDForm(f => ({ ...f, phone_number: v }))}
+                    onChangeText={v =>
+                      setDForm(f => ({ ...f, phone_number: v }))
+                    }
                     keyboardType="phone-pad"
                     placeholder={t.phone}
                     required
+                    prefix={
+                      <><Text style={fStyles.phoneFlag}>🇨🇲</Text><Text style={[fStyles.phoneCode, { color: isDark ? colors.dark.textStrong : colors.light.textStrong, borderRightColor: isDark ? colors.dark.border : colors.light.border }]}>+237</Text></>
+                    }
                   />
                   <Field
                     label={t.username}
@@ -1485,7 +1635,9 @@ export default function AgencyResources() {
                       <Field
                         label={t.firstName}
                         value={eForm.firstName}
-                        onChangeText={v => setEForm(f => ({ ...f, firstName: v }))}
+                        onChangeText={v =>
+                          setEForm(f => ({ ...f, firstName: v }))
+                        }
                         placeholder={t.firstName}
                         required
                       />
@@ -1494,7 +1646,9 @@ export default function AgencyResources() {
                       <Field
                         label={t.lastName}
                         value={eForm.lastName}
-                        onChangeText={v => setEForm(f => ({ ...f, lastName: v }))}
+                        onChangeText={v =>
+                          setEForm(f => ({ ...f, lastName: v }))
+                        }
                         placeholder={t.lastName}
                         required
                       />
@@ -1518,7 +1672,9 @@ export default function AgencyResources() {
                   <Field
                     label={t.dept}
                     value={eForm.departement}
-                    onChangeText={v => setEForm(f => ({ ...f, departement: v }))}
+                    onChangeText={v =>
+                      setEForm(f => ({ ...f, departement: v }))
+                    }
                     placeholder={t.dept}
                   />
                   <Field
@@ -1568,7 +1724,9 @@ export default function AgencyResources() {
                       <Field
                         label={t.cancelRateField}
                         value={cForm.tauxAnnulation}
-                        onChangeText={v => setCForm(f => ({ ...f, tauxAnnulation: v }))}
+                        onChangeText={v =>
+                          setCForm(f => ({ ...f, tauxAnnulation: v }))
+                        }
                         keyboardType="numeric"
                         placeholder="Ex: 5"
                         required
@@ -1578,7 +1736,9 @@ export default function AgencyResources() {
                   <Field
                     label={t.desc}
                     value={cForm.description}
-                    onChangeText={v => setCForm(f => ({ ...f, description: v }))}
+                    onChangeText={v =>
+                      setCForm(f => ({ ...f, description: v }))
+                    }
                     placeholder="Description de la classe (optionnel)"
                     multiline
                   />
@@ -1586,7 +1746,9 @@ export default function AgencyResources() {
               )}
             </ScrollView>
 
-            <View style={[styles.modalFooter, { borderTopColor: theme.border }]}>
+            <View
+              style={[styles.modalFooter, { borderTopColor: theme.border }]}
+            >
               <TouchableOpacity
                 style={[styles.cancelBtn, { borderColor: theme.border }]}
                 onPress={() => setFormModal(false)}
@@ -1596,7 +1758,13 @@ export default function AgencyResources() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: submitting ? 0.7 : 1 }]}
+                style={[
+                  styles.saveBtn,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity: submitting ? 0.7 : 1,
+                  },
+                ]}
                 onPress={handleSubmit}
                 disabled={submitting}
               >
@@ -1622,20 +1790,37 @@ export default function AgencyResources() {
           activeOpacity={1}
           onPress={() => setMenuItem(null)}
         >
-          <View style={[styles.menuSheet, { backgroundColor: theme.background }]}>
+          <View
+            style={[styles.menuSheet, { backgroundColor: theme.background }]}
+          >
             <TouchableOpacity
               style={styles.menuSheetItem}
-              onPress={() => { openEdit(menuItem); setMenuItem(null); }}
+              onPress={() => {
+                openEdit(menuItem);
+                setMenuItem(null);
+              }}
             >
-              <Ionicons name="create-outline" size={20} color={theme.textStrong} />
+              <Ionicons
+                name="create-outline"
+                size={20}
+                color={theme.textStrong}
+              />
               <Text style={[styles.menuSheetText, { color: theme.textStrong }]}>
                 {lang === 'fr' ? 'Modifier' : 'Edit'}
               </Text>
             </TouchableOpacity>
-            <View style={[styles.menuSheetDivider, { backgroundColor: theme.border }]} />
+            <View
+              style={[
+                styles.menuSheetDivider,
+                { backgroundColor: theme.border },
+              ]}
+            />
             <TouchableOpacity
               style={styles.menuSheetItem}
-              onPress={() => { openDelete(menuItem); setMenuItem(null); }}
+              onPress={() => {
+                openDelete(menuItem);
+                setMenuItem(null);
+              }}
             >
               <Ionicons name="trash-outline" size={20} color={colors.error} />
               <Text style={[styles.menuSheetText, { color: colors.error }]}>
@@ -1740,7 +1925,11 @@ const styles = StyleSheet.create({
   },
 
   // List
-  listContainer: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm },
+  listContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
+  },
   listCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1805,7 +1994,11 @@ const styles = StyleSheet.create({
   },
   statusText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
   dotMenuBtn: { padding: spacing.xs },
-  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'flex-end',
+  },
   menuSheet: {
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,

@@ -13,6 +13,7 @@ import {
   Linking,
   RefreshControl,
   Share,
+  Modal,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -175,6 +176,7 @@ export default function TripDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [showSeatChoice, setShowSeatChoice] = useState(false);
   const [showSeatModal, setShowSeatModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
@@ -216,6 +218,11 @@ export default function TripDetailScreen() {
       totalPrice: 'Prix total',
       reviews: (n: number) => `${n} avis`,
       more: 'Plus',
+      seatChoiceTitle: 'Choisir votre siège',
+      seatChoiceManual: 'Je choisis mon siège',
+      seatChoiceManualDesc: 'Sélectionnez votre place dans le bus',
+      seatChoiceAuto: 'Siège au hasard',
+      seatChoiceAutoDesc: 'On vous attribue une place disponible',
     },
     en: {
       title: 'Trip detail',
@@ -245,6 +252,11 @@ export default function TripDetailScreen() {
       totalPrice: 'Total price',
       reviews: (n: number) => `${n} reviews`,
       more: 'More',
+      seatChoiceTitle: 'Choose your seat',
+      seatChoiceManual: 'I pick my seat',
+      seatChoiceManualDesc: 'Select your spot in the bus',
+      seatChoiceAuto: 'Random seat',
+      seatChoiceAutoDesc: 'We assign you an available seat',
     },
   }[lang];
 
@@ -327,6 +339,20 @@ export default function TripDetailScreen() {
       // user cancelled or error
     }
   }, [trip, lang]);
+
+  const handleAutoSeat = () => {
+    if (!trip) return;
+    const nbrPlaces = trip.vehicule?.nbrPlaces || trip.nbrPlaceReservable || 50;
+    const taken = (trip.placeReservees || []).filter(n => n > 0);
+    const available = Array.from({ length: nbrPlaces }, (_, i) => i + 1).filter(
+      s => !taken.includes(s),
+    );
+    if (available.length === 0) return;
+    const randomSeat = available[Math.floor(Math.random() * available.length)];
+    setSelectedSeats([randomSeat]);
+    setShowSeatChoice(false);
+    setShowPaymentModal(true);
+  };
 
   const images = trip ? [trip.smallImage, trip.bigImage].filter(Boolean) : [];
 
@@ -1068,12 +1094,72 @@ export default function TripDetailScreen() {
           </View>
           <TouchableOpacity
             style={[styles.bookBtn, { backgroundColor: colors.primary }]}
-            onPress={() => setShowSeatModal(true)}
+            onPress={() => setShowSeatChoice(true)}
           >
             <Text style={styles.bookBtnText}>{t.bookBtn}</Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Seat choice bottom sheet */}
+      <Modal
+        visible={showSeatChoice}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowSeatChoice(false)}
+      >
+        <TouchableOpacity
+          style={styles.choiceOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSeatChoice(false)}
+        >
+          <View style={[styles.choiceSheet, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+            <View style={[styles.choiceHandle, { backgroundColor: theme.border }]} />
+            <Text style={[styles.choiceTitle, { color: theme.textStrong }]}>
+              {t.seatChoiceTitle}
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.choiceOption, { borderColor: colors.primary, backgroundColor: `${colors.primary}08` }]}
+              onPress={() => {
+                setShowSeatChoice(false);
+                setShowSeatModal(true);
+              }}
+            >
+              <View style={[styles.choiceIconWrap, { backgroundColor: `${colors.primary}15` }]}>
+                <Ionicons name="grid-outline" size={22} color={colors.primary} />
+              </View>
+              <View style={styles.choiceTextWrap}>
+                <Text style={[styles.choiceOptionTitle, { color: theme.textStrong }]}>
+                  {t.seatChoiceManual}
+                </Text>
+                <Text style={[styles.choiceOptionDesc, { color: theme.text }]}>
+                  {t.seatChoiceManualDesc}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.text} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.choiceOption, { borderColor: colors.success, backgroundColor: `${colors.success}08` }]}
+              onPress={handleAutoSeat}
+            >
+              <View style={[styles.choiceIconWrap, { backgroundColor: `${colors.success}15` }]}>
+                <Ionicons name="shuffle-outline" size={22} color={colors.success} />
+              </View>
+              <View style={styles.choiceTextWrap}>
+                <Text style={[styles.choiceOptionTitle, { color: theme.textStrong }]}>
+                  {t.seatChoiceAuto}
+                </Text>
+                <Text style={[styles.choiceOptionDesc, { color: theme.text }]}>
+                  {t.seatChoiceAutoDesc}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Seat Selection Modal */}
       {trip && (
@@ -1437,6 +1523,58 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.md,
     color: '#fff',
     letterSpacing: 0.3,
+  },
+
+  // Seat choice bottom sheet
+  choiceOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  choiceSheet: {
+    borderTopWidth: 1,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+    paddingTop: spacing.md,
+    gap: spacing.md,
+  },
+  choiceHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: spacing.sm,
+  },
+  choiceTitle: {
+    ...typography.heading,
+    fontSize: typography.sizes.lg,
+  },
+  choiceOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderWidth: 1.5,
+    borderRadius: 8,
+    padding: spacing.md,
+  },
+  choiceIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  choiceTextWrap: { flex: 1 },
+  choiceOptionTitle: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+  },
+  choiceOptionDesc: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+    marginTop: 2,
   },
 
   // Success

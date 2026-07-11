@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -790,7 +790,7 @@ export default function Historique() {
               <TextInput
                 style={[styles.searchText, { color: theme.textStrong }]}
                 placeholder={t.searchPlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={search}
                 onChangeText={setSearch}
               />

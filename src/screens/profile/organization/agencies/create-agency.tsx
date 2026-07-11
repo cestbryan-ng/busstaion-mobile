@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -577,7 +577,7 @@ export default function OrgCreateAgency() {
           <TextInput
             style={[styles.searchText, { color: theme.textStrong }]}
             placeholder={t.searchStation}
-            placeholderTextColor={theme.text}
+            placeholderTextColor={theme.placeholder}
             value={search}
             onChangeText={setSearch}
           />
@@ -784,7 +784,7 @@ export default function OrgCreateAgency() {
           value={form.longName}
           onChangeText={v => updateAgency('longName', v)}
           placeholder="Agence Voyages Cameroun"
-          placeholderTextColor={theme.text}
+          placeholderTextColor={theme.placeholder}
         />
         {agencyErrors.longName && (
           <Text style={[styles.fieldError, { color: colors.error }]}>
@@ -809,7 +809,7 @@ export default function OrgCreateAgency() {
           value={form.shortName}
           onChangeText={v => updateAgency('shortName', v)}
           placeholder="AVC"
-          placeholderTextColor={theme.text}
+          placeholderTextColor={theme.placeholder}
         />
         {agencyErrors.shortName && (
           <Text style={[styles.fieldError, { color: colors.error }]}>
@@ -834,7 +834,7 @@ export default function OrgCreateAgency() {
           value={form.location}
           onChangeText={v => updateAgency('location', v)}
           placeholder="Yaoundé, Cameroun"
-          placeholderTextColor={theme.text}
+          placeholderTextColor={theme.placeholder}
         />
         {agencyErrors.location && (
           <Text style={[styles.fieldError, { color: colors.error }]}>
@@ -859,7 +859,7 @@ export default function OrgCreateAgency() {
             value={form.socialNetwork}
             onChangeText={v => updateAgency('socialNetwork', v)}
             placeholder="facebook.com/avcameroun"
-            placeholderTextColor={theme.text}
+            placeholderTextColor={theme.placeholder}
             autoCapitalize="none"
           />
         </View>
@@ -881,7 +881,7 @@ export default function OrgCreateAgency() {
           value={form.description}
           onChangeText={v => updateAgency('description', v.slice(0, 500))}
           placeholder="Agence spécialisée en transport interurbain..."
-          placeholderTextColor={theme.text}
+          placeholderTextColor={theme.placeholder}
           multiline
           maxLength={500}
         />
@@ -907,7 +907,7 @@ export default function OrgCreateAgency() {
           value={form.greetingMessage}
           onChangeText={v => updateAgency('greetingMessage', v.slice(0, 200))}
           placeholder="Bienvenue chez AVC !"
-          placeholderTextColor={theme.text}
+          placeholderTextColor={theme.placeholder}
           multiline
           maxLength={200}
         />
@@ -930,7 +930,7 @@ export default function OrgCreateAgency() {
             value={chefForm.first_name}
             onChangeText={v => updateChef('first_name', v)}
             placeholder={t.firstName}
-            placeholderTextColor={theme.text}
+            placeholderTextColor={theme.placeholder}
           />
         </View>
         <View style={styles.half}>
@@ -940,7 +940,7 @@ export default function OrgCreateAgency() {
             value={chefForm.last_name}
             onChangeText={v => updateChef('last_name', v)}
             placeholder={t.lastName}
-            placeholderTextColor={theme.text}
+            placeholderTextColor={theme.placeholder}
           />
         </View>
       </View>
@@ -954,7 +954,7 @@ export default function OrgCreateAgency() {
           value={chefForm.username}
           onChangeText={v => updateChef('username', v)}
           placeholder={t.username}
-          placeholderTextColor={theme.text}
+          placeholderTextColor={theme.placeholder}
           autoCapitalize="none"
         />
         {chefErrors.username && <Text style={[styles.fieldError, { color: colors.error }]}>{chefErrors.username}</Text>}
@@ -969,7 +969,7 @@ export default function OrgCreateAgency() {
           value={chefForm.email}
           onChangeText={v => updateChef('email', v)}
           placeholder={t.email}
-          placeholderTextColor={theme.text}
+          placeholderTextColor={theme.placeholder}
           keyboardType="email-address"
           autoCapitalize="none"
         />
@@ -986,7 +986,7 @@ export default function OrgCreateAgency() {
             value={chefForm.password}
             onChangeText={v => updateChef('password', v)}
             placeholder={t.password}
-            placeholderTextColor={theme.text}
+            placeholderTextColor={theme.placeholder}
             secureTextEntry={!showPassword}
             autoCapitalize="none"
           />
@@ -999,14 +999,18 @@ export default function OrgCreateAgency() {
 
       <View style={styles.field}>
         <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.phone}</Text>
-        <TextInput
-          style={[styles.simpleInput, { borderColor: theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong }]}
-          value={chefForm.phone_number}
-          onChangeText={v => updateChef('phone_number', v)}
-          placeholder="+237 6XX XXX XXX"
-          placeholderTextColor={theme.text}
-          keyboardType="phone-pad"
-        />
+        <View style={[styles.phoneRow, { borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}>
+          <Text style={styles.phoneFlag}>🇨🇲</Text>
+          <Text style={[styles.phoneCodeText, { color: theme.textStrong, borderRightColor: theme.border }]}>+237</Text>
+          <TextInput
+            style={[styles.phoneTextInput, { color: theme.textStrong }]}
+            value={chefForm.phone_number}
+            onChangeText={v => updateChef('phone_number', v)}
+            placeholder="6XX XXX XXX"
+            placeholderTextColor={theme.placeholder}
+            keyboardType="phone-pad"
+          />
+        </View>
       </View>
 
       <View style={styles.field}>
@@ -1035,7 +1039,7 @@ export default function OrgCreateAgency() {
             value={chefForm.poste}
             onChangeText={v => updateChef('poste', v)}
             placeholder="Chef d'agence"
-            placeholderTextColor={theme.text}
+            placeholderTextColor={theme.placeholder}
           />
         </View>
         <View style={styles.half}>
@@ -1045,7 +1049,7 @@ export default function OrgCreateAgency() {
             value={chefForm.departement}
             onChangeText={v => updateChef('departement', v)}
             placeholder="Administration"
-            placeholderTextColor={theme.text}
+            placeholderTextColor={theme.placeholder}
           />
         </View>
       </View>
@@ -1589,6 +1593,30 @@ const styles = StyleSheet.create({
     height: 48,
     ...typography.body,
     fontSize: typography.sizes.sm,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    height: 48,
+  },
+  phoneFlag: {
+    fontSize: 18,
+    marginRight: 4,
+  },
+  phoneCodeText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+    marginRight: spacing.sm,
+    paddingRight: spacing.sm,
+    borderRightWidth: 1,
+  },
+  phoneTextInput: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    flex: 1,
   },
   fieldInputWrapper: {
     flexDirection: 'row',

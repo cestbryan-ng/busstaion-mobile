@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -196,7 +196,7 @@ export default function OrgStations() {
           <TextInput
             style={[styles.searchText, { color: theme.textStrong }]}
             placeholder={t.search}
-            placeholderTextColor={theme.text}
+            placeholderTextColor={theme.placeholder}
             value={search}
             onChangeText={setSearch}
           />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -749,7 +749,7 @@ export default function Home({
               <TextInput
                 style={[styles.searchFieldText, { color: theme.textStrong }]}
                 placeholder={t.departurePlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={departure}
                 onChangeText={setDeparture}
               />
@@ -790,7 +790,7 @@ export default function Home({
               <TextInput
                 style={[styles.searchFieldText, { color: theme.textStrong }]}
                 placeholder={t.arrivalPlaceholder}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={arrival}
                 onChangeText={setArrival}
               />

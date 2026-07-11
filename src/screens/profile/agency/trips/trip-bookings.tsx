@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -156,10 +156,9 @@ export default function AgencyTripBookings() {
       if (!chefId) return;
 
       const headers = { Authorization: `Bearer ${token}` };
-      const agencyRes = await fetch(
-        `${API_URL}/agence/chef-agence/${chefId}`,
-        { headers },
-      );
+      const agencyRes = await fetch(`${API_URL}/agence/chef-agence/${chefId}`, {
+        headers,
+      });
       if (!agencyRes.ok) return;
       const agency = await agencyRes.json();
       const res = await fetch(
@@ -209,11 +208,16 @@ export default function AgencyTripBookings() {
     .reduce((sum, b) => sum + (b.reservation.prixTotal || 0), 0);
 
   const filtered = bookings.filter(b => {
-    if (statusFilter !== 'ALL' && b.reservation.statutReservation !== statusFilter)
+    if (
+      statusFilter !== 'ALL' &&
+      b.reservation.statutReservation !== statusFilter
+    )
       return false;
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.toLowerCase();
-      const route = `${b.voyage?.lieuDepart || ''} ${b.voyage?.lieuArrive || ''}`;
+      const route = `${b.voyage?.lieuDepart || ''} ${
+        b.voyage?.lieuArrive || ''
+      }`;
       const titre = b.voyage?.titre || '';
       const id = b.reservation.idReservation;
       return (
@@ -225,27 +229,53 @@ export default function AgencyTripBookings() {
     return true;
   });
 
-
   const handleExport = async () => {
     if (filtered.length === 0) {
-      toast.error(lang === 'fr' ? 'Aucune réservation à exporter' : 'No bookings to export');
+      toast.error(
+        lang === 'fr'
+          ? 'Aucune réservation à exporter'
+          : 'No bookings to export',
+      );
       return;
     }
     try {
-      const escape = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+      const escape = (v: string | number) =>
+        `"${String(v).replace(/"/g, '""')}"`;
       const statusLabel = (s: string) =>
-        STATUS_CONFIG[s] ? (lang === 'fr' ? STATUS_CONFIG[s].label : STATUS_CONFIG[s].labelEn) : s;
+        STATUS_CONFIG[s]
+          ? lang === 'fr'
+            ? STATUS_CONFIG[s].label
+            : STATUS_CONFIG[s].labelEn
+          : s;
 
-      const headers = lang === 'fr'
-        ? ['ID Réservation', 'Client', 'Sièges', 'Prix (FCFA)', 'Statut', 'Date réservation']
-        : ['Booking ID', 'Customer', 'Seats', 'Price (FCFA)', 'Status', 'Booking date'];
+      const headers =
+        lang === 'fr'
+          ? [
+              'ID Réservation',
+              'Client',
+              'Sièges',
+              'Prix (FCFA)',
+              'Statut',
+              'Date réservation',
+            ]
+          : [
+              'Booking ID',
+              'Customer',
+              'Seats',
+              'Price (FCFA)',
+              'Status',
+              'Booking date',
+            ];
 
       const rows = filtered.map(b => {
-        const route = b.voyage?.lieuDepart && b.voyage?.lieuArrive
-          ? `${b.voyage.lieuDepart} → ${b.voyage.lieuArrive}`
-          : b.voyage?.titre || '';
+        const route =
+          b.voyage?.lieuDepart && b.voyage?.lieuArrive
+            ? `${b.voyage.lieuDepart} → ${b.voyage.lieuArrive}`
+            : b.voyage?.titre || '';
         const date = b.reservation.dateReservation
-          ? new Date(b.reservation.dateReservation).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB')
+          ? new Date(b.reservation.dateReservation).toLocaleDateString(
+              lang === 'fr' ? 'fr-FR' : 'en-GB',
+            )
           : '';
         return [
           b.reservation.idReservation,
@@ -254,7 +284,9 @@ export default function AgencyTripBookings() {
           b.reservation.prixTotal || 0,
           statusLabel(b.reservation.statutReservation),
           date,
-        ].map(escape).join(',');
+        ]
+          .map(escape)
+          .join(',');
       });
 
       const csv = '﻿' + [headers.map(escape).join(','), ...rows].join('\n');
@@ -274,11 +306,21 @@ export default function AgencyTripBookings() {
   };
 
   const BookingRow = ({ item, index }: { item: Booking; index: number }) => {
-    const route = item.voyage?.lieuDepart && item.voyage?.lieuArrive
-      ? `${item.voyage.lieuDepart} → ${item.voyage.lieuArrive}`
-      : item.voyage?.titre || '—';
-    const statusCfg = STATUS_CONFIG[item.reservation.statutReservation] || STATUS_CONFIG.RESERVER;
-    const avatarColors = ['#4f46e5', '#0891b2', '#059669', '#d97706', '#dc2626', '#7c3aed'];
+    const route =
+      item.voyage?.lieuDepart && item.voyage?.lieuArrive
+        ? `${item.voyage.lieuDepart} → ${item.voyage.lieuArrive}`
+        : item.voyage?.titre || '—';
+    const statusCfg =
+      STATUS_CONFIG[item.reservation.statutReservation] ||
+      STATUS_CONFIG.RESERVER;
+    const avatarColors = [
+      '#4f46e5',
+      '#0891b2',
+      '#059669',
+      '#d97706',
+      '#dc2626',
+      '#7c3aed',
+    ];
     const avatarColor = avatarColors[index % avatarColors.length];
     const initials = `R${index + 1}`;
     const date = item.reservation.dateReservation
@@ -302,10 +344,15 @@ export default function AgencyTripBookings() {
 
         <View style={styles.bookingInfo}>
           <View style={styles.bookingTopRow}>
-            <Text style={[styles.customerName, { color: theme.textStrong }]} numberOfLines={1}>
+            <Text
+              style={[styles.customerName, { color: theme.textStrong }]}
+              numberOfLines={1}
+            >
               {route}
             </Text>
-            <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
+            <View
+              style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}
+            >
               <Text style={[styles.statusText, { color: statusCfg.color }]}>
                 {lang === 'fr' ? statusCfg.label : statusCfg.labelEn}
               </Text>
@@ -315,16 +362,18 @@ export default function AgencyTripBookings() {
             Réf: {item.reservation.idReservation.slice(0, 8)}…
           </Text>
           <Text style={[styles.dateText, { color: theme.text }]}>
-            {date}{time ? ` · ${time}` : ''}
+            {date}
+            {time ? ` · ${time}` : ''}
             {item.reservation.nbrPassager
-              ? ` · ${item.reservation.nbrPassager} place${item.reservation.nbrPassager > 1 ? 's' : ''}`
+              ? ` · ${item.reservation.nbrPassager} place${
+                  item.reservation.nbrPassager > 1 ? 's' : ''
+                }`
               : ''}
           </Text>
           <Text style={[styles.amountText, { color: theme.textStrong }]}>
             {item.reservation.prixTotal?.toLocaleString('fr-FR')} FCFA
           </Text>
         </View>
-
       </View>
     );
   };
@@ -395,7 +444,7 @@ export default function AgencyTripBookings() {
             <TextInput
               style={[styles.searchText, { color: theme.textStrong }]}
               placeholder={t.search}
-              placeholderTextColor={theme.text}
+              placeholderTextColor={theme.placeholder}
               value={search}
               onChangeText={setSearch}
             />
@@ -491,7 +540,13 @@ export default function AgencyTripBookings() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
         >
           {/* Bookings list */}
           <View
@@ -538,7 +593,6 @@ export default function AgencyTripBookings() {
           <View style={{ height: spacing.xl }} />
         </ScrollView>
       </View>
-
     </KeyboardAvoidingView>
   );
 }

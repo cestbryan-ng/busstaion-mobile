@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+﻿import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -93,7 +93,9 @@ export default function BsmAgencies() {
   const debouncedSearch = useDebounce(search);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Affiliation | null>(null);
-  const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIF' | 'SUSPENDU'>('ALL');
+  const [filterStatus, setFilterStatus] = useState<
+    'ALL' | 'ACTIF' | 'SUSPENDU'
+  >('ALL');
   const [showFilter, setShowFilter] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
 
@@ -164,13 +166,18 @@ export default function BsmAgencies() {
 
       const [agenciesRes, affiliationsRes] = await Promise.all([
         fetch(`${API_URL}/gare/${station.idGareRoutiere}/agences`, { headers }),
-        fetch(`${API_URL}/affiliation/gare/${station.idGareRoutiere}`, { headers }),
+        fetch(`${API_URL}/affiliation/gare/${station.idGareRoutiere}`, {
+          headers,
+        }),
       ]);
 
       if (agenciesRes.ok) {
         const data = await agenciesRes.json();
         setAgencies(Array.isArray(data) ? data : []);
-        await setCache(`bsm_agencies_${managerId}`, Array.isArray(data) ? data : []);
+        await setCache(
+          `bsm_agencies_${managerId}`,
+          Array.isArray(data) ? data : [],
+        );
         setIsOffline(false);
       } else {
         const cached = await getCache(`bsm_agencies_${managerId}`);
@@ -186,7 +193,9 @@ export default function BsmAgencies() {
         );
       }
     } catch {
-      const [userRaw] = await Promise.all([AsyncStorage.getItem('user')]).catch(() => [null]);
+      const [userRaw] = await Promise.all([AsyncStorage.getItem('user')]).catch(
+        () => [null],
+      );
       const user = userRaw ? JSON.parse(userRaw) : null;
       const managerId = user?.userId || user?.id;
       if (managerId) {
@@ -239,9 +248,7 @@ export default function BsmAgencies() {
         toast.success(t.agencyApproved);
         setPendingAffiliations(prev => prev.filter(a => a.id !== aff.id));
         setAgencies(prev =>
-          prev.map(a =>
-            a.id === aff.agencyId ? { ...a, isActive: true } : a,
-          ),
+          prev.map(a => (a.id === aff.agencyId ? { ...a, isActive: true } : a)),
         );
       } else {
         toast.error(t.error);
@@ -319,7 +326,10 @@ export default function BsmAgencies() {
       >
         <View style={styles.affiliationTop}>
           <View
-            style={[styles.agencyLogo, { backgroundColor: `${colors.primary}15` }]}
+            style={[
+              styles.agencyLogo,
+              { backgroundColor: `${colors.primary}15` },
+            ]}
           >
             {logo && logo.startsWith('http') ? (
               <Image
@@ -347,7 +357,12 @@ export default function BsmAgencies() {
               </Text>
             )}
           </View>
-          <View style={[styles.pendingBadge, { backgroundColor: `${colors.primary}15` }]}>
+          <View
+            style={[
+              styles.pendingBadge,
+              { backgroundColor: `${colors.primary}15` },
+            ]}
+          >
             <Text style={[styles.pendingBadgeText, { color: colors.primary }]}>
               {lang === 'fr' ? 'En attente' : 'Pending'}
             </Text>
@@ -512,7 +527,7 @@ export default function BsmAgencies() {
               <TextInput
                 style={[styles.searchText, { color: theme.textStrong }]}
                 placeholder={t.search}
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.placeholder}
                 value={search}
                 onChangeText={setSearch}
               />
@@ -521,8 +536,12 @@ export default function BsmAgencies() {
               style={[
                 styles.filterBtn,
                 {
-                  borderColor: filterStatus !== 'ALL' ? colors.primary : theme.border,
-                  backgroundColor: filterStatus !== 'ALL' ? `${colors.primary}10` : 'transparent',
+                  borderColor:
+                    filterStatus !== 'ALL' ? colors.primary : theme.border,
+                  backgroundColor:
+                    filterStatus !== 'ALL'
+                      ? `${colors.primary}10`
+                      : 'transparent',
                 },
               ]}
               onPress={() => setShowFilter(v => !v)}
@@ -530,7 +549,9 @@ export default function BsmAgencies() {
               <Ionicons
                 name="options-outline"
                 size={20}
-                color={filterStatus !== 'ALL' ? colors.primary : theme.textStrong}
+                color={
+                  filterStatus !== 'ALL' ? colors.primary : theme.textStrong
+                }
               />
             </TouchableOpacity>
           </View>
@@ -541,7 +562,9 @@ export default function BsmAgencies() {
               {(['ALL', 'ACTIF', 'SUSPENDU'] as const).map(status => {
                 const label =
                   status === 'ALL'
-                    ? lang === 'fr' ? 'Tous' : 'All'
+                    ? lang === 'fr'
+                      ? 'Tous'
+                      : 'All'
                     : status === 'ACTIF'
                     ? t.active
                     : t.suspended;
@@ -552,7 +575,9 @@ export default function BsmAgencies() {
                     style={[
                       styles.chip,
                       {
-                        backgroundColor: active ? colors.primary : theme.background,
+                        backgroundColor: active
+                          ? colors.primary
+                          : theme.background,
                         borderColor: active ? colors.primary : theme.border,
                       },
                     ]}
@@ -647,10 +672,15 @@ export default function BsmAgencies() {
                 <View
                   style={[
                     styles.pendingCount,
-                    { backgroundColor: `${colors.primary}15`, borderColor: colors.primary },
+                    {
+                      backgroundColor: `${colors.primary}15`,
+                      borderColor: colors.primary,
+                    },
                   ]}
                 >
-                  <Text style={[styles.pendingCountText, { color: colors.primary }]}>
+                  <Text
+                    style={[styles.pendingCountText, { color: colors.primary }]}
+                  >
                     {pendingAffiliations.length}
                   </Text>
                 </View>

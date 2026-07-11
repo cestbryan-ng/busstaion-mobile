@@ -17,6 +17,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { SkeletonClientDashboard } from '../../../../components/skeleton';
 import { EmptyState } from '../../../../components/empty-state';
@@ -121,6 +124,7 @@ function formatPrice(price: number): string {
 export default function Dashboard() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -130,6 +134,7 @@ export default function Dashboard() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const t = {
     fr: {
@@ -180,6 +185,8 @@ export default function Dashboard() {
       const userId = userData?.userId || userData?.id;
       if (!userId) return;
 
+      let anyFromCache = false;
+
       const [histRes, resListRes] = await Promise.all([
         fetch(`${API_URL}/historique/reservation/${userId}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -192,14 +199,35 @@ export default function Dashboard() {
       if (histRes.ok) {
         const histData: Historique[] = await histRes.json();
         setHistoriques(histData);
+        setCache(`client_dashboard_hist_${userId}`, histData);
+      } else {
+        const cached = await getCache<Historique[]>(`client_dashboard_hist_${userId}`);
+        if (cached) { setHistoriques(cached); anyFromCache = true; }
       }
 
       if (resListRes.ok) {
         const resData = await resListRes.json();
-        setReservations(resData.content || []);
+        const content = resData.content || [];
+        setReservations(content);
+        setCache(`client_dashboard_res_${userId}`, content);
+      } else {
+        const cached = await getCache<Reservation[]>(`client_dashboard_res_${userId}`);
+        if (cached) { setReservations(cached); anyFromCache = true; }
       }
+
+      setIsOffline(anyFromCache);
     } catch {
-      // silent
+      const userRaw2 = await AsyncStorage.getItem('user');
+      const uid = userRaw2 ? JSON.parse(userRaw2)?.userId || JSON.parse(userRaw2)?.id : null;
+      if (uid) {
+        const [ch, cr] = await Promise.all([
+          getCache<Historique[]>(`client_dashboard_hist_${uid}`),
+          getCache<Reservation[]>(`client_dashboard_res_${uid}`),
+        ]);
+        if (ch) setHistoriques(ch);
+        if (cr) setReservations(cr);
+        if (ch || cr) setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -383,12 +411,14 @@ export default function Dashboard() {
         <View style={{ width: 24 }} />
       </View>
 
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={isOnline ? onRefresh : undefined}
             tintColor={colors.primary}
           />
         }

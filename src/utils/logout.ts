@@ -8,5 +8,10 @@ export async function logout(navigation: any) {
   await AsyncStorage.removeItem('isAgencyConnected');
   await AsyncStorage.removeItem('isOrganizationConnected');
   await AsyncStorage.removeItem('isBsmAuthenticated');
+
+  const allKeys = await AsyncStorage.getAllKeys();
+  const cacheKeys = allKeys.filter(k => k.startsWith('cache_'));
+  await Promise.all(cacheKeys.map(k => AsyncStorage.removeItem(k)));
+
   navigation.replace('Login');
 }
