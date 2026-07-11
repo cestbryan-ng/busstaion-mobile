@@ -753,15 +753,11 @@ export default function PaymentModal({
             {paymentMethod !== 'CASH' && (
               <View style={styles.fieldGroup}>
                 <Text style={[styles.fieldLabel, { color: theme.text }]}>{t.phoneLabel}</Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="phone-portrait-outline"
-                    size={18}
-                    color={fieldErrors.phone ? colors.error : theme.text}
-                    style={styles.inputIcon}
-                  />
+                <View style={[styles.phoneRow, { backgroundColor: theme.backgroundAlt, borderColor: fieldErrors.phone ? colors.error : theme.border }]}>
+                  <Text style={styles.phoneFlag}>🇨🇲</Text>
+                  <Text style={[styles.phoneCode, { color: theme.textStrong, borderRightColor: theme.border }]}>+237</Text>
                   <TextInput
-                    style={inputStyle('phone')}
+                    style={[styles.phoneInput, { color: theme.textStrong }]}
                     value={phone}
                     onChangeText={v => { setPhone(formatPhone(v)); clearFieldError('phone'); }}
                     placeholder={t.phonePlaceholder}
@@ -950,6 +946,28 @@ const styles = StyleSheet.create({
   fieldLabel: { ...typography.body, fontSize: typography.sizes.sm },
   inputWrapper: { position: 'relative' },
   inputIcon: { position: 'absolute', left: spacing.sm, top: 13, zIndex: 1 },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.md,
+    height: 44,
+  },
+  phoneFlag: { fontSize: 18, marginRight: 4 },
+  phoneCode: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
+    paddingRight: spacing.sm,
+    marginRight: spacing.sm,
+    borderRightWidth: 1,
+  },
+  phoneInput: {
+    flex: 1,
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    height: 44,
+  },
   input: {
     height: 44,
     borderWidth: 1,

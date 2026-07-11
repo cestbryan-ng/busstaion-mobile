@@ -36,6 +36,7 @@ import AgencyCalendarDay from '../screens/profile/agency/calendar/calendar-day';
 import AgencyInfo from '../screens/profile/agency/profile/agency-info';
 import AgencyEditInfo from '../screens/profile/agency/profile/edit-agency-info';
 import AgencySubscription from '../screens/profile/agency/profile/subscription';
+import AgencyCodeSecret from '../screens/profile/agency/profile/secret-code';
 import OrgHome from '../screens/profile/organization/org-main';
 import OrgMyAgencies from '../screens/profile/organization/agencies/my-agencies';
 import OrgAgencyDetail from '../screens/profile/organization/agencies/agency-detail';
@@ -55,7 +56,10 @@ import OrgEditOrganization from '../screens/profile/organization/profile/edit-or
 import BsmRequest from '../screens/auth/bsm-request';
 import BsmRequestSuccess from '../screens/auth/bsm-request-success';
 import BsmRequestError from '../screens/auth/bsm-request-error';
-import EditCredentials from '../screens/profile/shared/edit-credentials';
+import ClientEditCredentials from '../screens/profile/client/profile/edit-credentials';
+import AgencyEditCredentials from '../screens/profile/agency/profile/edit-credentials';
+import OrgEditCredentials from '../screens/profile/organization/profile/edit-credentials';
+import BsmEditCredentials from '../screens/profile/bsm/profile/edit-credentials';
 import BsmMain from '../screens/profile/bsm/bsm-main';
 import StationDetailBsm from '../screens/profile/bsm/stations/station-detail';
 import AgencyDetailBsm from '../screens/profile/bsm/agencies/agency-detail';
@@ -100,6 +104,7 @@ export type RootStackParamList = {
   AgencyInfo: undefined;
   AgencyEditInfo: undefined;
   AgencySubscription: undefined;
+  AgencyCodeSecret: undefined;
   OrgMain: undefined;
   OrgMyAgencies: undefined;
   OrgAgencyDetail: { agencyId: string };
@@ -116,7 +121,10 @@ export type RootStackParamList = {
   OrgEmployees: { agencyId: string; agencyName?: string };
   OrgMyOrganization: undefined;
   OrgEditOrganization: undefined;
-  EditCredentials: undefined;
+  ClientEditCredentials: undefined;
+  AgencyEditCredentials: undefined;
+  OrgEditCredentials: undefined;
+  BsmEditCredentials: undefined;
   BsmMain: undefined;
   StationDetailBsm: undefined;
   AgencyDetailBsm: { agencyId: string };
@@ -189,6 +197,7 @@ export default function Navigation() {
             name="AgencySubscription"
             component={AgencySubscription}
           />
+          <Stack.Screen name="AgencyCodeSecret" component={AgencyCodeSecret} />
           <Stack.Screen name="OrgMain" component={OrgHome} />
           <Stack.Screen name="OrgMyAgencies" component={OrgMyAgencies} />
           <Stack.Screen name="OrgAgencyDetail" component={OrgAgencyDetail} />
@@ -220,7 +229,10 @@ export default function Navigation() {
             name="OrgEditOrganization"
             component={OrgEditOrganization}
           />
-          <Stack.Screen name="EditCredentials" component={EditCredentials} />
+          <Stack.Screen name="ClientEditCredentials" component={ClientEditCredentials} />
+          <Stack.Screen name="AgencyEditCredentials" component={AgencyEditCredentials} />
+          <Stack.Screen name="OrgEditCredentials" component={OrgEditCredentials} />
+          <Stack.Screen name="BsmEditCredentials" component={BsmEditCredentials} />
           <Stack.Screen name="BsmMain" component={BsmMain} />
           <Stack.Screen name="StationDetailBsm" component={StationDetailBsm} />
           <Stack.Screen name="AgencyDetailBsm" component={AgencyDetailBsm} />

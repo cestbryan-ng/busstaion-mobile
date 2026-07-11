@@ -193,7 +193,7 @@ export default function ProfileSettings() {
             icon="key-outline"
             label={t.credentials}
             desc={t.credentialsDesc}
-            onPress={() => navigation.navigate('EditCredentials')}
+            onPress={() => navigation.navigate('ClientEditCredentials')}
           />
         </Section>
 

@@ -47,6 +47,7 @@ type Station = {
   nomPresident?: string;
   services?: string[];
   nbreAgence: number | null;
+  public?: boolean;
 };
 
 export default function BsmProfil({
@@ -75,6 +76,8 @@ export default function BsmProfil({
 
   const [taxesCollected, setTaxesCollected] = useState(0);
   const [agenciesCount, setAgenciesCount] = useState(0);
+  const [isPublic, setIsPublic] = useState<boolean | null>(null);
+  const [visibilityLoading, setVisibilityLoading] = useState(false);
 
   const t = {
     fr: {
@@ -102,6 +105,9 @@ export default function BsmProfil({
       actions: 'Actions',
       credentials: 'Mes identifiants',
       credentialsDesc: 'Email, nom, mot de passe',
+      stationVisibility: 'Type de gare',
+      stationPublic: 'Publique',
+      stationPrivate: 'Privée',
       changeLanguage: 'Changer de langue',
       pinCode: 'Code PIN',
       pinDesc: 'Modifier votre code PIN',
@@ -139,6 +145,9 @@ export default function BsmProfil({
       actions: 'Actions',
       credentials: 'My credentials',
       credentialsDesc: 'Email, name, password',
+      stationVisibility: 'Station type',
+      stationPublic: 'Public',
+      stationPrivate: 'Private',
       changeLanguage: 'Change language',
       pinCode: 'PIN code',
       pinDesc: 'Change your PIN code',
@@ -212,6 +221,7 @@ export default function BsmProfil({
             const stationData = await stationRes.json();
             setStation(stationData);
             gareId = stationData.idGareRoutiere ?? '';
+            if (stationData.public !== undefined) setIsPublic(stationData.public);
             await setCache(`bsm_station_${managerId}`, stationData);
             setIsOffline(false);
           } else {
@@ -219,6 +229,7 @@ export default function BsmProfil({
             if (cached) {
               setStation(cached);
               gareId = cached.idGareRoutiere ?? '';
+              if (cached.public !== undefined) setIsPublic(cached.public);
               setIsOffline(true);
             }
           }
@@ -323,6 +334,29 @@ export default function BsmProfil({
     const newLang = lang === 'fr' ? 'en' : 'fr';
     await AsyncStorage.setItem('app_lang', newLang);
     setLang(newLang);
+  };
+
+  const toggleVisibility = async () => {
+    if (!station?.idGareRoutiere || visibilityLoading) return;
+    const newValue = !isPublic;
+    setVisibilityLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const { API_URL: url } = require('../../../../utils/config');
+      const res = await fetch(`${url}/gare/${station.idGareRoutiere}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isPublic: newValue }),
+      });
+      if (res.ok) setIsPublic(newValue);
+    } catch {
+      // silent — état inchangé
+    } finally {
+      setVisibilityLoading(false);
+    }
   };
 
   const MenuItem = ({
@@ -663,8 +697,9 @@ export default function BsmProfil({
             { label: t.address, value: station?.adresse || '—' },
             { label: t.schedule, value: station?.horaires || '—' },
             { label: t.accountStatus, value: t.active, isStatus: true },
+            ...(isPublic !== null ? [{ label: t.stationVisibility, value: isPublic ? (lang === 'fr' ? 'Publique' : 'Public') : (lang === 'fr' ? 'Privée' : 'Private'), isPublicStatus: isPublic }] : []),
             { label: t.permissions, value: t.fullAccess },
-          ].map((row, i) => (
+          ].map((row: any, i) => (
             <View
               key={row.label}
               style={[
@@ -687,6 +722,19 @@ export default function BsmProfil({
                 >
                   <Text
                     style={[styles.statusBadgeText, { color: colors.success }]}
+                  >
+                    {row.value}
+                  </Text>
+                </View>
+              ) : row.isPublicStatus !== undefined ? (
+                <View
+                  style={[
+                    styles.statusBadge,
+                    { backgroundColor: row.isPublicStatus ? `${colors.primary}15` : `${colors.error}12` },
+                  ]}
+                >
+                  <Text
+                    style={[styles.statusBadgeText, { color: row.isPublicStatus ? colors.primary : colors.error }]}
                   >
                     {row.value}
                   </Text>
@@ -725,8 +773,64 @@ export default function BsmProfil({
             iconBg={`${colors.primary}10`}
             label={t.credentials}
             desc={t.credentialsDesc}
-            onPress={() => navigation.navigate('EditCredentials')}
+            onPress={() => navigation.navigate('BsmEditCredentials')}
           />
+          {isPublic !== null && (
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomColor: theme.border }]}
+              onPress={toggleVisibility}
+              activeOpacity={0.7}
+              disabled={visibilityLoading}
+            >
+              <View
+                style={[
+                  styles.menuIcon,
+                  { backgroundColor: isPublic ? `${colors.primary}10` : `${colors.error}10` },
+                ]}
+              >
+                {visibilityLoading ? (
+                  <ActivityIndicator size="small" color={isPublic ? colors.primary : colors.error} />
+                ) : (
+                  <Ionicons
+                    name={isPublic ? 'globe-outline' : 'lock-closed-outline'}
+                    size={20}
+                    color={isPublic ? colors.primary : colors.error}
+                  />
+                )}
+              </View>
+              <View style={styles.menuText}>
+                <Text style={[styles.menuLabel, { color: theme.textStrong }]}>
+                  {t.stationVisibility}
+                </Text>
+                <Text style={[styles.menuDesc, { color: theme.text }]}>
+                  {isPublic ? t.stationPublic : t.stationPrivate}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.visiBadge,
+                  { backgroundColor: isPublic ? `${colors.primary}15` : `${colors.error}12` },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.visiDot,
+                    { backgroundColor: isPublic ? colors.primary : colors.error },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.visiText,
+                    { color: isPublic ? colors.primary : colors.error },
+                  ]}
+                >
+                  {isPublic
+                    ? lang === 'fr' ? 'Public' : 'Public'
+                    : lang === 'fr' ? 'Privé' : 'Private'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
           <MenuItem
             icon="language-outline"
             iconColor={colors.primary}
@@ -744,8 +848,8 @@ export default function BsmProfil({
           />
           <MenuItem
             icon="keypad-outline"
-            iconColor={colors.success}
-            iconBg={`${colors.success}15`}
+            iconColor={colors.primary}
+            iconBg={`${colors.primary}10`}
             label={t.pinCode}
             desc={
               pinEnabled
@@ -1033,6 +1137,16 @@ const styles = StyleSheet.create({
   pinDot: { width: 6, height: 6, borderRadius: 3 },
   pinStatusText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
 
+  visiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  visiDot: { width: 6, height: 6, borderRadius: 3 },
+  visiText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
   logoutContainer: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,

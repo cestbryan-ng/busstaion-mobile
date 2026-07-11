@@ -138,7 +138,6 @@ export default function StationDetailBsm() {
       const detailRes = await fetch(`${API_URL}/gare/${stationId}`, { headers });
       if (detailRes.ok) {
         const detail: Station = await detailRes.json();
-        console.log('Station detail:', detail);
         await setCache(`bsm_station_detail_${stationId}`, detail);
         setStation(detail);
         setIsOffline(false);

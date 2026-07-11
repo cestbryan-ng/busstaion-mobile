@@ -31,6 +31,7 @@ type BsmForm = {
   nomGare: string;
   ville: string;
   adresse: string;
+  isPublic: boolean;
 };
 
 const EMPTY_FORM: BsmForm = {
@@ -41,6 +42,7 @@ const EMPTY_FORM: BsmForm = {
   nomGare: '',
   ville: '',
   adresse: '',
+  isPublic: true,
 };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -205,6 +207,10 @@ export default function BsmRequest() {
       errorNomGare: 'Le nom de la gare est requis.',
       errorVille: 'La ville est requise.',
       errorAdresse: "L'adresse est requise.",
+      isPublicLabel: 'Type de gare',
+      isPublicDesc: 'Une gare publique appartient à l\'État. Une gare privée appartient à un propriétaire particulier.',
+      isPublicOn: 'Publique',
+      isPublicOff: 'Privée',
       errorNetwork: 'Erreur réseau, veuillez réessayer.',
       errorServer: 'Une erreur est survenue, veuillez réessayer.',
     },
@@ -236,6 +242,10 @@ export default function BsmRequest() {
       errorNomGare: 'Station name is required.',
       errorVille: 'City is required.',
       errorAdresse: 'Address is required.',
+      isPublicLabel: 'Station type',
+      isPublicDesc: 'A public station is state-owned. A private station is owned by an individual.',
+      isPublicOn: 'Public',
+      isPublicOff: 'Private',
       errorNetwork: 'Network error, please try again.',
       errorServer: 'An error occurred, please try again.',
     },
@@ -281,6 +291,7 @@ export default function BsmRequest() {
           nomGare: form.nomGare.trim(),
           ville: form.ville.trim(),
           adresse: form.adresse.trim(),
+          isPublic: form.isPublic,
         }),
       });
 
@@ -419,6 +430,57 @@ export default function BsmRequest() {
           autoCapitalize="sentences"
           theme={theme}
         />
+
+        {/* isPublic toggle */}
+        <View style={styles.fieldWrap}>
+          <Text style={[styles.label, { color: theme.textStrong }]}>
+            {t.isPublicLabel}
+          </Text>
+          <Text style={[styles.toggleDesc, { color: theme.text }]}>
+            {t.isPublicDesc}
+          </Text>
+          <View style={[styles.toggleRow, { borderColor: theme.border, backgroundColor: theme.background }]}>
+            <TouchableOpacity
+              style={[
+                styles.toggleOption,
+                form.isPublic && { backgroundColor: `${colors.primary}15` },
+                { borderRightColor: theme.border },
+              ]}
+              onPress={() => setForm(f => ({ ...f, isPublic: true }))}
+            >
+              <Ionicons
+                name="globe-outline"
+                size={16}
+                color={form.isPublic ? colors.primary : theme.text}
+              />
+              <Text style={[styles.toggleOptionText, { color: form.isPublic ? colors.primary : theme.text }]}>
+                {t.isPublicOn}
+              </Text>
+              {form.isPublic && (
+                <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.toggleOption,
+                !form.isPublic && { backgroundColor: `${colors.error}10` },
+              ]}
+              onPress={() => setForm(f => ({ ...f, isPublic: false }))}
+            >
+              <Ionicons
+                name="lock-closed-outline"
+                size={16}
+                color={!form.isPublic ? colors.error : theme.text}
+              />
+              <Text style={[styles.toggleOptionText, { color: !form.isPublic ? colors.error : theme.text }]}>
+                {t.isPublicOff}
+              </Text>
+              {!form.isPublic && (
+                <Ionicons name="checkmark-circle" size={16} color={colors.error} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
 
       <View style={[styles.footer, { borderTopColor: theme.border }]}>
@@ -562,6 +624,31 @@ const styles = StyleSheet.create({
   cityModalTitle: {
     ...typography.heading,
     fontSize: typography.sizes.lg,
+  },
+  toggleDesc: {
+    ...typography.body,
+    fontSize: typography.sizes.xs,
+    marginBottom: spacing.sm,
+    lineHeight: 18,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  toggleOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm + 2,
+    borderRightWidth: 1,
+  },
+  toggleOptionText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.sm,
   },
   cityItem: {
     flexDirection: 'row',

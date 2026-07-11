@@ -64,7 +64,7 @@ type Reservation = {
 };
 
 type TabType = 'avenir' | 'terminees';
-type FilterType = 'TOUS' | 'PAID' | 'NO_PAYMENT' | 'CONFIRMEE' | 'EN_ATTENTE' | 'ANNULEE';
+type FilterType = 'TOUS' | 'PAID' | 'NO_PAYMENT' | 'CONFIRMER' | 'EN_ATTENTE' | 'ANNULEE';
 
 const STATUS_RESERVATION: Record<
   string,
@@ -76,7 +76,7 @@ const STATUS_RESERVATION: Record<
     color: '#d97706',
     bg: '#fef3c720',
   },
-  CONFIRMEE: {
+  CONFIRMER: {
     label: 'Confirmée',
     labelEn: 'Confirmed',
     color: colors.primary,
@@ -93,6 +93,12 @@ const STATUS_RESERVATION: Record<
     labelEn: 'Cancelled',
     color: '#6b7280',
     bg: '#6b728015',
+  },
+  VALIDER: {
+    label: 'Validée',
+    labelEn: 'Validated',
+    color: colors.success,
+    bg: `${colors.success}15`,
   },
 };
 
@@ -196,7 +202,7 @@ export default function Bookings() {
     { key: 'TOUS', label: t.all },
     { key: 'PAID', label: t.paid },
     { key: 'NO_PAYMENT', label: t.noPayment },
-    { key: 'CONFIRMEE', label: t.confirmed },
+    { key: 'CONFIRMER', label: t.confirmed },
     { key: 'EN_ATTENTE', label: t.pending },
     { key: 'ANNULEE', label: t.cancelled },
   ];
@@ -273,16 +279,17 @@ export default function Bookings() {
 
   const filtered = reservations.filter(r => {
     const upcoming = isUpcoming(r.voyage.dateDepartPrev);
-    if (tab === 'avenir' && !upcoming) return false;
-    if (tab === 'terminees' && upcoming) return false;
+    const isValider = r.reservation.statutReservation === 'VALIDER';
+    if (tab === 'avenir' && (!upcoming || isValider)) return false;
+    if (tab === 'terminees' && upcoming && !isValider) return false;
 
     if (filter === 'PAID' && r.reservation.statutPayement !== 'PAID')
       return false;
     if (filter === 'NO_PAYMENT' && r.reservation.statutPayement !== 'NO_PAYMENT')
       return false;
     if (
-      filter === 'CONFIRMEE' &&
-      r.reservation.statutReservation !== 'CONFIRMEE'
+      filter === 'CONFIRMER' &&
+      r.reservation.statutReservation !== 'CONFIRMER'
     )
       return false;
     if (

@@ -1141,11 +1141,11 @@ export default function TripDetailScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.choiceOption, { borderColor: colors.success, backgroundColor: `${colors.success}08` }]}
+              style={[styles.choiceOption, { borderColor: colors.primary, backgroundColor: `${colors.primary}08` }]}
               onPress={handleAutoSeat}
             >
-              <View style={[styles.choiceIconWrap, { backgroundColor: `${colors.success}15` }]}>
-                <Ionicons name="shuffle-outline" size={22} color={colors.success} />
+              <View style={[styles.choiceIconWrap, { backgroundColor: `${colors.primary}15` }]}>
+                <Ionicons name="shuffle-outline" size={22} color={colors.primary} />
               </View>
               <View style={styles.choiceTextWrap}>
                 <Text style={[styles.choiceOptionTitle, { color: theme.textStrong }]}>

@@ -388,7 +388,10 @@ export default function OrgCreateAgency() {
   };
 
   const handleStep1Next = () => {
-    if (selectedStation) setStep(2);
+    if (selectedStation) {
+      setForm(prev => ({ ...prev, location: prev.location || selectedStation.ville }));
+      setStep(2);
+    }
   };
   const handleStep2Next = () => {
     if (validateStep2()) setStep(3);
@@ -822,20 +825,20 @@ export default function OrgCreateAgency() {
         <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
           {t.location} <Text style={{ color: colors.error }}>*</Text>
         </Text>
-        <TextInput
+        <View
           style={[
             styles.simpleInput,
             {
               borderColor: agencyErrors.location ? colors.error : theme.border,
-              backgroundColor: theme.backgroundAlt,
-              color: theme.textStrong,
+              backgroundColor: theme.border + '30',
+              justifyContent: 'center',
             },
           ]}
-          value={form.location}
-          onChangeText={v => updateAgency('location', v)}
-          placeholder="Yaoundé, Cameroun"
-          placeholderTextColor={theme.placeholder}
-        />
+        >
+          <Text style={[{ ...typography.body, fontSize: typography.sizes.sm, color: theme.textStrong }]}>
+            {form.location}
+          </Text>
+        </View>
         {agencyErrors.location && (
           <Text style={[styles.fieldError, { color: colors.error }]}>
             {agencyErrors.location}
@@ -1034,23 +1037,15 @@ export default function OrgCreateAgency() {
       <View style={styles.row}>
         <View style={styles.half}>
           <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.poste}</Text>
-          <TextInput
-            style={[styles.simpleInput, { borderColor: theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong }]}
-            value={chefForm.poste}
-            onChangeText={v => updateChef('poste', v)}
-            placeholder="Chef d'agence"
-            placeholderTextColor={theme.placeholder}
-          />
+          <View style={[styles.simpleInput, { borderColor: theme.border, backgroundColor: theme.border + '30', justifyContent: 'center' }]}>
+            <Text style={{ ...typography.body, fontSize: typography.sizes.sm, color: theme.textStrong }}>{chefForm.poste}</Text>
+          </View>
         </View>
         <View style={styles.half}>
           <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{t.departement}</Text>
-          <TextInput
-            style={[styles.simpleInput, { borderColor: theme.border, backgroundColor: theme.backgroundAlt, color: theme.textStrong }]}
-            value={chefForm.departement}
-            onChangeText={v => updateChef('departement', v)}
-            placeholder="Administration"
-            placeholderTextColor={theme.placeholder}
-          />
+          <View style={[styles.simpleInput, { borderColor: theme.border, backgroundColor: theme.border + '30', justifyContent: 'center' }]}>
+            <Text style={{ ...typography.body, fontSize: typography.sizes.sm, color: theme.textStrong }}>{chefForm.departement}</Text>
+          </View>
         </View>
       </View>
     </View>

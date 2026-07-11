@@ -285,7 +285,7 @@ export default function OrgProfil({
             icon="key-outline"
             label={t.credentials}
             desc={t.credentialsDesc}
-            onPress={() => navigation.navigate('EditCredentials')}
+            onPress={() => navigation.navigate('OrgEditCredentials')}
           />
           <MenuItem
             icon="person-outline"

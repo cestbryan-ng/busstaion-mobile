@@ -64,6 +64,8 @@ export default function AgencyProfil({
       myAccount: 'Mon compte',
       credentials: 'Mes identifiants',
       credentialsDesc: 'Email, nom, mot de passe',
+      codeSecret: 'Code de validation billets',
+      codeSecretDesc: 'Configurer le code de scan des billets',
       agencyInfo: 'Informations agence',
       agencyInfoDesc: 'Voir et modifier les informations',
       subscription: 'Abonnement',
@@ -90,6 +92,8 @@ export default function AgencyProfil({
       myAccount: 'My account',
       credentials: 'My credentials',
       credentialsDesc: 'Email, name, password',
+      codeSecret: 'Ticket validation code',
+      codeSecretDesc: 'Configure the ticket scan code',
       agencyInfo: 'Agency information',
       agencyInfoDesc: 'View and edit information',
       subscription: 'Subscription',
@@ -333,7 +337,13 @@ export default function AgencyProfil({
             icon="key-outline"
             label={t.credentials}
             desc={t.credentialsDesc}
-            onPress={() => navigation.navigate('EditCredentials')}
+            onPress={() => navigation.navigate('AgencyEditCredentials')}
+          />
+          <MenuItem
+            icon="qr-code-outline"
+            label={t.codeSecret}
+            desc={t.codeSecretDesc}
+            onPress={() => navigation.navigate('AgencyCodeSecret')}
           />
           <MenuItem
             icon="business-outline"

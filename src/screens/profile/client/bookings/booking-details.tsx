@@ -52,6 +52,7 @@ type ReservationDetail = {
     prixTotal: number;
     montantPaye: number;
     transactionCode: string | null;
+    qrToken?: string | null;
   };
   voyage: {
     idVoyage: string;
@@ -87,7 +88,7 @@ const STATUS_RESERVATION: Record<
     color: '#d97706',
     bg: '#fef3c720',
   },
-  CONFIRMEE: {
+  CONFIRMER: {
     label: 'CONFIRMÉE',
     labelEn: 'CONFIRMED',
     color: colors.primary,
@@ -104,6 +105,12 @@ const STATUS_RESERVATION: Record<
     labelEn: 'CANCELLED',
     color: '#6b7280',
     bg: '#6b728015',
+  },
+  VALIDER: {
+    label: 'VALIDÉE',
+    labelEn: 'VALIDATED',
+    color: colors.success,
+    bg: `${colors.success}15`,
   },
 };
 
@@ -377,6 +384,9 @@ export default function BookingDetails() {
       passengersCount: 'Nombre de passagers',
       totalPaid: 'Total payé',
       totalToPay: 'Total à payer',
+      boardingPass: "Carte d'embarquement",
+      boardingDesc: 'Présentez ce QR code à l\'hôtesse lors de l\'embarquement',
+      validated: 'Réservation validée',
       downloadTicket: 'Exporter en PDF',
       exportingPdf: 'Préparation...',
       seat: 'Siège',
@@ -405,6 +415,9 @@ export default function BookingDetails() {
       passengersCount: 'Number of passengers',
       totalPaid: 'Total paid',
       totalToPay: 'Total to pay',
+      boardingPass: 'Boarding pass',
+      boardingDesc: 'Show this QR code to the agent at boarding',
+      validated: 'Reservation validated',
       downloadTicket: 'Export as PDF',
       exportingPdf: 'Preparing...',
       seat: 'Seat',
@@ -574,7 +587,12 @@ export default function BookingDetails() {
     STATUS_RESERVATION[reservation.reservation.statutReservation] ||
     STATUS_RESERVATION.RESERVER;
   const isCancelled = reservation.reservation.statutReservation === 'ANNULEE';
+  const isConfirmed = reservation.reservation.statutReservation === 'CONFIRMER';
+  const isValidated = reservation.reservation.statutReservation === 'VALIDER';
   const isPaid = reservation.reservation.statutPayement === 'PAID';
+  const qrValue = reservation.reservation.qrToken
+    ? `${API_URL}/reservation/scan?token=${reservation.reservation.qrToken}`
+    : null;
   const passagers = reservation.passagers || [];
 
   return (
@@ -676,16 +694,46 @@ export default function BookingDetails() {
                 </Text>
               </View>
             </View>
-            <View style={[styles.qrContainer, { borderColor: theme.border }]}>
-              <QRCode
-                value={reservation.reservation.idReservation}
-                size={90}
-                color={theme.textStrong}
-                backgroundColor="transparent"
-              />
-            </View>
+            {isValidated && (
+              <View style={[styles.validatedBadge, { backgroundColor: `${colors.success}15`, borderColor: `${colors.success}30` }]}>
+                <Ionicons name="checkmark-circle" size={28} color={colors.success} />
+                <Text style={[styles.validatedText, { color: colors.success }]}>
+                  {t.validated}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
+
+        {/* ── Boarding pass ── */}
+        {isConfirmed && qrValue && (
+          <View
+            style={[
+              styles.boardingCard,
+              { backgroundColor: theme.background, borderColor: `${colors.primary}40` },
+            ]}
+          >
+            <View style={styles.boardingHeader}>
+              <Ionicons name="qr-code-outline" size={18} color={colors.primary} />
+              <Text style={[styles.boardingTitle, { color: colors.primary }]}>
+                {t.boardingPass}
+              </Text>
+            </View>
+            <View style={styles.boardingBody}>
+              <View style={[styles.boardingQr, { borderColor: theme.border }]}>
+                <QRCode
+                  value={qrValue!}
+                  size={150}
+                  color={theme.textStrong}
+                  backgroundColor="transparent"
+                />
+              </View>
+              <Text style={[styles.boardingDesc, { color: theme.text }]}>
+                {t.boardingDesc}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* ── Trip Info ── */}
         <View
@@ -1192,6 +1240,52 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     borderWidth: 1,
     borderRadius: 4,
+  },
+  validatedBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 4,
+    gap: 4,
+  },
+  validatedText: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.xs,
+  },
+  boardingCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1.5,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  boardingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  boardingTitle: {
+    ...typography.bodyBold,
+    fontSize: typography.sizes.md,
+  },
+  boardingBody: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
+  },
+  boardingQr: {
+    padding: spacing.md,
+    borderWidth: 1,
+    borderRadius: 4,
+  },
+  boardingDesc: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    textAlign: 'center',
   },
 
   // Route

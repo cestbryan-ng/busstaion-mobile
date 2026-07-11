@@ -15,12 +15,12 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors } from '../../../theme/colors';
-import { typography } from '../../../theme/typography';
-import { spacing } from '../../../theme/spacing';
-import { API_URL } from '../../../utils/config';
-import { logout } from '../../../utils/logout';
-import type { RootStackParamList } from '../../../navigation';
+import { colors } from '../../../../theme/colors';
+import { typography } from '../../../../theme/typography';
+import { spacing } from '../../../../theme/spacing';
+import { API_URL } from '../../../../utils/config';
+import { logout } from '../../../../utils/logout';
+import type { RootStackParamList } from '../../../../navigation';
 
 type InfoForm = {
   first_name: string;
@@ -123,7 +123,7 @@ function Field({
   );
 }
 
-export default function EditCredentials() {
+export default function OrgEditCredentials() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
   const navigation =
@@ -289,7 +289,6 @@ export default function EditCredentials() {
         await AsyncStorage.setItem('user', JSON.stringify(updated));
 
         if (usernameChanged) {
-          // Username is a JWT claim — token is now stale, must re-login
           setLogoutPending(true);
           setInfoStatus('success');
           setTimeout(() => logout(navigation), 2500);
@@ -357,7 +356,6 @@ export default function EditCredentials() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
-        {/* Header */}
         <View
           style={[
             styles.header,
@@ -381,7 +379,6 @@ export default function EditCredentials() {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Informations personnelles */}
           <View
             style={[
               styles.card,
@@ -461,7 +458,6 @@ export default function EditCredentials() {
               }
             />
 
-            {/* Gender picker */}
             <View style={styles.fieldWrap}>
               <Text style={[fStyles.label, { color: theme.textStrong }]}>
                 {t.gender}
@@ -591,7 +587,6 @@ export default function EditCredentials() {
             </TouchableOpacity>
           </View>
 
-          {/* Changer le mot de passe */}
           <View
             style={[
               styles.card,

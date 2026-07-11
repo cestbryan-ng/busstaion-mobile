@@ -41,6 +41,7 @@ type Vehicle = {
 };
 type Driver = { userId: string; first_name?: string; last_name?: string };
 type TClass = { id: string; nom: string };
+type Destination = { lieuArrive: string; pointArriveeId: string; pointArriveeNom: string };
 
 type FormData = {
   titre: string;
@@ -84,6 +85,7 @@ function Field({
   placeholder,
   keyboardType,
   multiline,
+  readOnly,
   error,
   theme,
 }: {
@@ -93,6 +95,7 @@ function Field({
   placeholder?: string;
   keyboardType?: any;
   multiline?: boolean;
+  readOnly?: boolean;
   error?: string;
   theme: any;
 }) {
@@ -101,27 +104,43 @@ function Field({
       <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
         {label}
       </Text>
-      <TextInput
-        style={[
-          styles.fieldInput,
-          {
-            borderColor: error ? colors.error : theme.border,
-            backgroundColor: theme.backgroundAlt,
-            color: theme.textStrong,
-          },
-          multiline && {
-            height: 80,
-            textAlignVertical: 'top',
-            paddingTop: spacing.sm,
-          },
-        ]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={theme.placeholder}
-        keyboardType={keyboardType}
-        multiline={multiline}
-      />
+      {readOnly ? (
+        <View
+          style={[
+            styles.fieldInput,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.border + '30',
+              height: 'auto',
+              minHeight: 48,
+              paddingVertical: spacing.sm,
+              justifyContent: 'center',
+            },
+          ]}
+        >
+          <Text style={{ ...typography.body, fontSize: typography.sizes.sm, color: theme.textStrong }}>
+            {value || placeholder}
+          </Text>
+        </View>
+      ) : (
+        <TextInput
+          style={[
+            styles.fieldInput,
+            {
+              borderColor: error ? colors.error : theme.border,
+              backgroundColor: theme.backgroundAlt,
+              color: theme.textStrong,
+            },
+            multiline && { height: 80, textAlignVertical: 'top', paddingTop: spacing.sm },
+          ]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={theme.placeholder}
+          keyboardType={keyboardType}
+          multiline={multiline}
+        />
+      )}
       {error && (
         <Text style={[styles.fieldError, { color: colors.error }]}>
           {error}
@@ -137,12 +156,14 @@ function CityPicker({
   label,
   value,
   onSelect,
+  readOnly,
   error,
   theme,
 }: {
   label: string;
   value: string;
   onSelect: (v: string) => void;
+  readOnly?: boolean;
   error?: string;
   theme: any;
 }) {
@@ -152,28 +173,49 @@ function CityPicker({
       <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
         {label}
       </Text>
-      <TouchableOpacity
-        style={[
-          styles.pickerBtn,
-          {
-            borderColor: error ? colors.error : theme.border,
-            backgroundColor: theme.backgroundAlt,
-          },
-        ]}
-        onPress={() => setOpen(true)}
-      >
-        <Ionicons name="location-outline" size={18} color={theme.text} />
-        <Text
+      {readOnly ? (
+        <View
           style={[
-            styles.pickerBtnText,
-            { color: value ? theme.textStrong : theme.text },
+            styles.pickerBtn,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.border + '30',
+              height: 'auto',
+              minHeight: 48,
+              paddingVertical: spacing.sm,
+            },
           ]}
-          numberOfLines={1}
         >
-          {value || '—'}
-        </Text>
-        <Ionicons name="chevron-down" size={16} color={theme.text} />
-      </TouchableOpacity>
+          <Ionicons name="location-outline" size={18} color={theme.text} />
+          <Text style={[styles.pickerBtnText, { color: theme.textStrong }]}>
+            {value || '—'}
+          </Text>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={[
+            styles.pickerBtn,
+            {
+              borderColor: error ? colors.error : theme.border,
+              backgroundColor: theme.backgroundAlt,
+            },
+          ]}
+          onPress={() => setOpen(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="location-outline" size={18} color={theme.text} />
+          <Text
+            style={[
+              styles.pickerBtnText,
+              { color: value ? theme.textStrong : theme.text },
+            ]}
+            numberOfLines={1}
+          >
+            {value || '—'}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color={theme.text} />
+        </TouchableOpacity>
+      )}
       {error && (
         <Text style={[styles.fieldError, { color: colors.error }]}>
           {error}
@@ -337,6 +379,106 @@ function SelectPicker({
   );
 }
 
+// ─── DestinationPicker ────────────────────────────────────────────────────────
+
+function DestinationPicker({
+  label,
+  value,
+  cityValue,
+  onSelect,
+  destinations,
+  loading,
+  error,
+  theme,
+}: {
+  label: string;
+  value: string;
+  cityValue?: string;
+  onSelect: (d: Destination) => void;
+  destinations: Destination[];
+  loading: boolean;
+  error?: string;
+  theme: any;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={[styles.field, { flex: 1 }]}>
+      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{label}</Text>
+      <TouchableOpacity
+        style={[
+          styles.pickerBtn,
+          {
+            borderColor: error ? colors.error : theme.border,
+            backgroundColor: theme.backgroundAlt,
+          },
+        ]}
+        onPress={() => setOpen(true)}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="location-outline" size={18} color={theme.text} />
+        <Text
+          style={[styles.pickerBtnText, { color: cityValue ? theme.textStrong : theme.text }]}
+          numberOfLines={1}
+        >
+          {cityValue || '—'}
+        </Text>
+        <Ionicons name="chevron-down" size={16} color={theme.text} />
+      </TouchableOpacity>
+      {error && (
+        <Text style={[styles.fieldError, { color: colors.error }]}>{error}</Text>
+      )}
+
+      <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
+        <View style={[styles.cityModalContainer, { backgroundColor: theme.background }]}>
+          <View style={[styles.cityModalHeader, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.cityModalTitle, { color: theme.textStrong }]}>{label}</Text>
+            <TouchableOpacity onPress={() => setOpen(false)}>
+              <Ionicons name="close" size={24} color={theme.textStrong} />
+            </TouchableOpacity>
+          </View>
+          {loading ? (
+            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+          ) : destinations.length === 0 ? (
+            <View style={{ padding: 32, alignItems: 'center' }}>
+              <Ionicons name="map-outline" size={40} color={theme.border} />
+              <Text style={[{ ...typography.body, fontSize: typography.sizes.sm, color: theme.text, marginTop: 12 }]}>
+                Aucune destination configurée
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={destinations}
+              keyExtractor={item => item.pointArriveeId}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.cityModalItem,
+                    { borderBottomColor: theme.border },
+                    value === item.pointArriveeNom && { backgroundColor: `${colors.primary}12` },
+                  ]}
+                  onPress={() => { onSelect(item); setOpen(false); }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cityModalItemText, { color: value === item.pointArriveeNom ? colors.primary : theme.textStrong }]}>
+                      {item.lieuArrive}
+                    </Text>
+                    <Text style={[{ ...typography.body, fontSize: typography.sizes.xs, color: theme.text, marginTop: 2 }]}>
+                      {item.pointArriveeNom}
+                    </Text>
+                  </View>
+                  {value === item.pointArriveeNom && (
+                    <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          )}
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function AgencyNewTrip() {
@@ -356,6 +498,8 @@ export default function AgencyNewTrip() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [classes, setClasses] = useState<TClass[]>([]);
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [destinationsLoading, setDestinationsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>(
@@ -490,6 +634,41 @@ export default function AgencyNewTrip() {
         if (!agencyRes.ok) return;
         const agencyData = await agencyRes.json();
         setAgencyId(agencyData.id);
+
+        // Fetch destinations
+        try {
+          setDestinationsLoading(true);
+          const destRes = await fetch(`${API_URL}/agence/${agencyData.id}/destinations`, { headers });
+          if (destRes.ok) {
+            const destData: Destination[] = await destRes.json();
+            const ownGareId = agencyData.gareIds?.[0];
+            setDestinations(ownGareId ? destData.filter(d => d.pointArriveeId !== ownGareId) : destData);
+          }
+        } catch {
+          // silent
+        } finally {
+          setDestinationsLoading(false);
+        }
+
+        // Pré-remplir départ depuis la gare routière associée (nouveau voyage uniquement)
+        if (!editTripId && !duplicateTripId) {
+          const gareId = agencyData.gareIds?.[0];
+          if (gareId) {
+            try {
+              const gareRes = await fetch(`${API_URL}/gare/${gareId}`, { headers });
+              if (gareRes.ok) {
+                const gare = await gareRes.json();
+                setForm(prev => ({
+                  ...prev,
+                  lieuDepart: gare.ville || '',
+                  pointDeDepart: gare.nomGareRoutiere || '',
+                }));
+              }
+            } catch {
+              // silent — champs restent vides
+            }
+          }
+        }
 
         const [vRes, dRes, cRes] = await Promise.allSettled([
           fetch(`${API_URL}/vehicule/agence/${agencyData.id}`, { headers }),
@@ -662,13 +841,20 @@ export default function AgencyNewTrip() {
           label={t.departure}
           value={form.lieuDepart}
           onSelect={v => update('lieuDepart', v)}
+          readOnly
           error={errors.lieuDepart}
           theme={theme}
         />
-        <CityPicker
+        <DestinationPicker
           label={t.arrival}
-          value={form.lieuArrive}
-          onSelect={v => update('lieuArrive', v)}
+          value={form.pointArrivee}
+          cityValue={form.lieuArrive}
+          onSelect={d => {
+            update('lieuArrive', d.lieuArrive);
+            update('pointArrivee', d.pointArriveeNom);
+          }}
+          destinations={destinations}
+          loading={destinationsLoading}
           error={errors.lieuArrive}
           theme={theme}
         />
@@ -681,6 +867,7 @@ export default function AgencyNewTrip() {
             value={form.pointDeDepart}
             onChangeText={v => update('pointDeDepart', v)}
             placeholder={t.depPointPlaceholder}
+            readOnly
             error={errors.pointDeDepart}
             theme={theme}
           />
@@ -690,7 +877,7 @@ export default function AgencyNewTrip() {
             label={t.arrPoint}
             value={form.pointArrivee}
             onChangeText={v => update('pointArrivee', v)}
-            placeholder={t.arrPointPlaceholder}
+            readOnly
             error={errors.pointArrivee}
             theme={theme}
           />
@@ -788,7 +975,11 @@ export default function AgencyNewTrip() {
       <SelectPicker
         label={t.vehicle}
         value={form.vehiculeId}
-        onSelect={v => update('vehiculeId', v)}
+        onSelect={v => {
+          update('vehiculeId', v);
+          const veh = vehicles.find(x => x.idVehicule === v);
+          if (veh?.nbrPlaces) update('nbrPlaceReservable', String(veh.nbrPlaces));
+        }}
         placeholder={t.selectVehicle}
         options={vehicles.map(v => ({
           id: v.idVehicule,
@@ -825,14 +1016,6 @@ export default function AgencyNewTrip() {
 
   const step3 = (
     <View style={styles.stepContent}>
-      <Field
-        label={t.seatsAvailable}
-        value={form.nbrPlaceReservable}
-        onChangeText={v => update('nbrPlaceReservable', v)}
-        keyboardType="numeric"
-        error={errors.nbrPlaceReservable}
-        theme={theme}
-      />
       <SelectPicker
         label={t.status}
         value={form.statusVoyage}
