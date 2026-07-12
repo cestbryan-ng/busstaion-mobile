@@ -750,7 +750,7 @@ export default function TripDetailScreen() {
                     ]}
                   />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text
                     style={[styles.timelineCity, { color: theme.textStrong }]}
                   >
@@ -776,7 +776,7 @@ export default function TripDetailScreen() {
                     style={[styles.dot, { backgroundColor: theme.border }]}
                   />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text
                     style={[styles.timelineCity, { color: theme.textStrong }]}
                   >
@@ -1393,7 +1393,7 @@ const styles = StyleSheet.create({
   dot: { width: 12, height: 12, borderRadius: 6 },
   timelineLine: { width: 2, height: 36, marginTop: 2 },
   timelineCity: { ...typography.bodyBold, fontSize: typography.sizes.md },
-  timelineStation: { ...typography.body, fontSize: typography.sizes.sm },
+  timelineStation: { ...typography.body, fontSize: typography.sizes.sm, flexShrink: 1 },
   timelineLabel: { ...typography.body, fontSize: typography.sizes.xs },
   infoBlocks: {
     flexDirection: 'row',

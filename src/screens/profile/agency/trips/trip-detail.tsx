@@ -255,25 +255,28 @@ export default function AgencyTripDetail() {
           tripTitle: `${trip.lieuDepart} → ${trip.lieuArrive}`,
         }),
     },
-    {
-      icon: 'create-outline',
-      label: t.editTrip,
-      danger: false,
-      onPress: () =>
-        navigation.navigate('AgencyNewTrip', { editTripId: tripId }),
-    },
+    ...(['EN_COURS', 'TERMINE'].includes(trip?.statusVoyage ?? '')
+      ? []
+      : [{
+          icon: 'create-outline',
+          label: t.editTrip,
+          danger: false,
+          onPress: () => navigation.navigate('AgencyNewTrip', { editTripId: tripId }),
+        }]),
     {
       icon: 'copy-outline',
       label: t.duplicateTrip,
       danger: false,
       onPress: () => navigation.navigate('AgencyNewTrip', { duplicateTripId: tripId }),
     },
-    {
-      icon: 'trash-outline',
-      label: t.cancelTrip,
-      danger: true,
-      onPress: () => setCancelModal(true),
-    },
+    ...(['EN_COURS', 'TERMINE'].includes(trip?.statusVoyage ?? '')
+      ? []
+      : [{
+          icon: 'trash-outline',
+          label: t.cancelTrip,
+          danger: true,
+          onPress: () => setCancelModal(true),
+        }]),
   ];
 
   return (
@@ -646,8 +649,8 @@ const styles = StyleSheet.create({
   },
   detailLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   detailLabel: { ...typography.body, fontSize: typography.sizes.sm },
-  detailRight: { alignItems: 'flex-end' },
-  detailValue: { ...typography.bodyBold, fontSize: typography.sizes.sm },
+  detailRight: { alignItems: 'flex-end', flex: 1, maxWidth: '65%' },
+  detailValue: { ...typography.bodyBold, fontSize: typography.sizes.sm, flexShrink: 1, textAlign: 'right' },
   detailTime: { ...typography.body, fontSize: typography.sizes.xs },
   actionRow: {
     flexDirection: 'row',

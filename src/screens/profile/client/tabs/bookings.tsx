@@ -282,6 +282,7 @@ export default function Bookings() {
     const isValider = r.reservation.statutReservation === 'VALIDER';
     if (tab === 'avenir' && (!upcoming || isValider)) return false;
     if (tab === 'terminees' && upcoming && !isValider) return false;
+    if (tab === 'terminees' && !isUpcoming(r.voyage.heureArrive)) return false;
 
     if (filter === 'PAID' && r.reservation.statutPayement !== 'PAID')
       return false;

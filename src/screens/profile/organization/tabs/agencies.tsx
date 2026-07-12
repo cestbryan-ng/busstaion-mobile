@@ -134,28 +134,39 @@ export default function OrgAgencies() {
           setIsOffline(false);
           await setCache(cacheKey, list);
 
-          // Aggregate from first agency for overview
+          // Aggregate across all agencies for overview
           if (list.length > 0) {
-            const firstId = list[0].agencyId;
-            const [dRes, tRes] = await Promise.allSettled([
-              fetch(`${API_URL}/utilisateur/chauffeurs/${firstId}`, { headers }),
-              fetch(`${API_URL}/voyage/agence/${firstId}?size=100`, { headers }),
-            ]);
+            const results = await Promise.allSettled(
+              list.flatMap(agency => [
+                fetch(`${API_URL}/utilisateur/chauffeurs/${agency.agencyId}`, { headers }),
+                fetch(`${API_URL}/voyage/agence/${agency.agencyId}?size=100`, { headers }),
+              ]),
+            );
 
-            if (dRes.status === 'fulfilled' && dRes.value.ok) {
-              const d = await dRes.value.json();
-              setDrivers((d.content || d || []).length);
+            let totalDrivers = 0;
+            let totalTripsToday = 0;
+            const today = new Date().toDateString();
+
+            for (let i = 0; i < results.length; i += 2) {
+              const dRes = results[i];
+              const tRes = results[i + 1];
+
+              if (dRes.status === 'fulfilled' && dRes.value.ok) {
+                const d = await dRes.value.json();
+                totalDrivers += (d.content || d || []).length;
+              }
+              if (tRes.status === 'fulfilled' && tRes.value.ok) {
+                const d = await tRes.value.json();
+                totalTripsToday += (d.content || d || []).filter(
+                  (trip: any) =>
+                    trip.statusVoyage === 'PUBLIE' &&
+                    new Date(trip.dateDepartPrev).toDateString() === today,
+                ).length;
+              }
             }
-            if (tRes.status === 'fulfilled' && tRes.value.ok) {
-              const d = await tRes.value.json();
-              const today = new Date().toDateString();
-              const todayPublished = (d.content || d || []).filter(
-                (trip: any) =>
-                  trip.statusVoyage === 'PUBLIE' &&
-                  new Date(trip.dateDepartPrev).toDateString() === today,
-              );
-              setTripsToday(todayPublished.length);
-            }
+
+            setDrivers(totalDrivers);
+            setTripsToday(totalTripsToday);
           }
         } else {
           const cached = await getCache(cacheKey);

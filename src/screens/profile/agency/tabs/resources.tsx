@@ -59,6 +59,7 @@ type Driver = {
   phone_number?: string;
   permis?: string;
   statut?: string;
+  statutChauffeur?: string;
 };
 
 type Employee = {
@@ -129,14 +130,14 @@ const DRIVER_STATUS: Record<
   string,
   { label: string; labelEn: string; color: string; bg: string }
 > = {
-  DISPONIBLE: {
-    label: 'Disponible',
+  LIBRE: {
+    label: 'Libre',
     labelEn: 'Available',
     color: colors.success,
     bg: `${colors.success}15`,
   },
-  EN_VOYAGE: {
-    label: 'En voyage',
+  OCCUPE: {
+    label: 'Occupé',
     labelEn: 'On trip',
     color: colors.primary,
     bg: `${colors.primary}15`,
@@ -608,7 +609,7 @@ export default function AgencyResources() {
       drivers.filter(d => {
         if (
           filterStatus !== 'ALL' &&
-          (d.statut || 'DISPONIBLE').toUpperCase() !== filterStatus
+          (d.statutChauffeur || d.statut || 'LIBRE').toUpperCase() !== filterStatus
         )
           return false;
         if (!debouncedSearch.trim()) return true;
@@ -662,8 +663,8 @@ export default function AgencyResources() {
     ],
     drivers: [
       { key: 'ALL', label: lang === 'fr' ? 'Tous' : 'All' },
-      { key: 'DISPONIBLE', label: lang === 'fr' ? 'Disponible' : 'Available' },
-      { key: 'EN_VOYAGE', label: lang === 'fr' ? 'En voyage' : 'On trip' },
+      { key: 'LIBRE', label: lang === 'fr' ? 'Libre' : 'Available' },
+      { key: 'OCCUPE', label: lang === 'fr' ? 'Occupé' : 'On trip' },
       { key: 'REPOS', label: lang === 'fr' ? 'Repos' : 'Rest' },
     ],
     employees: [
@@ -1038,10 +1039,10 @@ export default function AgencyResources() {
         />
       )}
       {filteredDrivers.map(d => {
-        const statusKey = (d.statut || 'DISPONIBLE')
+        const statusKey = (d.statutChauffeur || d.statut || 'LIBRE')
           .toUpperCase()
           .replace(/ /g, '_');
-        const statusCfg = DRIVER_STATUS[statusKey] || DRIVER_STATUS.DISPONIBLE;
+        const statusCfg = DRIVER_STATUS[statusKey] || DRIVER_STATUS.LIBRE;
         return (
           <View
             key={d.userId}

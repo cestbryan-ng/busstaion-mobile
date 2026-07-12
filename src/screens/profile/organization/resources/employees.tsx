@@ -41,8 +41,23 @@ type Employee = {
   poste?: string;
   departement?: string;
   statutEmploye?: string;
+  statutChauffeur?: string;
   nomManager?: string;
 };
+
+type Driver = {
+  userId: string;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  email?: string;
+  phone_number?: string;
+  permis?: string;
+  statut?: string;
+  statutChauffeur?: string;
+};
+
+type ResourceTab = 'employees' | 'drivers';
 
 type FormData = {
   first_name: string;
@@ -50,8 +65,6 @@ type FormData = {
   username: string;
   email: string;
   password: string;
-  phone_number: string;
-  gender: 'MALE' | 'FEMALE';
   poste: string;
   departement: string;
 };
@@ -62,8 +75,6 @@ const EMPTY_FORM: FormData = {
   username: '',
   email: '',
   password: '',
-  phone_number: '',
-  gender: 'MALE',
   poste: '',
   departement: '',
 };
@@ -78,13 +89,18 @@ export default function OrgEmployees() {
   const { agencyId, agencyName } = route.params;
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const [activeTab, setActiveTab] = useState<ResourceTab>('employees');
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
+  const [driverModalVisible, setDriverModalVisible] = useState(false);
+  const [driverForm, setDriverForm] = useState({ first_name: '', last_name: '', username: '', email: '', password: '', phone_number: '', permis: '' });
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showDriverPassword, setShowDriverPassword] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const toast = useToast();
 
@@ -92,8 +108,15 @@ export default function OrgEmployees() {
     fr: {
       title: 'Employés',
       subtitle: agencyName || "Agence",
+      tabEmployees: 'Employés',
+      tabDrivers: 'Chauffeurs',
       add: 'Ajouter un employé',
+      addDriver: 'Ajouter un chauffeur',
       noEmployees: 'Aucun employé pour cette agence',
+      noDrivers: 'Aucun chauffeur pour cette agence',
+      permis: 'Numéro de permis',
+      driverSuccess: 'Chauffeur créé avec succès',
+      driverError: 'Erreur lors de la création du chauffeur',
       name: 'Nom complet',
       username: "Nom d'utilisateur",
       email: 'Email',
@@ -140,8 +163,15 @@ export default function OrgEmployees() {
       fillRequired: 'Please fill in email, username and password.',
       success: 'Employee created successfully',
       error: 'Error creating employee',
+      tabEmployees: 'Employees',
+      tabDrivers: 'Drivers',
+      addDriver: 'Add a driver',
+      permis: 'License number',
+      driverSuccess: 'Driver created successfully',
+      driverError: 'Error creating driver',
       active: 'ACTIVE',
       inactive: 'INACTIVE',
+      noDrivers: 'No drivers for this agency',
     },
   }[lang];
 
@@ -153,27 +183,44 @@ export default function OrgEmployees() {
       ]);
       if (storedLang === 'fr' || storedLang === 'en') setLang(storedLang);
 
-      const res = await fetch(`${API_URL}/employe/agence/${agencyId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setEmployees(data.content || data || []);
-        setCache(`org_employees_${agencyId}`, data.content || data || []);
-        setIsOffline(false);
+      const headers = { Authorization: `Bearer ${token}` };
+      const [eRes, dRes] = await Promise.allSettled([
+        fetch(`${API_URL}/employe/agence/${agencyId}`, { headers }),
+        fetch(`${API_URL}/utilisateur/chauffeurs/${agencyId}`, { headers }),
+      ]);
+
+      let anySuccess = false;
+
+      if (eRes.status === 'fulfilled' && eRes.value.ok) {
+        const data = await eRes.value.json();
+        const list = data.content || data || [];
+        setEmployees(list);
+        setCache(`org_employees_${agencyId}`, list);
+        anySuccess = true;
       } else {
         const cached = await getCache(`org_employees_${agencyId}`);
-        if (cached) {
-          setEmployees(cached);
-          setIsOffline(true);
-        }
+        if (cached) { setEmployees(cached); setIsOffline(true); }
       }
+
+      if (dRes.status === 'fulfilled' && dRes.value.ok) {
+        const data = await dRes.value.json();
+        const list = data.content || data || [];
+        setDrivers(list);
+        setCache(`org_drivers_${agencyId}`, list);
+        anySuccess = true;
+      } else {
+        const cached = await getCache(`org_drivers_${agencyId}`);
+        if (cached) { setDrivers(cached); setIsOffline(true); }
+      }
+
+      if (anySuccess) setIsOffline(false);
     } catch {
-      const cached = await getCache(`org_employees_${agencyId}`);
-      if (cached) {
-        setEmployees(cached);
-        setIsOffline(true);
-      }
+      const [ce, cd] = await Promise.all([
+        getCache(`org_employees_${agencyId}`),
+        getCache(`org_drivers_${agencyId}`),
+      ]);
+      if (ce) { setEmployees(ce); setIsOffline(true); }
+      if (cd) { setDrivers(cd); setIsOffline(true); }
     } finally {
       setLoading(false);
     }
@@ -190,7 +237,7 @@ export default function OrgEmployees() {
   }, [loadEmployees]);
 
   const handleCreate = async () => {
-    if (!form.email.trim() || !form.username.trim() || !form.password.trim()) {
+    if (!form.email.trim() || !form.username.trim() || !form.password.trim() || !form.poste.trim()) {
       toast.warning(t.fillRequired);
       return;
     }
@@ -201,12 +248,11 @@ export default function OrgEmployees() {
       const body = {
         first_name: form.first_name.trim() || undefined,
         last_name: form.last_name.trim() || undefined,
-        username: form.username.trim(),
         email: form.email.trim(),
+        username: form.username.trim(),
         password: form.password,
-        phone_number: form.phone_number.trim() || undefined,
         role: ['EMPLOYE'],
-        gender: form.gender,
+        gender: 'MALE',
         agenceVoyageId: agencyId,
         poste: form.poste.trim() || undefined,
         departement: form.departement.trim() || undefined,
@@ -237,8 +283,54 @@ export default function OrgEmployees() {
     }
   };
 
+  const handleCreateDriver = async () => {
+    if (!driverForm.email.trim() || !driverForm.username.trim() || !driverForm.password.trim()) {
+      toast.warning(t.fillRequired);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const body = {
+        first_name: driverForm.first_name.trim() || undefined,
+        last_name: driverForm.last_name.trim() || undefined,
+        username: driverForm.username.trim(),
+        email: driverForm.email.trim(),
+        password: driverForm.password,
+        phone_number: driverForm.phone_number.trim() || undefined,
+        role: ['EMPLOYE'],
+        gender: 'MALE',
+        agenceVoyageId: agencyId,
+      };
+      const res = await fetch(`${API_URL}/utilisateur/chauffeur`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        setDriverModalVisible(false);
+        setDriverForm({ first_name: '', last_name: '', username: '', email: '', password: '', phone_number: '', permis: '' });
+        toast.success(t.driverSuccess);
+        loadEmployees();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err?.message || t.driverError);
+      }
+    } catch {
+      toast.error(t.driverError);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const statusColor = (s?: string) =>
     s === 'ACTIF' ? colors.success : s === 'SUSPENDU' ? colors.error : theme.text;
+
+  const DRIVER_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+    LIBRE: { label: 'Libre', color: colors.success, bg: `${colors.success}15` },
+    OCCUPE: { label: 'Occupé', color: colors.primary, bg: `${colors.primary}15` },
+    REPOS: { label: 'Repos', color: '#d97706', bg: '#fef3c715' },
+  };
 
   if (loading) return <SkeletonListScreen />;
 
@@ -261,6 +353,25 @@ export default function OrgEmployees() {
       </View>
       {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
+      {/* Tabs */}
+      <View style={[styles.tabBar, { backgroundColor: theme.background, borderBottomColor: theme.border }]}>
+        {(['employees', 'drivers'] as ResourceTab[]).map(tab => {
+          const label = tab === 'employees' ? t.tabEmployees : t.tabDrivers;
+          const active = activeTab === tab;
+          return (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tabItem, active && { borderBottomColor: colors.primary }]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.tabLabel, { color: active ? colors.primary : theme.text }]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
@@ -272,63 +383,71 @@ export default function OrgEmployees() {
           />
         }
       >
-        {employees.length === 0 ? (
-          <EmptyState
-            type="result"
-            message={t.noEmployees}
-            textColor={theme.text}
-          />
-        ) : (
-          employees.map(emp => (
-            <View
-              key={emp.employeId}
-              style={[
-                styles.card,
-                { backgroundColor: theme.background, borderColor: theme.border },
-              ]}
-            >
+        {activeTab === 'employees' ? (
+          employees.length === 0 ? (
+            <EmptyState type="result" message={t.noEmployees} textColor={theme.text} />
+          ) : (
+            employees.map(emp => (
               <View
-                style={[
-                  styles.avatar,
-                  { backgroundColor: `${colors.primary}10` },
-                ]}
+                key={emp.employeId}
+                style={[styles.card, { backgroundColor: theme.background, borderColor: theme.border }]}
               >
-                <AvatarPlaceholder width="70%" height="70%" />
-              </View>
-              <View style={styles.cardInfo}>
-                <Text style={[styles.cardName, { color: theme.textStrong }]}>
-                  {[emp.firstName, emp.lastName].filter(Boolean).join(' ') ||
-                    emp.username}
-                </Text>
-                <Text style={[styles.cardEmail, { color: theme.text }]}>
-                  {emp.email}
-                </Text>
-                {emp.poste && (
-                  <Text style={[styles.cardPoste, { color: theme.text }]}>
-                    {emp.poste}
-                    {emp.departement ? ` · ${emp.departement}` : ''}
+                <View style={[styles.avatar, { backgroundColor: `${colors.primary}10` }]}>
+                  <AvatarPlaceholder width="70%" height="70%" />
+                </View>
+                <View style={styles.cardInfo}>
+                  <Text style={[styles.cardName, { color: theme.textStrong }]}>
+                    {[emp.firstName, emp.lastName].filter(Boolean).join(' ') || emp.username}
                   </Text>
+                  <Text style={[styles.cardEmail, { color: theme.text }]}>{emp.email}</Text>
+                  {emp.poste && (
+                    <Text style={[styles.cardPoste, { color: theme.text }]}>
+                      {emp.poste}{emp.departement ? ` · ${emp.departement}` : ''}
+                    </Text>
+                  )}
+                </View>
+                {emp.statutEmploye && (
+                  <View style={[styles.badge, { backgroundColor: `${statusColor(emp.statutEmploye)}15` }]}>
+                    <Text style={[styles.badgeText, { color: statusColor(emp.statutEmploye) }]}>
+                      {emp.statutEmploye}
+                    </Text>
+                  </View>
                 )}
               </View>
-              {emp.statutEmploye && (
+            ))
+          )
+        ) : (
+          drivers.length === 0 ? (
+            <EmptyState type="result" message={t.noDrivers} textColor={theme.text} />
+          ) : (
+            drivers.map(drv => {
+              const statusKey = (drv.statutChauffeur || drv.statut || 'LIBRE').toUpperCase();
+              const cfg = DRIVER_STATUS[statusKey] || DRIVER_STATUS.LIBRE;
+              const name = [drv.first_name, drv.last_name].filter(Boolean).join(' ') || drv.username || drv.email || '';
+              return (
                 <View
-                  style={[
-                    styles.badge,
-                    { backgroundColor: `${statusColor(emp.statutEmploye)}15` },
-                  ]}
+                  key={drv.userId}
+                  style={[styles.card, { backgroundColor: theme.background, borderColor: theme.border }]}
                 >
-                  <Text
-                    style={[
-                      styles.badgeText,
-                      { color: statusColor(emp.statutEmploye) },
-                    ]}
-                  >
-                    {emp.statutEmploye}
-                  </Text>
+                  <View style={[styles.avatar, { backgroundColor: `${colors.primary}10` }]}>
+                    <AvatarPlaceholder width="70%" height="70%" />
+                  </View>
+                  <View style={styles.cardInfo}>
+                    <Text style={[styles.cardName, { color: theme.textStrong }]}>{name}</Text>
+                    {drv.email && (
+                      <Text style={[styles.cardEmail, { color: theme.text }]}>{drv.email}</Text>
+                    )}
+                    {drv.phone_number && (
+                      <Text style={[styles.cardPoste, { color: theme.text }]}>{drv.phone_number}</Text>
+                    )}
+                  </View>
+                  <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
+                    <Text style={[styles.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
+                  </View>
                 </View>
-              )}
-            </View>
-          ))
+              );
+            })
+          )
         )}
         <View style={{ height: spacing.xl }} />
       </ScrollView>
@@ -336,7 +455,7 @@ export default function OrgEmployees() {
       {/* FAB */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.primary }]}
-        onPress={() => setModalVisible(true)}
+        onPress={() => activeTab === 'drivers' ? setDriverModalVisible(true) : setModalVisible(true)}
       >
         <Ionicons name="add" size={26} color="#fff" />
       </TouchableOpacity>
@@ -433,38 +552,10 @@ export default function OrgEmployees() {
               </View>
 
               {/* Username */}
-              <Text style={[styles.label, { color: theme.text }]}>
-                {t.username} *
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    color: theme.textStrong,
-                    borderColor: theme.border,
-                    backgroundColor: theme.backgroundAlt,
-                  },
-                ]}
-                value={form.username}
-                onChangeText={v => setForm(f => ({ ...f, username: v }))}
-                placeholderTextColor={theme.placeholder}
-                placeholder={t.username}
-                autoCapitalize="none"
-              />
-
               {/* Email */}
-              <Text style={[styles.label, { color: theme.text }]}>
-                {t.email} *
-              </Text>
+              <Text style={[styles.label, { color: theme.text }]}>{t.email} *</Text>
               <TextInput
-                style={[
-                  styles.input,
-                  {
-                    color: theme.textStrong,
-                    borderColor: theme.border,
-                    backgroundColor: theme.backgroundAlt,
-                  },
-                ]}
+                style={[styles.input, { color: theme.textStrong, borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}
                 value={form.email}
                 onChangeText={v => setForm(f => ({ ...f, email: v }))}
                 placeholderTextColor={theme.placeholder}
@@ -473,19 +564,40 @@ export default function OrgEmployees() {
                 autoCapitalize="none"
               />
 
+              {/* Poste */}
+              <Text style={[styles.label, { color: theme.text }]}>{t.poste} *</Text>
+              <TextInput
+                style={[styles.input, { color: theme.textStrong, borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}
+                value={form.poste}
+                onChangeText={v => setForm(f => ({ ...f, poste: v }))}
+                placeholderTextColor={theme.placeholder}
+                placeholder="Caissier, Agent..."
+              />
+
+              {/* Département */}
+              <Text style={[styles.label, { color: theme.text }]}>{t.departement}</Text>
+              <TextInput
+                style={[styles.input, { color: theme.textStrong, borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}
+                value={form.departement}
+                onChangeText={v => setForm(f => ({ ...f, departement: v }))}
+                placeholderTextColor={theme.placeholder}
+                placeholder="Commercial, Opérations..."
+              />
+
+              {/* Username */}
+              <Text style={[styles.label, { color: theme.text }]}>{t.username} *</Text>
+              <TextInput
+                style={[styles.input, { color: theme.textStrong, borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}
+                value={form.username}
+                onChangeText={v => setForm(f => ({ ...f, username: v }))}
+                placeholderTextColor={theme.placeholder}
+                placeholder={t.username}
+                autoCapitalize="none"
+              />
+
               {/* Password */}
-              <Text style={[styles.label, { color: theme.text }]}>
-                {t.password} *
-              </Text>
-              <View
-                style={[
-                  styles.passwordRow,
-                  {
-                    borderColor: theme.border,
-                    backgroundColor: theme.backgroundAlt,
-                  },
-                ]}
-              >
+              <Text style={[styles.label, { color: theme.text }]}>{t.password} *</Text>
+              <View style={[styles.passwordRow, { borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}>
                 <TextInput
                   style={[styles.passwordInput, { color: theme.textStrong }]}
                   value={form.password}
@@ -496,103 +608,131 @@ export default function OrgEmployees() {
                   autoCapitalize="none"
                 />
                 <TouchableOpacity onPress={() => setShowPassword(s => !s)}>
-                  <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={18}
-                    color={theme.text}
-                  />
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={theme.text} />
                 </TouchableOpacity>
               </View>
 
-              {/* Phone */}
-              <Text style={[styles.label, { color: theme.text }]}>{t.phone}</Text>
+              <View style={{ height: spacing.xl }} />
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Create Driver Modal */}
+      <Modal
+        visible={driverModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setDriverModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={[styles.modalSheet, { backgroundColor: theme.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+              <TouchableOpacity
+                onPress={() => {
+                  setDriverModalVisible(false);
+                  setDriverForm({ first_name: '', last_name: '', username: '', email: '', password: '', phone_number: '', permis: '' });
+                }}
+              >
+                <Text style={[styles.modalCancel, { color: theme.text }]}>{t.cancel}</Text>
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: theme.textStrong }]}>{t.addDriver}</Text>
+              <TouchableOpacity onPress={handleCreateDriver} disabled={submitting}>
+                {submitting ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Text style={[styles.modalSubmit, { color: colors.primary }]}>{t.create}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalBody}>
+              {/* Row: first + last name */}
+              <View style={styles.row}>
+                <View style={styles.half}>
+                  <Text style={[styles.label, { color: theme.text }]}>{t.firstName}</Text>
+                  <TextInput
+                    style={[styles.input, { color: theme.textStrong, borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}
+                    value={driverForm.first_name}
+                    onChangeText={v => setDriverForm(f => ({ ...f, first_name: v }))}
+                    placeholderTextColor={theme.placeholder}
+                    placeholder={t.firstName}
+                  />
+                </View>
+                <View style={styles.half}>
+                  <Text style={[styles.label, { color: theme.text }]}>{t.lastName}</Text>
+                  <TextInput
+                    style={[styles.input, { color: theme.textStrong, borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}
+                    value={driverForm.last_name}
+                    onChangeText={v => setDriverForm(f => ({ ...f, last_name: v }))}
+                    placeholderTextColor={theme.placeholder}
+                    placeholder={t.lastName}
+                  />
+                </View>
+              </View>
+
+              <Text style={[styles.label, { color: theme.text }]}>{t.email} *</Text>
+              <TextInput
+                style={[styles.input, { color: theme.textStrong, borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}
+                value={driverForm.email}
+                onChangeText={v => setDriverForm(f => ({ ...f, email: v }))}
+                placeholderTextColor={theme.placeholder}
+                placeholder={t.email}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+              <Text style={[styles.label, { color: theme.text }]}>{t.phone} *</Text>
               <View style={[styles.phoneRow, { borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}>
                 <Text style={styles.phoneFlag}>🇨🇲</Text>
                 <Text style={[styles.phoneCode, { color: theme.textStrong, borderRightColor: theme.border }]}>+237</Text>
                 <TextInput
                   style={[styles.phoneInput, { color: theme.textStrong }]}
-                  value={form.phone_number}
-                  onChangeText={v => setForm(f => ({ ...f, phone_number: v }))}
+                  value={driverForm.phone_number}
+                  onChangeText={v => setDriverForm(f => ({ ...f, phone_number: v }))}
                   placeholderTextColor={theme.placeholder}
                   placeholder={t.phone}
                   keyboardType="phone-pad"
                 />
               </View>
 
-              {/* Gender */}
-              <Text style={[styles.label, { color: theme.text }]}>{t.gender}</Text>
-              <View style={styles.genderRow}>
-                {(['MALE', 'FEMALE'] as const).map(g => (
-                  <TouchableOpacity
-                    key={g}
-                    onPress={() => setForm(f => ({ ...f, gender: g }))}
-                    style={[
-                      styles.genderBtn,
-                      {
-                        borderColor:
-                          form.gender === g ? colors.primary : theme.border,
-                        backgroundColor:
-                          form.gender === g
-                            ? `${colors.primary}10`
-                            : theme.backgroundAlt,
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={g === 'MALE' ? 'male-outline' : 'female-outline'}
-                      size={16}
-                      color={form.gender === g ? colors.primary : theme.text}
-                    />
-                    <Text
-                      style={[
-                        styles.genderText,
-                        {
-                          color:
-                            form.gender === g ? colors.primary : theme.text,
-                        },
-                      ]}
-                    >
-                      {g === 'MALE' ? t.male : t.female}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <Text style={[styles.label, { color: theme.text }]}>{t.username} *</Text>
+              <TextInput
+                style={[styles.input, { color: theme.textStrong, borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}
+                value={driverForm.username}
+                onChangeText={v => setDriverForm(f => ({ ...f, username: v }))}
+                placeholderTextColor={theme.placeholder}
+                placeholder={t.username}
+                autoCapitalize="none"
+              />
+
+              <Text style={[styles.label, { color: theme.text }]}>{t.permis}</Text>
+              <TextInput
+                style={[styles.input, { color: theme.textStrong, borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}
+                value={driverForm.permis}
+                onChangeText={v => setDriverForm(f => ({ ...f, permis: v }))}
+                placeholderTextColor={theme.placeholder}
+                placeholder="B, C, D..."
+              />
+
+              <Text style={[styles.label, { color: theme.text }]}>{t.password} *</Text>
+              <View style={[styles.passwordRow, { borderColor: theme.border, backgroundColor: theme.backgroundAlt }]}>
+                <TextInput
+                  style={[styles.passwordInput, { color: theme.textStrong }]}
+                  value={driverForm.password}
+                  onChangeText={v => setDriverForm(f => ({ ...f, password: v }))}
+                  placeholderTextColor={theme.placeholder}
+                  placeholder={t.password}
+                  secureTextEntry={!showDriverPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity onPress={() => setShowDriverPassword(s => !s)}>
+                  <Ionicons name={showDriverPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={theme.text} />
+                </TouchableOpacity>
               </View>
-
-              {/* Poste */}
-              <Text style={[styles.label, { color: theme.text }]}>{t.poste}</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    color: theme.textStrong,
-                    borderColor: theme.border,
-                    backgroundColor: theme.backgroundAlt,
-                  },
-                ]}
-                value={form.poste}
-                onChangeText={v => setForm(f => ({ ...f, poste: v }))}
-                placeholderTextColor={theme.placeholder}
-                placeholder="Caissier, Agent..."
-              />
-
-              {/* Département */}
-              <Text style={[styles.label, { color: theme.text }]}>
-                {t.departement}
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    color: theme.textStrong,
-                    borderColor: theme.border,
-                    backgroundColor: theme.backgroundAlt,
-                  },
-                ]}
-                value={form.departement}
-                onChangeText={v => setForm(f => ({ ...f, departement: v }))}
-                placeholderTextColor={theme.placeholder}
-                placeholder="Commercial, Opérations..."
-              />
 
               <View style={{ height: spacing.xl }} />
             </ScrollView>
@@ -621,6 +761,18 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
+  tabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabLabel: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   list: { padding: spacing.lg, gap: spacing.sm },
   card: {
     flexDirection: 'row',
@@ -726,18 +878,6 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', gap: spacing.sm },
   half: { flex: 1 },
-  genderRow: { flexDirection: 'row', gap: spacing.sm, marginTop: 4 },
-  genderBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingVertical: spacing.sm,
-  },
-  genderText: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   fab: {
     position: 'absolute',
     bottom: spacing.xl,
