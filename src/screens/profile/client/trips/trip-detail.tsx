@@ -141,7 +141,10 @@ function formatTime(dateStr: string | null | undefined): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '';
-  return `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}`;
+  return `${d.getHours().toString().padStart(2, '0')}h${d
+    .getMinutes()
+    .toString()
+    .padStart(2, '0')}`;
 }
 
 function parseDuration(raw: string | number): number {
@@ -274,17 +277,17 @@ export default function TripDetailScreen() {
       if (res.ok) {
         const data = await res.json();
         setTrip(data);
-        await setCache(`trip_detail_${tripId}`, data);
+        await setCache(`client_trip_detail_${tripId}`, data);
         setIsOffline(false);
       } else {
-        const cached = await getCache(`trip_detail_${tripId}`);
+        const cached = await getCache(`client_trip_detail_${tripId}`);
         if (cached) {
           setTrip(cached);
           setIsOffline(true);
         }
       }
     } catch {
-      const cached = await getCache(`trip_detail_${tripId}`);
+      const cached = await getCache(`client_trip_detail_${tripId}`);
       if (cached) {
         setTrip(cached);
         setIsOffline(true);
@@ -501,7 +504,10 @@ export default function TripDetailScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={{ backgroundColor: theme.background, marginBottom: spacing.md }}
+              style={{
+                backgroundColor: theme.background,
+                marginBottom: spacing.md,
+              }}
               contentContainerStyle={styles.thumbnailRow}
             >
               {images.map((img, i) => (
@@ -577,14 +583,24 @@ export default function TripDetailScreen() {
             <View style={styles.stationsRow}>
               <View style={styles.stationItem}>
                 <Ionicons name="location" size={13} color={colors.primary} />
-                <Text style={[styles.stationText, { color: theme.text }]} numberOfLines={1}>
+                <Text
+                  style={[styles.stationText, { color: theme.text }]}
+                  numberOfLines={1}
+                >
                   {trip.pointDeDepart}
                 </Text>
               </View>
               <Ionicons name="arrow-forward" size={13} color={theme.text} />
               <View style={styles.stationItem}>
-                <Ionicons name="location-outline" size={13} color={theme.text} />
-                <Text style={[styles.stationText, { color: theme.text }]} numberOfLines={1}>
+                <Ionicons
+                  name="location-outline"
+                  size={13}
+                  color={theme.text}
+                />
+                <Text
+                  style={[styles.stationText, { color: theme.text }]}
+                  numberOfLines={1}
+                >
                   {trip.pointArrivee}
                 </Text>
               </View>
@@ -658,7 +674,9 @@ export default function TripDetailScreen() {
               {trip.chauffeur?.phone_number && (
                 <TouchableOpacity
                   style={[styles.callBtn, { borderColor: theme.border }]}
-                  onPress={() => Linking.openURL(`tel:${trip.chauffeur!.phone_number}`)}
+                  onPress={() =>
+                    Linking.openURL(`tel:${trip.chauffeur!.phone_number}`)
+                  }
                 >
                   <Ionicons
                     name="call-outline"
@@ -1113,24 +1131,54 @@ export default function TripDetailScreen() {
           activeOpacity={1}
           onPress={() => setShowSeatChoice(false)}
         >
-          <View style={[styles.choiceSheet, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
-            <View style={[styles.choiceHandle, { backgroundColor: theme.border }]} />
+          <View
+            style={[
+              styles.choiceSheet,
+              {
+                backgroundColor: theme.background,
+                borderTopColor: theme.border,
+              },
+            ]}
+          >
+            <View
+              style={[styles.choiceHandle, { backgroundColor: theme.border }]}
+            />
             <Text style={[styles.choiceTitle, { color: theme.textStrong }]}>
               {t.seatChoiceTitle}
             </Text>
 
             <TouchableOpacity
-              style={[styles.choiceOption, { borderColor: colors.primary, backgroundColor: `${colors.primary}08` }]}
+              style={[
+                styles.choiceOption,
+                {
+                  borderColor: colors.primary,
+                  backgroundColor: `${colors.primary}08`,
+                },
+              ]}
               onPress={() => {
                 setShowSeatChoice(false);
                 setShowSeatModal(true);
               }}
             >
-              <View style={[styles.choiceIconWrap, { backgroundColor: `${colors.primary}15` }]}>
-                <Ionicons name="grid-outline" size={22} color={colors.primary} />
+              <View
+                style={[
+                  styles.choiceIconWrap,
+                  { backgroundColor: `${colors.primary}15` },
+                ]}
+              >
+                <Ionicons
+                  name="grid-outline"
+                  size={22}
+                  color={colors.primary}
+                />
               </View>
               <View style={styles.choiceTextWrap}>
-                <Text style={[styles.choiceOptionTitle, { color: theme.textStrong }]}>
+                <Text
+                  style={[
+                    styles.choiceOptionTitle,
+                    { color: theme.textStrong },
+                  ]}
+                >
                   {t.seatChoiceManual}
                 </Text>
                 <Text style={[styles.choiceOptionDesc, { color: theme.text }]}>
@@ -1141,14 +1189,34 @@ export default function TripDetailScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.choiceOption, { borderColor: colors.primary, backgroundColor: `${colors.primary}08` }]}
+              style={[
+                styles.choiceOption,
+                {
+                  borderColor: colors.primary,
+                  backgroundColor: `${colors.primary}08`,
+                },
+              ]}
               onPress={handleAutoSeat}
             >
-              <View style={[styles.choiceIconWrap, { backgroundColor: `${colors.primary}15` }]}>
-                <Ionicons name="shuffle-outline" size={22} color={colors.primary} />
+              <View
+                style={[
+                  styles.choiceIconWrap,
+                  { backgroundColor: `${colors.primary}15` },
+                ]}
+              >
+                <Ionicons
+                  name="shuffle-outline"
+                  size={22}
+                  color={colors.primary}
+                />
               </View>
               <View style={styles.choiceTextWrap}>
-                <Text style={[styles.choiceOptionTitle, { color: theme.textStrong }]}>
+                <Text
+                  style={[
+                    styles.choiceOptionTitle,
+                    { color: theme.textStrong },
+                  ]}
+                >
                   {t.seatChoiceAuto}
                 </Text>
                 <Text style={[styles.choiceOptionDesc, { color: theme.text }]}>
@@ -1189,7 +1257,6 @@ export default function TripDetailScreen() {
           }}
         />
       )}
-
     </>
   );
 }
@@ -1393,7 +1460,11 @@ const styles = StyleSheet.create({
   dot: { width: 12, height: 12, borderRadius: 6 },
   timelineLine: { width: 2, height: 36, marginTop: 2 },
   timelineCity: { ...typography.bodyBold, fontSize: typography.sizes.md },
-  timelineStation: { ...typography.body, fontSize: typography.sizes.sm, flexShrink: 1 },
+  timelineStation: {
+    ...typography.body,
+    fontSize: typography.sizes.sm,
+    flexShrink: 1,
+  },
   timelineLabel: { ...typography.body, fontSize: typography.sizes.xs },
   infoBlocks: {
     flexDirection: 'row',

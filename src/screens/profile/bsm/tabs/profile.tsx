@@ -221,7 +221,8 @@ export default function BsmProfil({
             const stationData = await stationRes.json();
             setStation(stationData);
             gareId = stationData.idGareRoutiere ?? '';
-            if (stationData.public !== undefined) setIsPublic(stationData.public);
+            if (stationData.public !== undefined)
+              setIsPublic(stationData.public);
             await setCache(`bsm_station_${managerId}`, stationData);
             setIsOffline(false);
           } else {
@@ -697,7 +698,21 @@ export default function BsmProfil({
             { label: t.address, value: station?.adresse || '—' },
             { label: t.schedule, value: station?.horaires || '—' },
             { label: t.accountStatus, value: t.active, isStatus: true },
-            ...(isPublic !== null ? [{ label: t.stationVisibility, value: isPublic ? (lang === 'fr' ? 'Publique' : 'Public') : (lang === 'fr' ? 'Privée' : 'Private'), isPublicStatus: isPublic }] : []),
+            ...(isPublic !== null
+              ? [
+                  {
+                    label: t.stationVisibility,
+                    value: isPublic
+                      ? lang === 'fr'
+                        ? 'Publique'
+                        : 'Public'
+                      : lang === 'fr'
+                      ? 'Privée'
+                      : 'Private',
+                    isPublicStatus: isPublic,
+                  },
+                ]
+              : []),
             { label: t.permissions, value: t.fullAccess },
           ].map((row: any, i) => (
             <View
@@ -730,11 +745,22 @@ export default function BsmProfil({
                 <View
                   style={[
                     styles.statusBadge,
-                    { backgroundColor: row.isPublicStatus ? `${colors.primary}15` : `${colors.error}12` },
+                    {
+                      backgroundColor: row.isPublicStatus
+                        ? `${colors.primary}15`
+                        : `${colors.error}12`,
+                    },
                   ]}
                 >
                   <Text
-                    style={[styles.statusBadgeText, { color: row.isPublicStatus ? colors.primary : colors.error }]}
+                    style={[
+                      styles.statusBadgeText,
+                      {
+                        color: row.isPublicStatus
+                          ? colors.primary
+                          : colors.error,
+                      },
+                    ]}
                   >
                     {row.value}
                   </Text>
@@ -785,11 +811,18 @@ export default function BsmProfil({
               <View
                 style={[
                   styles.menuIcon,
-                  { backgroundColor: isPublic ? `${colors.primary}10` : `${colors.error}10` },
+                  {
+                    backgroundColor: isPublic
+                      ? `${colors.primary}10`
+                      : `${colors.error}10`,
+                  },
                 ]}
               >
                 {visibilityLoading ? (
-                  <ActivityIndicator size="small" color={isPublic ? colors.primary : colors.error} />
+                  <ActivityIndicator
+                    size="small"
+                    color={isPublic ? colors.primary : colors.error}
+                  />
                 ) : (
                   <Ionicons
                     name={isPublic ? 'globe-outline' : 'lock-closed-outline'}
@@ -809,13 +842,19 @@ export default function BsmProfil({
               <View
                 style={[
                   styles.visiBadge,
-                  { backgroundColor: isPublic ? `${colors.primary}15` : `${colors.error}12` },
+                  {
+                    backgroundColor: isPublic
+                      ? `${colors.primary}15`
+                      : `${colors.error}12`,
+                  },
                 ]}
               >
                 <View
                   style={[
                     styles.visiDot,
-                    { backgroundColor: isPublic ? colors.primary : colors.error },
+                    {
+                      backgroundColor: isPublic ? colors.primary : colors.error,
+                    },
                   ]}
                 />
                 <Text
@@ -825,8 +864,12 @@ export default function BsmProfil({
                   ]}
                 >
                   {isPublic
-                    ? lang === 'fr' ? 'Public' : 'Public'
-                    : lang === 'fr' ? 'Privé' : 'Private'}
+                    ? lang === 'fr'
+                      ? 'Public'
+                      : 'Public'
+                    : lang === 'fr'
+                    ? 'Privé'
+                    : 'Private'}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -936,7 +979,7 @@ export default function BsmProfil({
             iconBg={`${colors.primary}10`}
             label={t.cache}
             desc={t.cacheDesc}
-            onPress={() => navigation.navigate('CacheSettings')}
+            onPress={() => navigation.navigate('BsmCacheSettings')}
           />
           <MenuItem
             icon="information-circle-outline"

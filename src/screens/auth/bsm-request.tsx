@@ -10,14 +10,13 @@ import {
   Platform,
   ActivityIndicator,
   useColorScheme,
-  Modal,
-  FlatList,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../utils/config';
+import { CityPickerModal } from '../../components/city-picker-modal';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
@@ -47,19 +46,6 @@ const EMPTY_FORM: BsmForm = {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const CITIES = [
-  'Douala',
-  'Yaoundé',
-  'Bafoussam',
-  'Kribi',
-  'Buea',
-  'Garoua',
-  'Bertoua',
-  'Maroua',
-  'Ngaoundéré',
-  'Bamenda',
-];
-
 function Field({
   label,
   placeholder,
@@ -82,7 +68,12 @@ function Field({
   return (
     <View style={styles.fieldWrap}>
       <Text style={[styles.label, { color: theme.textStrong }]}>{label}</Text>
-      <View style={[styles.inputRow, { borderColor: theme.border, backgroundColor: theme.background }]}>
+      <View
+        style={[
+          styles.inputRow,
+          { borderColor: theme.border, backgroundColor: theme.background },
+        ]}
+      >
         {prefix}
         <TextInput
           style={[styles.input, { color: theme.textStrong }]}
@@ -94,75 +85,6 @@ function Field({
           autoCapitalize={autoCapitalize ?? 'sentences'}
         />
       </View>
-    </View>
-  );
-}
-
-function CityPicker({
-  label,
-  value,
-  onSelect,
-  placeholder,
-  theme,
-}: {
-  label: string;
-  value: string;
-  onSelect: (v: string) => void;
-  placeholder: string;
-  theme: any;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <View style={styles.fieldWrap}>
-      <Text style={[styles.label, { color: theme.textStrong }]}>{label}</Text>
-      <TouchableOpacity
-        style={[
-          styles.pickerBtn,
-          { borderColor: theme.border, backgroundColor: theme.background },
-        ]}
-        onPress={() => setOpen(true)}
-      >
-        <Ionicons name="location-outline" size={18} color={theme.text} />
-        <Text
-          style={[styles.pickerBtnText, { color: value ? theme.textStrong : theme.placeholder }]}
-          numberOfLines={1}
-        >
-          {value || placeholder}
-        </Text>
-        <Ionicons name="chevron-down" size={16} color={theme.text} />
-      </TouchableOpacity>
-
-      <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
-        <View style={[styles.cityModal, { backgroundColor: theme.background }]}>
-          <View style={[styles.cityModalHeader, { borderBottomColor: theme.border }]}>
-            <Text style={[styles.cityModalTitle, { color: theme.textStrong }]}>{label}</Text>
-            <TouchableOpacity onPress={() => setOpen(false)}>
-              <Ionicons name="close" size={24} color={theme.textStrong} />
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={CITIES}
-            keyExtractor={item => item}
-            renderItem={({ item: city }) => (
-              <TouchableOpacity
-                style={[
-                  styles.cityItem,
-                  { borderBottomColor: theme.border },
-                  value === city && { backgroundColor: `${colors.primary}12` },
-                ]}
-                onPress={() => { onSelect(city); setOpen(false); }}
-              >
-                <Text style={[styles.cityItemText, { color: value === city ? colors.primary : theme.textStrong }]}>
-                  {city}
-                </Text>
-                {value === city && (
-                  <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -208,7 +130,8 @@ export default function BsmRequest() {
       errorVille: 'La ville est requise.',
       errorAdresse: "L'adresse est requise.",
       isPublicLabel: 'Type de gare',
-      isPublicDesc: 'Une gare publique appartient à l\'État. Une gare privée appartient à un propriétaire particulier.',
+      isPublicDesc:
+        "Une gare publique appartient à l'État. Une gare privée appartient à un propriétaire particulier.",
       isPublicOn: 'Publique',
       isPublicOff: 'Privée',
       errorNetwork: 'Erreur réseau, veuillez réessayer.',
@@ -243,7 +166,8 @@ export default function BsmRequest() {
       errorVille: 'City is required.',
       errorAdresse: 'Address is required.',
       isPublicLabel: 'Station type',
-      isPublicDesc: 'A public station is state-owned. A private station is owned by an individual.',
+      isPublicDesc:
+        'A public station is state-owned. A private station is owned by an individual.',
       isPublicOn: 'Public',
       isPublicOff: 'Private',
       errorNetwork: 'Network error, please try again.',
@@ -402,7 +326,12 @@ export default function BsmRequest() {
           autoCapitalize="none"
           theme={theme}
           prefix={
-            <Text style={[styles.phonePrefix, { color: theme.textStrong, borderRightColor: theme.border }]}>
+            <Text
+              style={[
+                styles.phonePrefix,
+                { color: theme.textStrong, borderRightColor: theme.border },
+              ]}
+            >
               🇨🇲 +237
             </Text>
           }
@@ -415,13 +344,22 @@ export default function BsmRequest() {
           autoCapitalize="words"
           theme={theme}
         />
-        <CityPicker
-          label={t.ville}
-          placeholder={t.villePlaceholder}
-          value={form.ville}
-          onSelect={v => setForm(f => ({ ...f, ville: v }))}
-          theme={theme}
-        />
+        <View style={styles.fieldWrap}>
+          <Text style={[styles.label, { color: theme.textStrong }]}>
+            {t.ville}
+          </Text>
+          <CityPickerModal
+            value={form.ville}
+            onSelect={v => setForm(f => ({ ...f, ville: v }))}
+            placeholder={t.villePlaceholder}
+            label={t.ville}
+            theme={theme}
+            containerStyle={[
+              styles.pickerBtn,
+              { borderColor: theme.border, backgroundColor: theme.background },
+            ]}
+          />
+        </View>
         <Field
           label={t.adresse}
           placeholder={t.adressePlaceholder}
@@ -439,7 +377,12 @@ export default function BsmRequest() {
           <Text style={[styles.toggleDesc, { color: theme.text }]}>
             {t.isPublicDesc}
           </Text>
-          <View style={[styles.toggleRow, { borderColor: theme.border, backgroundColor: theme.background }]}>
+          <View
+            style={[
+              styles.toggleRow,
+              { borderColor: theme.border, backgroundColor: theme.background },
+            ]}
+          >
             <TouchableOpacity
               style={[
                 styles.toggleOption,
@@ -453,16 +396,26 @@ export default function BsmRequest() {
                 size={16}
                 color={form.isPublic ? colors.primary : theme.text}
               />
-              <Text style={[styles.toggleOptionText, { color: form.isPublic ? colors.primary : theme.text }]}>
+              <Text
+                style={[
+                  styles.toggleOptionText,
+                  { color: form.isPublic ? colors.primary : theme.text },
+                ]}
+              >
                 {t.isPublicOn}
               </Text>
               {form.isPublic && (
-                <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                <Ionicons
+                  name="checkmark-circle"
+                  size={16}
+                  color={colors.primary}
+                />
               )}
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.toggleOption,
+                { borderRightWidth: 0 },
                 !form.isPublic && { backgroundColor: `${colors.error}10` },
               ]}
               onPress={() => setForm(f => ({ ...f, isPublic: false }))}
@@ -472,11 +425,20 @@ export default function BsmRequest() {
                 size={16}
                 color={!form.isPublic ? colors.error : theme.text}
               />
-              <Text style={[styles.toggleOptionText, { color: !form.isPublic ? colors.error : theme.text }]}>
+              <Text
+                style={[
+                  styles.toggleOptionText,
+                  { color: !form.isPublic ? colors.error : theme.text },
+                ]}
+              >
                 {t.isPublicOff}
               </Text>
               {!form.isPublic && (
-                <Ionicons name="checkmark-circle" size={16} color={colors.error} />
+                <Ionicons
+                  name="checkmark-circle"
+                  size={16}
+                  color={colors.error}
+                />
               )}
             </TouchableOpacity>
           </View>
@@ -609,22 +571,6 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     flex: 1,
   },
-  cityModal: {
-    flex: 1,
-  },
-  cityModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-  },
-  cityModalTitle: {
-    ...typography.heading,
-    fontSize: typography.sizes.lg,
-  },
   toggleDesc: {
     ...typography.body,
     fontSize: typography.sizes.xs,
@@ -649,17 +595,5 @@ const styles = StyleSheet.create({
   toggleOptionText: {
     ...typography.bodyBold,
     fontSize: typography.sizes.sm,
-  },
-  cityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-  },
-  cityItemText: {
-    ...typography.body,
-    fontSize: typography.sizes.md,
   },
 });

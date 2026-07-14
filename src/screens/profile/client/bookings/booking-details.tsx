@@ -132,7 +132,10 @@ function formatTime(dateStr: string | null | undefined): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '';
-  return `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}`;
+  return `${d.getHours().toString().padStart(2, '0')}h${d
+    .getMinutes()
+    .toString()
+    .padStart(2, '0')}`;
 }
 
 function parseDuration(iso: string | null | undefined): string {
@@ -153,12 +156,19 @@ function generateTicketHTML(res: ReservationDetail, lang: 'fr' | 'en'): string {
   const fmtDate = (iso: string | null) => {
     if (!iso) return '—';
     const d = new Date(iso);
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return d.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
   };
   const fmtTime = (iso: string | null) => {
     if (!iso) return '';
     const d = new Date(iso);
-    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    return `${d.getHours().toString().padStart(2, '0')}:${d
+      .getMinutes()
+      .toString()
+      .padStart(2, '0')}`;
   };
 
   const nbrPassager = res.reservation.nbrPassager;
@@ -278,72 +288,109 @@ function generateTicketHTML(res: ReservationDetail, lang: 'fr' | 'en'): string {
 
     <div class="amount-section">
       <div class="amount-label">${t('Montant total', 'Total amount')}</div>
-      <div class="amount-value">${res.reservation.prixTotal.toLocaleString('fr-FR')} FCFA</div>
+      <div class="amount-value">${res.reservation.prixTotal.toLocaleString(
+        'fr-FR',
+      )} FCFA</div>
     </div>
 
     <div class="details-section">
-      <div class="section-title">${t("Agence de voyage", "Travel agency")}</div>
+      <div class="section-title">${t('Agence de voyage', 'Travel agency')}</div>
       <div class="detail-row">
-        <span class="detail-label">${t("Nom", "Name")}</span>
+        <span class="detail-label">${t('Nom', 'Name')}</span>
         <span class="detail-value">${res.agence.longName}</span>
       </div>
       <div class="detail-row">
-        <span class="detail-label">${t("Localisation", "Location")}</span>
+        <span class="detail-label">${t('Localisation', 'Location')}</span>
         <span class="detail-value">${res.agence.location}</span>
       </div>
 
       <div class="divider"></div>
 
-      <div class="section-title">${t("Itinéraire", "Itinerary")}</div>
+      <div class="section-title">${t('Itinéraire', 'Itinerary')}</div>
       <div class="detail-row">
-        <span class="detail-label">${t("Départ", "Departure")}</span>
-        <span class="detail-value">${res.voyage.lieuDepart}${res.voyage.pointDeDepart ? ` — ${res.voyage.pointDeDepart}` : ''}</span>
+        <span class="detail-label">${t('Départ', 'Departure')}</span>
+        <span class="detail-value">${res.voyage.lieuDepart}${
+    res.voyage.pointDeDepart ? ` — ${res.voyage.pointDeDepart}` : ''
+  }</span>
       </div>
       <div class="detail-row">
-        <span class="detail-label">${t("Arrivée", "Arrival")}</span>
-        <span class="detail-value">${res.voyage.lieuArrive}${res.voyage.pointArrivee ? ` — ${res.voyage.pointArrivee}` : ''}</span>
+        <span class="detail-label">${t('Arrivée', 'Arrival')}</span>
+        <span class="detail-value">${res.voyage.lieuArrive}${
+    res.voyage.pointArrivee ? ` — ${res.voyage.pointArrivee}` : ''
+  }</span>
       </div>
       <div class="detail-row">
-        <span class="detail-label">${t("Date de départ", "Departure date")}</span>
-        <span class="detail-value">${fmtDate(res.voyage.dateDepartPrev)} — ${fmtTime(res.voyage.heureDepartEffectif)}</span>
+        <span class="detail-label">${t(
+          'Date de départ',
+          'Departure date',
+        )}</span>
+        <span class="detail-value">${fmtDate(
+          res.voyage.dateDepartPrev,
+        )} — ${fmtTime(res.voyage.heureDepartEffectif)}</span>
       </div>
-      ${res.voyage.dureeVoyage ? `
+      ${
+        res.voyage.dureeVoyage
+          ? `
       <div class="detail-row">
-        <span class="detail-label">${t("Durée", "Duration")}</span>
-        <span class="detail-value">${parseDuration(res.voyage.dureeVoyage)}</span>
-      </div>` : ''}
+        <span class="detail-label">${t('Durée', 'Duration')}</span>
+        <span class="detail-value">${parseDuration(
+          res.voyage.dureeVoyage,
+        )}</span>
+      </div>`
+          : ''
+      }
 
       <div class="divider"></div>
 
-      <div class="section-title">${t("Réservation", "Reservation")}</div>
+      <div class="section-title">${t('Réservation', 'Reservation')}</div>
       <div class="detail-row">
-        <span class="detail-label">${t("Référence", "Reference")}</span>
+        <span class="detail-label">${t('Référence', 'Reference')}</span>
         <span class="detail-value">${res.reservation.idReservation}</span>
       </div>
       <div class="detail-row">
-        <span class="detail-label">${t("Passagers", "Passengers")}</span>
-        <span class="detail-value">${nbrPassager} ${t(`personne${nbrPassager > 1 ? 's' : ''}`, `passenger${nbrPassager > 1 ? 's' : ''}`)}</span>
+        <span class="detail-label">${t('Passagers', 'Passengers')}</span>
+        <span class="detail-value">${nbrPassager} ${t(
+    `personne${nbrPassager > 1 ? 's' : ''}`,
+    `passenger${nbrPassager > 1 ? 's' : ''}`,
+  )}</span>
       </div>
 
       <div class="divider"></div>
 
-      <div class="section-title">${t("Paiement", "Payment")}</div>
-      ${confirmDate ? `
+      <div class="section-title">${t('Paiement', 'Payment')}</div>
+      ${
+        confirmDate
+          ? `
       <div class="detail-row">
-        <span class="detail-label">${t("Date de paiement", "Payment date")}</span>
-        <span class="detail-value">${fmtDate(confirmDate)} — ${fmtTime(confirmDate)}</span>
-      </div>` : ''}
+        <span class="detail-label">${t(
+          'Date de paiement',
+          'Payment date',
+        )}</span>
+        <span class="detail-value">${fmtDate(confirmDate)} — ${fmtTime(
+              confirmDate,
+            )}</span>
+      </div>`
+          : ''
+      }
       <div class="detail-row">
-        <span class="detail-label">${t("Montant", "Amount")}</span>
-        <span class="detail-value">${res.reservation.prixTotal.toLocaleString('fr-FR')} FCFA</span>
+        <span class="detail-label">${t('Montant', 'Amount')}</span>
+        <span class="detail-value">${res.reservation.prixTotal.toLocaleString(
+          'fr-FR',
+        )} FCFA</span>
       </div>
     </div>
 
     <div class="footer">
       <p class="footer-text">
-        <span class="footer-highlight">${t("Merci d'avoir choisi BusStation", "Thank you for choosing BusStation")}</span>
+        <span class="footer-highlight">${t(
+          "Merci d'avoir choisi BusStation",
+          'Thank you for choosing BusStation',
+        )}</span>
       </p>
-      <p class="footer-text">${t("Veuillez présenter ce billet lors de l'embarquement", "Please present this ticket at boarding")}</p>
+      <p class="footer-text">${t(
+        "Veuillez présenter ce billet lors de l'embarquement",
+        'Please present this ticket at boarding',
+      )}</p>
     </div>
   </div>
 </body>
@@ -362,7 +409,9 @@ export default function BookingDetails() {
   const toast = useToast();
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
-  const [reservation, setReservation] = useState<ReservationDetail | null>(null);
+  const [reservation, setReservation] = useState<ReservationDetail | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -385,7 +434,7 @@ export default function BookingDetails() {
       totalPaid: 'Total payé',
       totalToPay: 'Total à payer',
       boardingPass: "Carte d'embarquement",
-      boardingDesc: 'Présentez ce QR code à l\'hôtesse lors de l\'embarquement',
+      boardingDesc: "Présentez ce QR code à l'hôtesse lors de l'embarquement",
       validated: 'Réservation validée',
       downloadTicket: 'Exporter en PDF',
       exportingPdf: 'Préparation...',
@@ -463,18 +512,18 @@ export default function BookingDetails() {
         );
         if (found) {
           setReservation(found);
-          await setCache(`booking_detail_${reservationId}`, found);
+          await setCache(`client_booking_detail_${reservationId}`, found);
           setIsOffline(false);
         }
       } else {
-        const cached = await getCache(`booking_detail_${reservationId}`);
+        const cached = await getCache(`client_booking_detail_${reservationId}`);
         if (cached) {
           setReservation(cached);
           setIsOffline(true);
         }
       }
     } catch {
-      const cached = await getCache(`booking_detail_${reservationId}`);
+      const cached = await getCache(`client_booking_detail_${reservationId}`);
       if (cached) {
         setReservation(cached);
         setIsOffline(true);
@@ -525,7 +574,9 @@ export default function BookingDetails() {
       await RNPrint.print({ html: generateTicketHTML(reservation, lang) });
     } catch (e) {
       console.log('PDF export error:', e);
-      toast.error(lang === 'fr' ? 'Impossible d\'exporter le PDF' : 'Could not export PDF');
+      toast.error(
+        lang === 'fr' ? "Impossible d'exporter le PDF" : 'Could not export PDF',
+      );
     } finally {
       setExportingPdf(false);
     }
@@ -553,7 +604,10 @@ export default function BookingDetails() {
 
       const res = await fetch(`${API_URL}/reservation/confirmer`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           reservationId: reservation!.reservation.idReservation,
           userId,
@@ -695,8 +749,20 @@ export default function BookingDetails() {
               </View>
             </View>
             {isValidated && (
-              <View style={[styles.validatedBadge, { backgroundColor: `${colors.success}15`, borderColor: `${colors.success}30` }]}>
-                <Ionicons name="checkmark-circle" size={28} color={colors.success} />
+              <View
+                style={[
+                  styles.validatedBadge,
+                  {
+                    backgroundColor: `${colors.success}15`,
+                    borderColor: `${colors.success}30`,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="checkmark-circle"
+                  size={28}
+                  color={colors.success}
+                />
                 <Text style={[styles.validatedText, { color: colors.success }]}>
                   {t.validated}
                 </Text>
@@ -710,11 +776,18 @@ export default function BookingDetails() {
           <View
             style={[
               styles.boardingCard,
-              { backgroundColor: theme.background, borderColor: `${colors.primary}40` },
+              {
+                backgroundColor: theme.background,
+                borderColor: `${colors.primary}40`,
+              },
             ]}
           >
             <View style={styles.boardingHeader}>
-              <Ionicons name="qr-code-outline" size={18} color={colors.primary} />
+              <Ionicons
+                name="qr-code-outline"
+                size={18}
+                color={colors.primary}
+              />
               <Text style={[styles.boardingTitle, { color: colors.primary }]}>
                 {t.boardingPass}
               </Text>
@@ -797,16 +870,20 @@ export default function BookingDetails() {
               <Ionicons name="calendar-outline" size={14} color={theme.text} />
               <View>
                 <Text style={[styles.metaValue, { color: theme.textStrong }]}>
-                  {new Date(reservation.voyage.dateDepartPrev).toLocaleDateString(
-                    lang === 'fr' ? 'fr-FR' : 'en-GB',
-                    { day: 'numeric', month: 'long', year: 'numeric' },
-                  )}
+                  {new Date(
+                    reservation.voyage.dateDepartPrev,
+                  ).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
                 </Text>
                 <Text style={[styles.metaLabel, { color: theme.text }]}>
-                  {new Date(reservation.voyage.dateDepartPrev).toLocaleDateString(
-                    lang === 'fr' ? 'fr-FR' : 'en-GB',
-                    { weekday: 'long' },
-                  )}
+                  {new Date(
+                    reservation.voyage.dateDepartPrev,
+                  ).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', {
+                    weekday: 'long',
+                  })}
                 </Text>
               </View>
             </View>
@@ -922,9 +999,7 @@ export default function BookingDetails() {
                     >
                       {p.nom}
                     </Text>
-                    <Text
-                      style={[styles.passengerMeta, { color: theme.text }]}
-                    >
+                    <Text style={[styles.passengerMeta, { color: theme.text }]}>
                       ID: {p.carteID} • {p.genre} • {p.age}{' '}
                       {lang === 'fr' ? 'ans' : 'y/o'}
                     </Text>
@@ -933,9 +1008,7 @@ export default function BookingDetails() {
                     <Text style={[styles.seatLabel, { color: theme.text }]}>
                       {t.seat}
                     </Text>
-                    <Text
-                      style={[styles.seatValue, { color: colors.primary }]}
-                    >
+                    <Text style={[styles.seatValue, { color: colors.primary }]}>
                       {p.siege}
                     </Text>
                   </View>
@@ -1014,7 +1087,10 @@ export default function BookingDetails() {
             <TouchableOpacity
               style={[
                 styles.downloadBtn,
-                { borderColor: colors.primary, opacity: exportingPdf ? 0.7 : 1 },
+                {
+                  borderColor: colors.primary,
+                  opacity: exportingPdf ? 0.7 : 1,
+                },
               ]}
               onPress={handleExportPDF}
               disabled={exportingPdf}
@@ -1044,8 +1120,21 @@ export default function BookingDetails() {
           )}
 
           {!isCancelled && (
-            <View style={[styles.infoBox, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}25` }]}>
-              <Ionicons name="information-circle-outline" size={18} color={colors.primary} style={{ marginTop: 2 }} />
+            <View
+              style={[
+                styles.infoBox,
+                {
+                  backgroundColor: `${colors.primary}08`,
+                  borderColor: `${colors.primary}25`,
+                },
+              ]}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={18}
+                color={colors.primary}
+                style={{ marginTop: 2 }}
+              />
               <View style={{ flex: 1, gap: spacing.sm }}>
                 <Text style={[styles.infoBoxText, { color: theme.text }]}>
                   {lang === 'fr'
@@ -1058,9 +1147,13 @@ export default function BookingDetails() {
                     : `If the agency cancels your trip, you are entitled to a refund. Simply send a copy of your ticket to the agency to initiate the process. Your booking history is available in `}
                   <Text
                     style={[styles.infoBoxLink, { color: colors.primary }]}
-                    onPress={() => navigation.navigate('ClientMain', { screen: 'history' } as any)}
+                    onPress={() =>
+                      navigation.navigate('ClientMain', {
+                        screen: 'history',
+                      } as any)
+                    }
                   >
-                    {lang === 'fr' ? 'l\'onglet Historique' : 'the History tab'}
+                    {lang === 'fr' ? "l'onglet Historique" : 'the History tab'}
                   </Text>
                   {'.'}
                 </Text>
@@ -1071,39 +1164,118 @@ export default function BookingDetails() {
       </ScrollView>
 
       {/* Pay modal */}
-      <Modal visible={payModalVisible} animationType="slide" transparent onRequestClose={() => { setPayModalVisible(false); setPayPhone(''); setPayPhoneError(''); setPayApiError(''); }}>
+      <Modal
+        visible={payModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          setPayModalVisible(false);
+          setPayPhone('');
+          setPayPhoneError('');
+          setPayApiError('');
+        }}
+      >
         <View style={styles.payOverlay}>
-          <View style={[styles.paySheet, { backgroundColor: theme.background }]}>
-            <View style={[styles.paySheetHeader, { borderBottomColor: theme.border }]}>
-              <Text style={[styles.paySheetTitle, { color: theme.textStrong }]}>{t.payTitle}</Text>
-              <TouchableOpacity onPress={() => { setPayModalVisible(false); setPayPhone(''); setPayPhoneError(''); setPayApiError(''); }}>
+          <View
+            style={[styles.paySheet, { backgroundColor: theme.background }]}
+          >
+            <View
+              style={[
+                styles.paySheetHeader,
+                { borderBottomColor: theme.border },
+              ]}
+            >
+              <Text style={[styles.paySheetTitle, { color: theme.textStrong }]}>
+                {t.payTitle}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setPayModalVisible(false);
+                  setPayPhone('');
+                  setPayPhoneError('');
+                  setPayApiError('');
+                }}
+              >
                 <Ionicons name="close" size={24} color={theme.textStrong} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.paySheetBody}>
               {/* Operator */}
-              <Text style={[styles.payFieldLabel, { color: theme.text }]}>{t.operatorLabel}</Text>
+              <Text style={[styles.payFieldLabel, { color: theme.text }]}>
+                {t.operatorLabel}
+              </Text>
               <View style={styles.operatorRow}>
                 {(['MTN', 'ORANGE'] as const).map(op => (
                   <TouchableOpacity
                     key={op}
-                    style={[styles.operatorBtn, {
-                      borderColor: payOperator === op ? (op === 'MTN' ? '#f59e0b' : '#ea580c') : theme.border,
-                      backgroundColor: payOperator === op ? (op === 'MTN' ? '#fef3c7' : '#fff7ed') : theme.backgroundAlt,
-                    }]}
+                    style={[
+                      styles.operatorBtn,
+                      {
+                        borderColor:
+                          payOperator === op
+                            ? op === 'MTN'
+                              ? '#f59e0b'
+                              : '#ea580c'
+                            : theme.border,
+                        backgroundColor:
+                          payOperator === op
+                            ? op === 'MTN'
+                              ? '#fef3c7'
+                              : '#fff7ed'
+                            : theme.backgroundAlt,
+                      },
+                    ]}
                     onPress={() => setPayOperator(op)}
                   >
-                    <View style={[styles.operatorRadio, { borderColor: payOperator === op ? (op === 'MTN' ? '#f59e0b' : '#ea580c') : theme.border }]}>
-                      {payOperator === op && <View style={[styles.operatorRadioInner, { backgroundColor: op === 'MTN' ? '#f59e0b' : '#ea580c' }]} />}
+                    <View
+                      style={[
+                        styles.operatorRadio,
+                        {
+                          borderColor:
+                            payOperator === op
+                              ? op === 'MTN'
+                                ? '#f59e0b'
+                                : '#ea580c'
+                              : theme.border,
+                        },
+                      ]}
+                    >
+                      {payOperator === op && (
+                        <View
+                          style={[
+                            styles.operatorRadioInner,
+                            {
+                              backgroundColor:
+                                op === 'MTN' ? '#f59e0b' : '#ea580c',
+                            },
+                          ]}
+                        />
+                      )}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.operatorName, { color: payOperator === op ? (op === 'MTN' ? '#92400e' : '#9a3412') : theme.textStrong }]}>
+                      <Text
+                        style={[
+                          styles.operatorName,
+                          {
+                            color:
+                              payOperator === op
+                                ? op === 'MTN'
+                                  ? '#92400e'
+                                  : '#9a3412'
+                                : theme.textStrong,
+                          },
+                        ]}
+                      >
                         {op === 'MTN' ? 'MTN Mobile Money' : 'Orange Money'}
                       </Text>
                     </View>
                     <Image
-                      source={op === 'MTN' ? require('../../../../assets/images/momo.jpg') : require('../../../../assets/images/om.png')}
+                      source={
+                        op === 'MTN'
+                          ? require('../../../../assets/images/momo.jpg')
+                          : require('../../../../assets/images/om.png')
+                      }
                       style={styles.operatorLogo}
                       resizeMode="contain"
                     />
@@ -1112,42 +1284,107 @@ export default function BookingDetails() {
               </View>
 
               {/* Phone */}
-              <Text style={[styles.payFieldLabel, { color: theme.text, marginTop: spacing.md }]}>{t.phoneLabel}</Text>
-              <View style={[styles.payPhoneInput, { borderColor: payPhoneError ? colors.error : theme.border, backgroundColor: theme.backgroundAlt }]}>
-                <Text style={[styles.phoneFlag, { color: theme.textStrong }]}>🇨🇲</Text>
-                <Text style={[styles.phonePrefix, { color: theme.textStrong, borderRightColor: theme.border }]}>+237</Text>
+              <Text
+                style={[
+                  styles.payFieldLabel,
+                  { color: theme.text, marginTop: spacing.md },
+                ]}
+              >
+                {t.phoneLabel}
+              </Text>
+              <View
+                style={[
+                  styles.payPhoneInput,
+                  {
+                    borderColor: payPhoneError ? colors.error : theme.border,
+                    backgroundColor: theme.backgroundAlt,
+                  },
+                ]}
+              >
+                <Text style={[styles.phoneFlag, { color: theme.textStrong }]}>
+                  🇨🇲
+                </Text>
+                <Text
+                  style={[
+                    styles.phonePrefix,
+                    { color: theme.textStrong, borderRightColor: theme.border },
+                  ]}
+                >
+                  +237
+                </Text>
                 <TextInput
-                  style={[{ flex: 1, color: theme.textStrong, ...typography.body, fontSize: typography.sizes.md }]}
+                  style={[
+                    {
+                      flex: 1,
+                      color: theme.textStrong,
+                      ...typography.body,
+                      fontSize: typography.sizes.md,
+                    },
+                  ]}
                   value={payPhone}
-                  onChangeText={v => { setPayPhone(v.replace(/\D/g, '').slice(0, 9)); setPayPhoneError(''); setPayApiError(''); }}
+                  onChangeText={v => {
+                    setPayPhone(v.replace(/\D/g, '').slice(0, 9));
+                    setPayPhoneError('');
+                    setPayApiError('');
+                  }}
                   placeholder={t.phonePlaceholder}
                   placeholderTextColor={theme.placeholder}
                   keyboardType="phone-pad"
                   maxLength={9}
                 />
               </View>
-              {!!payPhoneError && <Text style={[styles.payFieldError, { color: colors.error }]}>{payPhoneError}</Text>}
+              {!!payPhoneError && (
+                <Text style={[styles.payFieldError, { color: colors.error }]}>
+                  {payPhoneError}
+                </Text>
+              )}
 
               {!!payApiError && (
-                <View style={[styles.payErrorBox, { backgroundColor: '#fef2f2', borderColor: '#fecaca' }]}>
-                  <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
-                  <Text style={[styles.payFieldError, { color: colors.error, flex: 1 }]}>{payApiError}</Text>
+                <View
+                  style={[
+                    styles.payErrorBox,
+                    { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
+                  ]}
+                >
+                  <Ionicons
+                    name="alert-circle-outline"
+                    size={16}
+                    color={colors.error}
+                  />
+                  <Text
+                    style={[
+                      styles.payFieldError,
+                      { color: colors.error, flex: 1 },
+                    ]}
+                  >
+                    {payApiError}
+                  </Text>
                 </View>
               )}
 
               <TouchableOpacity
-                style={[styles.payConfirmBtn, { backgroundColor: colors.primary, opacity: paying ? 0.7 : 1, marginTop: spacing.lg }]}
+                style={[
+                  styles.payConfirmBtn,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity: paying ? 0.7 : 1,
+                    marginTop: spacing.lg,
+                  },
+                ]}
                 onPress={handlePay}
                 disabled={paying}
               >
-                {paying ? <ActivityIndicator size="small" color="#fff" /> : null }
-                <Text style={styles.cancelBtnText}>{paying ? '...' : t.payNow}</Text>
+                {paying ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : null}
+                <Text style={styles.cancelBtnText}>
+                  {paying ? '...' : t.payNow}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-
     </>
   );
 }

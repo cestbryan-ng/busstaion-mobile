@@ -107,7 +107,8 @@ function getClassColor(nomClasse: string | null): string {
   const upper = nomClasse.toUpperCase();
   if (upper.includes('VIP')) return CLASS_COLORS.VIP;
   if (upper.includes('PREMIUM')) return CLASS_COLORS.PREMIUM;
-  if (upper.includes('STANDARD') || upper.includes('CLASSIQUE')) return CLASS_COLORS.STANDARD;
+  if (upper.includes('STANDARD') || upper.includes('CLASSIQUE'))
+    return CLASS_COLORS.STANDARD;
   return CLASS_COLORS.ECONOMY;
 }
 
@@ -115,7 +116,7 @@ function parseDuration(raw: string | number): number {
   if (typeof raw === 'number') return raw;
   const m = raw.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
   if (!m) return 0;
-  return (parseInt(m[1] || '0') * 60) + parseInt(m[2] || '0');
+  return parseInt(m[1] || '0') * 60 + parseInt(m[2] || '0');
 }
 
 function formatDuration(raw: string | number): string {
@@ -197,41 +198,67 @@ export default function StationDetail() {
       if (gareRes.ok) {
         const data = await gareRes.json();
         setGare(data);
-        setCache(`station_detail_${stationId}`, data);
+        setCache(`client_station_detail_${stationId}`, data);
         setIsOffline(false);
       } else {
-        const cached = await getCache(`station_detail_${stationId}`);
-        if (cached) { setGare(cached); setIsOffline(true); }
+        const cached = await getCache(`client_station_detail_${stationId}`);
+        if (cached) {
+          setGare(cached);
+          setIsOffline(true);
+        }
       }
       if (agenciesRes.ok) {
         const data = await agenciesRes.json();
         setAgencies(data.content || data || []);
-        setCache(`station_agencies_${stationId}`, data.content || data || []);
+        setCache(
+          `client_station_agencies_${stationId}`,
+          data.content || data || [],
+        );
         setIsOffline(false);
       } else {
-        const cached = await getCache(`station_agencies_${stationId}`);
-        if (cached) { setAgencies(cached); setIsOffline(true); }
+        const cached = await getCache(`client_station_agencies_${stationId}`);
+        if (cached) {
+          setAgencies(cached);
+          setIsOffline(true);
+        }
       }
       if (tripsRes.ok) {
         const data = await tripsRes.json();
         const now = new Date();
-        const filtered = (data.content || data || []).filter((t: Trip) => t.statusVoyage === 'PUBLIE' && t.dateDepartPrev && new Date(t.dateDepartPrev) > now);
+        const filtered = (data.content || data || []).filter(
+          (t: Trip) =>
+            t.statusVoyage === 'PUBLIE' &&
+            t.dateDepartPrev &&
+            new Date(t.dateDepartPrev) > now,
+        );
         setTrips(filtered);
-        setCache(`station_trips_${stationId}`, filtered);
+        setCache(`client_station_trips_${stationId}`, filtered);
         setIsOffline(false);
       } else {
-        const cached = await getCache(`station_trips_${stationId}`);
-        if (cached) { setTrips(cached); setIsOffline(true); }
+        const cached = await getCache(`client_station_trips_${stationId}`);
+        if (cached) {
+          setTrips(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
       const [cachedGare, cachedAgencies, cachedTrips] = await Promise.all([
-        getCache(`station_detail_${stationId}`),
-        getCache(`station_agencies_${stationId}`),
-        getCache(`station_trips_${stationId}`),
+        getCache(`client_station_detail_${stationId}`),
+        getCache(`client_station_agencies_${stationId}`),
+        getCache(`client_station_trips_${stationId}`),
       ]);
-      if (cachedGare) { setGare(cachedGare); setIsOffline(true); }
-      if (cachedAgencies) { setAgencies(cachedAgencies); setIsOffline(true); }
-      if (cachedTrips) { setTrips(cachedTrips); setIsOffline(true); }
+      if (cachedGare) {
+        setGare(cachedGare);
+        setIsOffline(true);
+      }
+      if (cachedAgencies) {
+        setAgencies(cachedAgencies);
+        setIsOffline(true);
+      }
+      if (cachedTrips) {
+        setTrips(cachedTrips);
+        setIsOffline(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -281,15 +308,35 @@ export default function StationDetail() {
       </View>
       {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={isOnline ? onRefresh : undefined}
+            tintColor={colors.primary}
+          />
+        }
+      >
         {/* Banner Image */}
         <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
-          {gare.photoUrl && !gare.photoUrl.toLowerCase().includes('placeholder')
-            ? <Image source={{ uri: gare.photoUrl }} style={styles.bannerImage} resizeMode="cover" />
-            : <View style={[styles.bannerPlaceholder, { backgroundColor: theme.backgroundAlt }]}>
-                <BannerPlaceholder width="100%" height="100%" />
-              </View>
-          }
+          {gare.photoUrl &&
+          !gare.photoUrl.toLowerCase().includes('placeholder') ? (
+            <Image
+              source={{ uri: gare.photoUrl }}
+              style={styles.bannerImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View
+              style={[
+                styles.bannerPlaceholder,
+                { backgroundColor: theme.backgroundAlt },
+              ]}
+            >
+              <BannerPlaceholder width="100%" height="100%" />
+            </View>
+          )}
         </View>
 
         {/* Gare Info */}
@@ -378,7 +425,8 @@ export default function StationDetail() {
             <View style={styles.scheduleRow}>
               <Ionicons name="time-outline" size={16} color={theme.text} />
               <Text style={[styles.scheduleHours, { color: theme.text }]}>
-                {' '}{gare.horaires}
+                {' '}
+                {gare.horaires}
               </Text>
             </View>
           </View>
@@ -455,7 +503,12 @@ export default function StationDetail() {
                     })
                   }
                 >
-                  <View style={[styles.agencyLogo, { backgroundColor: theme.backgroundAlt }]}>
+                  <View
+                    style={[
+                      styles.agencyLogo,
+                      { backgroundColor: theme.backgroundAlt },
+                    ]}
+                  >
                     <AgencyPlaceholder width="100%" height="100%" />
                   </View>
                   <View style={styles.agencyInfo}>
@@ -498,12 +551,23 @@ export default function StationDetail() {
               return (
                 <TouchableOpacity
                   key={trip.idVoyage}
-                  style={[styles.tripCard, { backgroundColor: theme.background, borderColor: theme.border }]}
+                  style={[
+                    styles.tripCard,
+                    {
+                      backgroundColor: theme.background,
+                      borderColor: theme.border,
+                    },
+                  ]}
                   activeOpacity={0.85}
-                  onPress={() => navigation.navigate('TripDetail', { tripId: trip.idVoyage })}
+                  onPress={() =>
+                    navigation.navigate('TripDetail', { tripId: trip.idVoyage })
+                  }
                 >
                   <View style={styles.tripRow}>
-                    <Text style={[styles.tripRoute, { color: theme.textStrong }]} numberOfLines={1}>
+                    <Text
+                      style={[styles.tripRoute, { color: theme.textStrong }]}
+                      numberOfLines={1}
+                    >
                       {trip.lieuDepart && trip.lieuArrive
                         ? lang === 'fr'
                           ? `De ${trip.lieuDepart} vers ${trip.lieuArrive}`
@@ -511,35 +575,81 @@ export default function StationDetail() {
                         : '—'}
                     </Text>
                     {trip.nomClasseVoyage && (
-                      <View style={[styles.classBadge, { backgroundColor: classColor }]}>
-                        <Text style={styles.classBadgeText}>{trip.nomClasseVoyage}</Text>
+                      <View
+                        style={[
+                          styles.classBadge,
+                          { backgroundColor: classColor },
+                        ]}
+                      >
+                        <Text style={styles.classBadgeText}>
+                          {trip.nomClasseVoyage}
+                        </Text>
                       </View>
                     )}
                   </View>
                   <View style={styles.tripMeta}>
                     {trip.dateDepartPrev && (
                       <>
-                        <Ionicons name="calendar-outline" size={12} color={theme.text} />
-                        <Text style={[styles.tripMetaText, { color: theme.text }]}>
-                          {' '}{new Date(trip.dateDepartPrev).toLocaleDateString(
+                        <Ionicons
+                          name="calendar-outline"
+                          size={12}
+                          color={theme.text}
+                        />
+                        <Text
+                          style={[styles.tripMetaText, { color: theme.text }]}
+                        >
+                          {' '}
+                          {new Date(trip.dateDepartPrev).toLocaleDateString(
                             lang === 'fr' ? 'fr-FR' : 'en-GB',
                             { day: 'numeric', month: 'short', year: 'numeric' },
                           )}
                         </Text>
-                        <Text style={[styles.tripMetaText, { color: theme.text }]}> · </Text>
+                        <Ionicons
+                          name="time-outline"
+                          size={12}
+                          color={theme.text}
+                          style={{ marginLeft: 6 }}
+                        />
+                        <Text
+                          style={[styles.tripMetaText, { color: theme.text }]}
+                        >
+                          {' '}
+                          {new Date(trip.dateDepartPrev).toLocaleTimeString('fr-FR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </Text>
+                        <Text
+                          style={[styles.tripMetaText, { color: theme.text }]}
+                        >
+                          {' '}
+                          ·{' '}
+                        </Text>
                       </>
                     )}
-                    <Ionicons name="time-outline" size={12} color={theme.text} />
+                    <Ionicons
+                      name="hourglass-outline"
+                      size={12}
+                      color={theme.text}
+                    />
                     <Text style={[styles.tripMetaText, { color: theme.text }]}>
-                      {' '}{formatDuration(trip.dureeVoyage)}
+                      {' '}
+                      {formatDuration(trip.dureeVoyage)}
                     </Text>
                   </View>
-                  <View style={[styles.tripFooter, { borderTopColor: theme.border }]}>
+                  <View
+                    style={[
+                      styles.tripFooter,
+                      { borderTopColor: theme.border },
+                    ]}
+                  >
                     <Text style={[styles.seatsText, { color: colors.primary }]}>
                       {t.seats(trip.nbrPlaceRestante)}
                     </Text>
                     {trip.prix > 0 && (
-                      <Text style={[styles.tripPrice, { color: colors.primary }]}>
+                      <Text
+                        style={[styles.tripPrice, { color: colors.primary }]}
+                      >
                         {trip.prix.toLocaleString('fr-FR')} FCFA
                       </Text>
                     )}

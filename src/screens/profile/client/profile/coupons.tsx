@@ -19,6 +19,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import { API_URL, QR_API_URL } from '../../../../utils/config';
+import { setCache, getCache } from '../../../../utils/offlineCache';
+import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../../components/offline-banner';
 import type { RootStackParamList } from '../../../../navigation';
 import { EmptyState } from '../../../../components/empty-state';
 import { SkeletonListScreen } from '../../../../components/skeleton';
@@ -51,6 +54,7 @@ function formatPrice(price: number): string {
 export default function Coupons() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
+  const isOnline = useNetworkStatus();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -61,6 +65,7 @@ export default function Coupons() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const t = {
     fr: {
@@ -112,9 +117,27 @@ export default function Coupons() {
       if (res.ok) {
         const data = await res.json();
         setCoupons(data);
+        setCache(`client_coupons_${userId}`, data);
+        setIsOffline(false);
+      } else {
+        const cached = await getCache<Coupon[]>(`client_coupons_${userId}`);
+        if (cached) {
+          setCoupons(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
-      // silent
+      const userRaw2 = await AsyncStorage.getItem('user');
+      const uid = userRaw2
+        ? JSON.parse(userRaw2)?.userId || JSON.parse(userRaw2)?.id
+        : null;
+      if (uid) {
+        const cached = await getCache<Coupon[]>(`client_coupons_${uid}`);
+        if (cached) {
+          setCoupons(cached);
+          setIsOffline(true);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -344,7 +367,8 @@ export default function Coupons() {
             styles.filterBtn,
             {
               borderColor: activeTab !== 'all' ? colors.primary : theme.border,
-              backgroundColor: activeTab !== 'all' ? `${colors.primary}10` : undefined,
+              backgroundColor:
+                activeTab !== 'all' ? `${colors.primary}10` : undefined,
             },
           ]}
         >
@@ -357,64 +381,72 @@ export default function Coupons() {
         </TouchableOpacity>
       </View>
 
+      {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
+
       {/* Tabs */}
       {showFilters && (
-      <View
-        style={[
-          styles.tabsRow,
-          {
-            backgroundColor: theme.background,
-            borderBottomColor: theme.border,
-          },
-        ]}
-      >
-        {(['all', 'VALIDE', 'EXPIRE'] as TabFilter[]).map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={[
-              styles.tab,
-              tab === activeTab && {
-                backgroundColor: colors.primary,
-                borderColor: colors.primary,
-              },
-              tab !== activeTab && { borderColor: theme.border },
-            ]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text
+        <View
+          style={[
+            styles.tabsRow,
+            {
+              backgroundColor: theme.background,
+              borderBottomColor: theme.border,
+            },
+          ]}
+        >
+          {(['all', 'VALIDE', 'EXPIRE'] as TabFilter[]).map(tab => (
+            <TouchableOpacity
+              key={tab}
               style={[
-                styles.tabText,
-                { color: tab === activeTab ? '#fff' : theme.text },
+                styles.tab,
+                tab === activeTab && {
+                  backgroundColor: colors.primary,
+                  borderColor: colors.primary,
+                },
+                tab !== activeTab && { borderColor: theme.border },
               ]}
+              onPress={() => setActiveTab(tab)}
             >
-              {tab === 'all' ? t.all : tab === 'VALIDE' ? t.valid : t.expired}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: tab === activeTab ? '#fff' : theme.text },
+                ]}
+              >
+                {tab === 'all' ? t.all : tab === 'VALIDE' ? t.valid : t.expired}
+              </Text>
+            </TouchableOpacity>
+          ))}
 
-        <View style={styles.viewToggle}>
-          <TouchableOpacity onPress={() => setViewMode('grid')}>
-            <Ionicons
-              name="grid-outline"
-              size={20}
-              color={viewMode === 'grid' ? colors.primary : theme.text}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setViewMode('list')}>
-            <Ionicons
-              name="list-outline"
-              size={20}
-              color={viewMode === 'list' ? colors.primary : theme.text}
-            />
-          </TouchableOpacity>
+          <View style={styles.viewToggle}>
+            <TouchableOpacity onPress={() => setViewMode('grid')}>
+              <Ionicons
+                name="grid-outline"
+                size={20}
+                color={viewMode === 'grid' ? colors.primary : theme.text}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setViewMode('list')}>
+              <Ionicons
+                name="list-outline"
+                size={20}
+                color={viewMode === 'list' ? colors.primary : theme.text}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
       )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
       >
         {filtered.length === 0 ? (
           <EmptyState

@@ -15,6 +15,9 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 
+// Clés de cache appartenant à l'acteur Organisation
+const PREFIXES = ['cache_org_'];
+
 type CacheStats = {
   count: number;
   oldestDate: Date | null;
@@ -39,14 +42,11 @@ function formatRelativeDate(date: Date, lang: 'fr' | 'en'): string {
   }
 }
 
-// Clés de cache appartenant à l'acteur Client
-const PREFIXES = ['cache_client_'];
-
 function matchesPrefixes(key: string): boolean {
   return PREFIXES.some(p => key.startsWith(p));
 }
 
-export default function CacheSettings() {
+export default function OrgCacheSettings() {
   const isDark = useColorScheme() === 'dark';
   const theme = isDark ? colors.dark : colors.light;
   const navigation = useNavigation();
@@ -69,7 +69,7 @@ export default function CacheSettings() {
       actionsTitle: 'Actions',
       clearBtn: 'Vider le cache',
       clearDesc:
-        'Supprime toutes les données mises en cache localement. Les données seront rechargées depuis le serveur à la prochaine ouverture de chaque écran.',
+        'Supprime les données de votre organisation mises en cache. Elles seront rechargées depuis le serveur à la prochaine ouverture de chaque écran.',
       clearSuccess: 'Cache vidé',
       clearSuccessDesc: 'Les données seront rechargées depuis le serveur.',
       infoTitle: 'À propos du cache',
@@ -87,7 +87,7 @@ export default function CacheSettings() {
       actionsTitle: 'Actions',
       clearBtn: 'Clear cache',
       clearDesc:
-        'Removes all locally cached data. Data will be reloaded from the server next time each screen is opened.',
+        'Removes your organization cached data. Data will be reloaded from the server next time each screen is opened.',
       clearSuccess: 'Cache cleared',
       clearSuccessDesc: 'Data will be reloaded from the server.',
       infoTitle: 'About cache',
@@ -168,7 +168,6 @@ export default function CacheSettings() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundAlt }]}>
-      {/* Header */}
       <View
         style={[
           styles.header,
@@ -188,7 +187,6 @@ export default function CacheSettings() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Stats */}
         <Section title={t.statsTitle}>
           {loading ? (
             <View style={styles.loadingRow}>
@@ -277,7 +275,6 @@ export default function CacheSettings() {
           )}
         </Section>
 
-        {/* Actions */}
         <Section title={t.actionsTitle}>
           {cleared ? (
             <View style={styles.successRow}>
@@ -345,7 +342,6 @@ export default function CacheSettings() {
           )}
         </Section>
 
-        {/* Info */}
         <View
           style={[
             styles.infoCard,
@@ -383,7 +379,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { ...typography.heading, fontSize: typography.sizes.xl },
-
   section: {
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
@@ -398,12 +393,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
   },
-
-  loadingRow: {
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-  },
-
+  loadingRow: { paddingVertical: spacing.lg, alignItems: 'center' },
   emptyState: {
     alignItems: 'center',
     gap: spacing.xs,
@@ -416,7 +406,6 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.xs,
     textAlign: 'center',
   },
-
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -434,7 +423,6 @@ const styles = StyleSheet.create({
   },
   statValue: { ...typography.bodyBold, fontSize: typography.sizes.md },
   statLabel: { ...typography.body, fontSize: typography.sizes.xs },
-
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -453,7 +441,6 @@ const styles = StyleSheet.create({
   menuText: { flex: 1 },
   menuLabel: { ...typography.bodyBold, fontSize: typography.sizes.sm },
   menuDesc: { ...typography.body, fontSize: typography.sizes.xs, marginTop: 2 },
-
   successRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -468,7 +455,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   successText: { flex: 1 },
-
   infoCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',

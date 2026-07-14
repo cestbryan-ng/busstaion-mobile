@@ -64,7 +64,13 @@ type Reservation = {
 };
 
 type TabType = 'avenir' | 'terminees';
-type FilterType = 'TOUS' | 'PAID' | 'NO_PAYMENT' | 'CONFIRMER' | 'EN_ATTENTE' | 'ANNULEE';
+type FilterType =
+  | 'TOUS'
+  | 'PAID'
+  | 'NO_PAYMENT'
+  | 'CONFIRMER'
+  | 'EN_ATTENTE'
+  | 'ANNULEE';
 
 const STATUS_RESERVATION: Record<
   string,
@@ -116,7 +122,10 @@ function formatTime(dateStr: string | null | undefined): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '';
-  return `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}`;
+  return `${d.getHours().toString().padStart(2, '0')}h${d
+    .getMinutes()
+    .toString()
+    .padStart(2, '0')}`;
 }
 
 function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
@@ -222,7 +231,7 @@ export default function Bookings() {
       const userId = user?.userId || user?.id;
       if (!userId) return;
 
-      const cacheKey = `bookings_${userId}_${page}`;
+      const cacheKey = `client_bookings_${userId}_${page}`;
       const res = await fetch(
         `${API_URL}/reservation/user/${userId}?page=${page}&size=10`,
         { headers: { Authorization: `Bearer ${token}` } },
@@ -237,7 +246,10 @@ export default function Bookings() {
         setCache(cacheKey, { content, totalPages: data.totalPages || 1 });
         if (reset) setIsOffline(false);
       } else {
-        const cached = await getCache<{ content: Reservation[]; totalPages: number }>(cacheKey);
+        const cached = await getCache<{
+          content: Reservation[];
+          totalPages: number;
+        }>(cacheKey);
         if (cached && reset) {
           setReservations(cached.content);
           setTotalPages(cached.totalPages);
@@ -247,9 +259,14 @@ export default function Bookings() {
       }
     } catch {
       const user2 = await AsyncStorage.getItem('user');
-      const userId2 = user2 ? JSON.parse(user2)?.userId || JSON.parse(user2)?.id : null;
+      const userId2 = user2
+        ? JSON.parse(user2)?.userId || JSON.parse(user2)?.id
+        : null;
       if (userId2 && reset) {
-        const cached = await getCache<{ content: Reservation[]; totalPages: number }>(`bookings_${userId2}_0`);
+        const cached = await getCache<{
+          content: Reservation[];
+          totalPages: number;
+        }>(`client_bookings_${userId2}_0`);
         if (cached) {
           setReservations(cached.content);
           setTotalPages(cached.totalPages);
@@ -286,7 +303,10 @@ export default function Bookings() {
 
     if (filter === 'PAID' && r.reservation.statutPayement !== 'PAID')
       return false;
-    if (filter === 'NO_PAYMENT' && r.reservation.statutPayement !== 'NO_PAYMENT')
+    if (
+      filter === 'NO_PAYMENT' &&
+      r.reservation.statutPayement !== 'NO_PAYMENT'
+    )
       return false;
     if (
       filter === 'CONFIRMER' &&
@@ -428,7 +448,11 @@ export default function Bookings() {
                 })
               }
             >
-              <Ionicons name="qr-code-outline" size={14} color={theme.textStrong} />
+              <Ionicons
+                name="qr-code-outline"
+                size={14}
+                color={theme.textStrong}
+              />
               <Text style={[styles.actionBtnText, { color: theme.textStrong }]}>
                 {t.ticket}
               </Text>
@@ -436,7 +460,15 @@ export default function Bookings() {
           )}
 
           {isCash && !isCancelled && (
-            <View style={[styles.actionBtn, { borderColor: colors.success, backgroundColor: `${colors.success}0d` }]}>
+            <View
+              style={[
+                styles.actionBtn,
+                {
+                  borderColor: colors.success,
+                  backgroundColor: `${colors.success}0d`,
+                },
+              ]}
+            >
               <Ionicons name="cash-outline" size={14} color={colors.success} />
               <Text style={[styles.actionBtnText, { color: colors.success }]}>
                 {lang === 'fr' ? 'À régler' : 'Pay at agency'}
@@ -570,8 +602,10 @@ export default function Bookings() {
               style={[
                 styles.filterIconBtn,
                 {
-                  borderColor: filter !== 'TOUS' ? colors.primary : theme.border,
-                  backgroundColor: filter !== 'TOUS' ? `${colors.primary}10` : undefined,
+                  borderColor:
+                    filter !== 'TOUS' ? colors.primary : theme.border,
+                  backgroundColor:
+                    filter !== 'TOUS' ? `${colors.primary}10` : undefined,
                 },
               ]}
               onPress={() => setShowFilters(v => !v)}
@@ -581,9 +615,7 @@ export default function Bookings() {
                 size={20}
                 color={filter !== 'TOUS' ? colors.primary : theme.textStrong}
               />
-              {filter !== 'TOUS' && (
-                <View style={styles.filterBadge} />
-              )}
+              {filter !== 'TOUS' && <View style={styles.filterBadge} />}
             </TouchableOpacity>
           </View>
 
@@ -632,7 +664,10 @@ export default function Bookings() {
               />
             ) : (
               filtered.map(item => (
-                <ReservationCard key={item.reservation.idReservation} item={item} />
+                <ReservationCard
+                  key={item.reservation.idReservation}
+                  item={item}
+                />
               ))
             )}
           </View>

@@ -115,7 +115,7 @@ export default function DrawerMenu({
       support: 'Support client',
       about: 'À propos',
       logout: 'Déconnexion',
-      version: 'Version 1.0.0',
+      version: 'Version 1.0.1',
     },
     en: {
       changeLang: 'Switch to French',
@@ -124,7 +124,7 @@ export default function DrawerMenu({
       support: 'Customer support',
       about: 'About',
       logout: 'Logout',
-      version: 'Version 1.0.0',
+      version: 'Version 1.0.1',
     },
   }[lang];
 

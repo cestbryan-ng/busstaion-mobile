@@ -449,7 +449,7 @@ export default function AgencyProfil({
             icon="server-outline"
             label={t.cache}
             desc={t.cacheDesc}
-            onPress={() => navigation.navigate('CacheSettings')}
+            onPress={() => navigation.navigate('AgencyCacheSettings')}
           />
         </View>
 

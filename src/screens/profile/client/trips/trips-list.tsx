@@ -83,6 +83,13 @@ function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
   );
 }
 
+function formatTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function parseDuration(raw: string | number): number {
   if (typeof raw === 'number') return raw;
   const match = raw.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
@@ -215,19 +222,21 @@ export default function TripsList() {
         const data = await res.json();
         const now = new Date();
         const published = (data.content || []).filter(
-          (t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now,
+          (t: Trip) =>
+            t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now,
         );
         setTrips(prev => (reset ? published : [...prev, ...published]));
         setTotalPages(data.totalPages || 1);
         setCurrentPage(page);
-        await setCache(`trips_list_${page}`, data);
+        await setCache(`client_trips_list_${page}`, data);
         setIsOffline(false);
       } else {
-        const cached = await getCache(`trips_list_${page}`);
+        const cached = await getCache(`client_trips_list_${page}`);
         if (cached) {
           const now = new Date();
           const published = (cached.content || []).filter(
-            (t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now,
+            (t: Trip) =>
+              t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now,
           );
           setTrips(prev => (reset ? published : [...prev, ...published]));
           setTotalPages(cached.totalPages || 1);
@@ -236,11 +245,12 @@ export default function TripsList() {
         }
       }
     } catch {
-      const cached = await getCache(`trips_list_${page}`);
+      const cached = await getCache(`client_trips_list_${page}`);
       if (cached) {
         const now = new Date();
         const published = (cached.content || []).filter(
-          (t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now,
+          (t: Trip) =>
+            t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now,
         );
         setTrips(prev => (reset ? published : [...prev, ...published]));
         setTotalPages(cached.totalPages || 1);
@@ -297,8 +307,10 @@ export default function TripsList() {
     .sort((a, b) => {
       if (sortBy === 'price_asc') return a.prix - b.prix;
       if (sortBy === 'price_desc') return b.prix - a.prix;
-      if (sortBy === 'duration_asc') return parseDuration(a.dureeVoyage) - parseDuration(b.dureeVoyage);
-      if (sortBy === 'seats_desc') return b.nbrPlaceRestante - a.nbrPlaceRestante;
+      if (sortBy === 'duration_asc')
+        return parseDuration(a.dureeVoyage) - parseDuration(b.dureeVoyage);
+      if (sortBy === 'seats_desc')
+        return b.nbrPlaceRestante - a.nbrPlaceRestante;
       return 0;
     });
 
@@ -327,9 +339,15 @@ export default function TripsList() {
               { backgroundColor: theme.backgroundAlt },
             ]}
           >
-            {item.smallImage?.startsWith('http')
-              ? <Image source={{ uri: item.smallImage }} style={styles.listCardImageInner} resizeMode="cover" />
-              : <TripPlaceholder width="100%" height="100%" />}
+            {item.smallImage?.startsWith('http') ? (
+              <Image
+                source={{ uri: item.smallImage }}
+                style={styles.listCardImageInner}
+                resizeMode="cover"
+              />
+            ) : (
+              <TripPlaceholder width="100%" height="100%" />
+            )}
           </View>
 
           {/* Info */}
@@ -339,9 +357,14 @@ export default function TripsList() {
               <View
                 style={[styles.classBadge, { backgroundColor: classColor }]}
               >
-                <Text style={styles.classBadgeText}>{item.nomClasseVoyage}</Text>
+                <Text style={styles.classBadgeText}>
+                  {item.nomClasseVoyage}
+                </Text>
               </View>
-              <Text style={[styles.listCardRoute, { color: theme.textStrong }]} numberOfLines={1}>
+              <Text
+                style={[styles.listCardRoute, { color: theme.textStrong }]}
+                numberOfLines={1}
+              >
                 {t.routeLabel(item.lieuDepart, item.lieuArrive)}
               </Text>
             </View>
@@ -352,6 +375,16 @@ export default function TripsList() {
               <Text style={[styles.metaText, { color: theme.text }]}>
                 {' '}
                 {formatDate(item.dateDepartPrev, lang)}
+              </Text>
+              <Ionicons
+                name="time-outline"
+                size={12}
+                color={theme.text}
+                style={{ marginLeft: 8 }}
+              />
+              <Text style={[styles.metaText, { color: theme.text }]}>
+                {' '}
+                {formatTime(item.dateDepartPrev)}
               </Text>
             </View>
 
@@ -431,9 +464,15 @@ export default function TripsList() {
             { backgroundColor: theme.backgroundAlt },
           ]}
         >
-          {item.smallImage?.startsWith('http')
-            ? <Image source={{ uri: item.smallImage }} style={styles.gridCardImageInner} resizeMode="cover" />
-            : <TripPlaceholder width="100%" height="100%" />}
+          {item.smallImage?.startsWith('http') ? (
+            <Image
+              source={{ uri: item.smallImage }}
+              style={styles.gridCardImageInner}
+              resizeMode="cover"
+            />
+          ) : (
+            <TripPlaceholder width="100%" height="100%" />
+          )}
           <View
             style={[
               styles.classBadge,
@@ -464,6 +503,16 @@ export default function TripsList() {
                 lang === 'fr' ? 'fr-FR' : 'en-GB',
                 { day: 'numeric', month: 'short' },
               )}
+            </Text>
+            <Ionicons
+              name="time-outline"
+              size={11}
+              color={theme.text}
+              style={{ marginLeft: 6 }}
+            />
+            <Text style={[styles.metaText, { color: theme.text }]}>
+              {' '}
+              {formatTime(item.dateDepartPrev)}
             </Text>
           </View>
           <View style={styles.metaRow}>
@@ -632,7 +681,11 @@ export default function TripsList() {
               onPress={() => setShowDatePicker(true)}
               activeOpacity={0.7}
             >
-              <Ionicons name="calendar-outline" size={14} color={colors.primary} />
+              <Ionicons
+                name="calendar-outline"
+                size={14}
+                color={colors.primary}
+              />
               <Text
                 style={[
                   styles.searchFieldLabel,
@@ -680,12 +733,18 @@ export default function TripsList() {
                   style={[
                     styles.filterBtn,
                     {
-                      borderColor: activeCount > 0 ? colors.primary : theme.border,
-                      backgroundColor: activeCount > 0 ? `${colors.primary}10` : theme.backgroundAlt,
+                      borderColor:
+                        activeCount > 0 ? colors.primary : theme.border,
+                      backgroundColor:
+                        activeCount > 0
+                          ? `${colors.primary}10`
+                          : theme.backgroundAlt,
                     },
                   ]}
                   onPress={() =>
-                    navigation.navigate('TripsFilter', { filters: activeFilters })
+                    navigation.navigate('TripsFilter', {
+                      filters: activeFilters,
+                    })
                   }
                 >
                   <Ionicons
@@ -696,13 +755,21 @@ export default function TripsList() {
                   <Text
                     style={[
                       styles.filterBtnText,
-                      { color: activeCount > 0 ? colors.primary : theme.textStrong },
+                      {
+                        color:
+                          activeCount > 0 ? colors.primary : theme.textStrong,
+                      },
                     ]}
                   >
                     {t.filters}
                   </Text>
                   {activeCount > 0 && (
-                    <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
+                    <View
+                      style={[
+                        styles.filterBadge,
+                        { backgroundColor: colors.primary },
+                      ]}
+                    >
                       <Text style={styles.filterBadgeText}>{activeCount}</Text>
                     </View>
                   )}

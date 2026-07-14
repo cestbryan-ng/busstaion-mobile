@@ -224,16 +224,22 @@ export default function Explore() {
         setAgencies(prev => (pageNum === 0 ? items : [...prev, ...items]));
         setAgencyTotalPages(data.totalPages ?? 1);
         setAgencyPage(pageNum);
-        if (pageNum === 0) setCache('explore_agencies', items);
+        if (pageNum === 0) setCache('client_explore_agencies', items);
         setIsOffline(false);
       } else if (pageNum === 0) {
-        const cached = await getCache<Agency[]>('explore_agencies');
-        if (cached) { setAgencies(cached); setIsOffline(true); }
+        const cached = await getCache<Agency[]>('client_explore_agencies');
+        if (cached) {
+          setAgencies(cached);
+          setIsOffline(true);
+        }
       }
     } catch {
       if (pageNum === 0) {
-        const cached = await getCache<Agency[]>('explore_agencies');
-        if (cached) { setAgencies(cached); setIsOffline(true); }
+        const cached = await getCache<Agency[]>('client_explore_agencies');
+        if (cached) {
+          setAgencies(cached);
+          setIsOffline(true);
+        }
       }
     } finally {
       setLoadingAgencies(false);
@@ -241,36 +247,48 @@ export default function Explore() {
     }
   }, []);
 
-  const loadGares = useCallback(async (pageNum = 0, services: string[] = []) => {
-    if (pageNum === 0) setLoadingGares(true);
-    try {
-      const token = await AsyncStorage.getItem('token');
-      const serviceParam = services.length ? `&services=${services.join(',')}` : '';
-      const res = await fetch(
-        `${API_URL}/gare?page=${pageNum}&size=15${serviceParam}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const items: Gare[] = data.content || data || [];
-        setGares(prev => (pageNum === 0 ? items : [...prev, ...items]));
-        setGareTotalPages(data.totalPages ?? 1);
-        setGarePage(pageNum);
-        if (pageNum === 0 && !services.length) setCache('explore_gares', items);
-      } else if (pageNum === 0 && !services.length) {
-        const cached = await getCache<Gare[]>('explore_gares');
-        if (cached) { setGares(cached); setIsOffline(true); }
+  const loadGares = useCallback(
+    async (pageNum = 0, services: string[] = []) => {
+      if (pageNum === 0) setLoadingGares(true);
+      try {
+        const token = await AsyncStorage.getItem('token');
+        const serviceParam = services.length
+          ? `&services=${services.join(',')}`
+          : '';
+        const res = await fetch(
+          `${API_URL}/gare?page=${pageNum}&size=15${serviceParam}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const items: Gare[] = data.content || data || [];
+          setGares(prev => (pageNum === 0 ? items : [...prev, ...items]));
+          setGareTotalPages(data.totalPages ?? 1);
+          setGarePage(pageNum);
+          if (pageNum === 0 && !services.length)
+            setCache('client_explore_gares', items);
+        } else if (pageNum === 0 && !services.length) {
+          const cached = await getCache<Gare[]>('client_explore_gares');
+          if (cached) {
+            setGares(cached);
+            setIsOffline(true);
+          }
+        }
+      } catch {
+        if (pageNum === 0 && !services.length) {
+          const cached = await getCache<Gare[]>('client_explore_gares');
+          if (cached) {
+            setGares(cached);
+            setIsOffline(true);
+          }
+        }
+      } finally {
+        setLoadingGares(false);
+        setGareLoadingMore(false);
       }
-    } catch {
-      if (pageNum === 0 && !services.length) {
-        const cached = await getCache<Gare[]>('explore_gares');
-        if (cached) { setGares(cached); setIsOffline(true); }
-      }
-    } finally {
-      setLoadingGares(false);
-      setGareLoadingMore(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     loadAgencies(0);
@@ -297,10 +315,18 @@ export default function Explore() {
       const nearBottom =
         contentOffset.y + layoutMeasurement.height >= contentSize.height - 200;
       if (!nearBottom) return;
-      if (tab === 'agencies' && !agencyLoadingMore && agencyPage + 1 < agencyTotalPages) {
+      if (
+        tab === 'agencies' &&
+        !agencyLoadingMore &&
+        agencyPage + 1 < agencyTotalPages
+      ) {
         setAgencyLoadingMore(true);
         loadAgencies(agencyPage + 1);
-      } else if (tab === 'gares' && !gareLoadingMore && garePage + 1 < gareTotalPages) {
+      } else if (
+        tab === 'gares' &&
+        !gareLoadingMore &&
+        garePage + 1 < gareTotalPages
+      ) {
         setGareLoadingMore(true);
         loadGares(garePage + 1, selectedServices);
       }
@@ -360,17 +386,21 @@ export default function Explore() {
         { backgroundColor: theme.background, borderColor: theme.border },
       ]}
       activeOpacity={0.85}
-      onPress={() =>
-        navigation.navigate('AgencyDetail', { agencyId: item.id })
-      }
+      onPress={() => navigation.navigate('AgencyDetail', { agencyId: item.id })}
     >
       {/* Logo */}
       <View
         style={[styles.agencyLogo, { backgroundColor: theme.backgroundAlt }]}
       >
-        {item.logoUrl && !item.logoUrl.toLowerCase().includes('placeholder')
-          ? <Image source={{ uri: item.logoUrl }} style={styles.agencyLogoImage} resizeMode="contain" />
-          : <AgencyPlaceholder width="100%" height="100%" />}
+        {item.logoUrl && !item.logoUrl.toLowerCase().includes('placeholder') ? (
+          <Image
+            source={{ uri: item.logoUrl }}
+            style={styles.agencyLogoImage}
+            resizeMode="contain"
+          />
+        ) : (
+          <AgencyPlaceholder width="100%" height="100%" />
+        )}
       </View>
 
       {/* Info */}
@@ -435,9 +465,15 @@ export default function Explore() {
         <View
           style={[styles.gareImage, { backgroundColor: theme.backgroundAlt }]}
         >
-          {item.photoUrl
-            ? <Image source={{ uri: item.photoUrl }} style={styles.gareImageInner} resizeMode="cover" />
-            : <StationPlaceholder width="100%" height="100%" />}
+          {item.photoUrl ? (
+            <Image
+              source={{ uri: item.photoUrl }}
+              style={styles.gareImageInner}
+              resizeMode="cover"
+            />
+          ) : (
+            <StationPlaceholder width="100%" height="100%" />
+          )}
         </View>
 
         {/* Info */}
@@ -661,18 +697,33 @@ export default function Explore() {
             </View>
             {tab === 'gares' && (
               <TouchableOpacity
-                style={[styles.filterBtn, {
-                  borderColor: selectedServices.length > 0 ? colors.primary : theme.border,
-                  backgroundColor: selectedServices.length > 0 ? `${colors.primary}10` : undefined,
-                }]}
+                style={[
+                  styles.filterBtn,
+                  {
+                    borderColor:
+                      selectedServices.length > 0
+                        ? colors.primary
+                        : theme.border,
+                    backgroundColor:
+                      selectedServices.length > 0
+                        ? `${colors.primary}10`
+                        : undefined,
+                  },
+                ]}
                 onPress={() => setShowServiceFilters(v => !v)}
               >
                 <Ionicons
                   name="options-outline"
                   size={20}
-                  color={selectedServices.length > 0 ? colors.primary : theme.textStrong}
+                  color={
+                    selectedServices.length > 0
+                      ? colors.primary
+                      : theme.textStrong
+                  }
                 />
-                {selectedServices.length > 0 && <View style={styles.filterBadge} />}
+                {selectedServices.length > 0 && (
+                  <View style={styles.filterBadge} />
+                )}
               </TouchableOpacity>
             )}
           </View>

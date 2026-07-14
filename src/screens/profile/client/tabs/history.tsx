@@ -297,8 +297,13 @@ export default function Historique() {
       });
 
       if (!res.ok) {
-        const cached = await getCache<HistoriqueEnrichi[]>(`history_${userId}`);
-        if (cached) { setHistoriques(cached); setIsOffline(true); }
+        const cached = await getCache<HistoriqueEnrichi[]>(
+          `client_history_${userId}`,
+        );
+        if (cached) {
+          setHistoriques(cached);
+          setIsOffline(true);
+        }
         return;
       }
 
@@ -329,14 +334,21 @@ export default function Historique() {
 
       setHistoriques(enriched);
       const userId2 = user?.userId || user?.id;
-      if (userId2) setCache(`history_${userId2}`, enriched);
+      if (userId2) setCache(`client_history_${userId2}`, enriched);
       setIsOffline(false);
     } catch {
       const userRaw2 = await AsyncStorage.getItem('user');
-      const userId2 = userRaw2 ? JSON.parse(userRaw2)?.userId || JSON.parse(userRaw2)?.id : null;
+      const userId2 = userRaw2
+        ? JSON.parse(userRaw2)?.userId || JSON.parse(userRaw2)?.id
+        : null;
       if (userId2) {
-        const cached = await getCache<HistoriqueEnrichi[]>(`history_${userId2}`);
-        if (cached) { setHistoriques(cached); setIsOffline(true); }
+        const cached = await getCache<HistoriqueEnrichi[]>(
+          `client_history_${userId2}`,
+        );
+        if (cached) {
+          setHistoriques(cached);
+          setIsOffline(true);
+        }
       }
     } finally {
       setLoading(false);

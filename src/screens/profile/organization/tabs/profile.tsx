@@ -243,17 +243,16 @@ export default function OrgProfil({
         >
           <View style={styles.profileRow}>
             <View
-              style={[
-                styles.avatar,
-                { backgroundColor: theme.backgroundAlt },
-              ]}
+              style={[styles.avatar, { backgroundColor: theme.backgroundAlt }]}
             >
               <AvatarPlaceholder width="100%" height="100%" />
             </View>
             <View style={styles.profileInfo}>
               <Text style={[styles.profileName, { color: theme.textStrong }]}>
                 {user
-                  ? [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username
+                  ? [user.first_name, user.last_name]
+                      .filter(Boolean)
+                      .join(' ') || user.username
                   : '—'}
               </Text>
               <Text style={[styles.profileUsername, { color: theme.text }]}>
@@ -391,7 +390,7 @@ export default function OrgProfil({
             icon="server-outline"
             label={t.cache}
             desc={t.cacheDesc}
-            onPress={() => navigation.navigate('CacheSettings')}
+            onPress={() => navigation.navigate('OrgCacheSettings')}
           />
         </View>
 

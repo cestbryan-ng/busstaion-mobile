@@ -25,6 +25,9 @@ import AgencyDetail from '../screens/profile/client/explore/agency-detail';
 import StationDetail from '../screens/profile/client/explore/station-detail';
 import ProfileSettings from '../screens/profile/client/profile/settings';
 import CacheSettings from '../screens/profile/client/profile/cache-settings';
+import AgencyCacheSettings from '../screens/profile/agency/profile/cache-settings';
+import OrgCacheSettings from '../screens/profile/organization/profile/cache-settings';
+import BsmCacheSettings from '../screens/profile/bsm/profile/cache-settings';
 import Dashboard from '../screens/profile/client/profile/dashboard';
 import CouponsScreen from '../screens/profile/client/profile/coupons';
 import AgencyMain from '../screens/profile/agency/agency-main';
@@ -93,6 +96,9 @@ export type RootStackParamList = {
   StationDetail: { stationId: string };
   ProfileSettings: undefined;
   CacheSettings: undefined;
+  AgencyCacheSettings: undefined;
+  OrgCacheSettings: undefined;
+  BsmCacheSettings: undefined;
   Dashboard: undefined;
   Coupons: undefined;
   AgencyMain: undefined;
@@ -177,6 +183,9 @@ export default function Navigation() {
           <Stack.Screen name="StationDetail" component={StationDetail} />
           <Stack.Screen name="ProfileSettings" component={ProfileSettings} />
           <Stack.Screen name="CacheSettings" component={CacheSettings} />
+          <Stack.Screen name="AgencyCacheSettings" component={AgencyCacheSettings} />
+          <Stack.Screen name="OrgCacheSettings" component={OrgCacheSettings} />
+          <Stack.Screen name="BsmCacheSettings" component={BsmCacheSettings} />
           <Stack.Screen name="Dashboard" component={Dashboard} />
           <Stack.Screen name="Coupons" component={CouponsScreen} />
           <Stack.Screen name="AgencyMain" component={AgencyMain} />

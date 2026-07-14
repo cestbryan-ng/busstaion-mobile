@@ -29,6 +29,7 @@ import {
 } from '../../../../components/date-picker-modal';
 import TimePickerModal from '../../../../components/time-picker-modal';
 import { SkeletonAgencyTripDetail } from '../../../../components/skeleton';
+import { CITIES } from '../../../../components/city-picker-modal';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -41,7 +42,13 @@ type Vehicle = {
 };
 type Driver = { userId: string; first_name?: string; last_name?: string };
 type TClass = { id: string; nom: string };
-type Destination = { lieuArrive: string; pointArriveeId: string; pointArriveeNom: string; agenceId?: string; agenceNom?: string };
+type Destination = {
+  lieuArrive: string;
+  pointArriveeId: string;
+  pointArriveeNom: string;
+  agenceId?: string;
+  agenceNom?: string;
+};
 
 type FormData = {
   titre: string;
@@ -59,19 +66,6 @@ type FormData = {
   nbrPlaceReservable: string;
   statusVoyage: 'EN_ATTENTE' | 'PUBLIE';
 };
-
-const CITIES = [
-  'Douala',
-  'Yaoundé',
-  'Bafoussam',
-  'Kribi',
-  'Buea',
-  'Garoua',
-  'Bertoua',
-  'Maroua',
-  'Ngaoundéré',
-  'Bamenda',
-];
 
 const STEP_LABELS_FR = ['Itinéraire', 'Ressources', 'Détails', 'Confirmation'];
 const STEP_LABELS_EN = ['Itinerary', 'Resources', 'Details', 'Confirmation'];
@@ -122,15 +116,30 @@ function Field({
         >
           {(() => {
             const idx = value ? value.indexOf('-') : -1;
-            const main = idx > -1 ? value.slice(0, idx) : (value || placeholder || '');
-            const sub = subtitle || (idx > -1 ? value.slice(idx + 1) : undefined);
+            const main =
+              idx > -1 ? value.slice(0, idx) : value || placeholder || '';
+            const sub =
+              subtitle || (idx > -1 ? value.slice(idx + 1) : undefined);
             return (
               <>
-                <Text style={{ ...typography.body, fontSize: typography.sizes.sm, color: theme.textStrong }}>
+                <Text
+                  style={{
+                    ...typography.body,
+                    fontSize: typography.sizes.sm,
+                    color: theme.textStrong,
+                  }}
+                >
                   {main}
                 </Text>
                 {sub ? (
-                  <Text style={{ ...typography.body, fontSize: typography.sizes.xs, color: theme.text, marginTop: 2 }}>
+                  <Text
+                    style={{
+                      ...typography.body,
+                      fontSize: typography.sizes.xs,
+                      color: theme.text,
+                      marginTop: 2,
+                    }}
+                  >
                     {sub}
                   </Text>
                 ) : null}
@@ -147,7 +156,11 @@ function Field({
               backgroundColor: theme.backgroundAlt,
               color: theme.textStrong,
             },
-            multiline && { height: 80, textAlignVertical: 'top', paddingTop: spacing.sm },
+            multiline && {
+              height: 80,
+              textAlignVertical: 'top',
+              paddingTop: spacing.sm,
+            },
           ]}
           value={value}
           onChangeText={onChangeText}
@@ -206,11 +219,25 @@ function CityPicker({
         >
           <Ionicons name="location-outline" size={18} color={theme.text} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.pickerBtnText, { color: theme.textStrong, flex: 0 }]}>
+            <Text
+              style={[
+                styles.pickerBtnText,
+                { color: theme.textStrong, flex: 0 },
+              ]}
+            >
               {value || '—'}
             </Text>
             {subtitle ? (
-              <Text style={[{ ...typography.body, fontSize: typography.sizes.xs, color: theme.text, marginTop: 1 }]}>
+              <Text
+                style={[
+                  {
+                    ...typography.body,
+                    fontSize: typography.sizes.xs,
+                    color: theme.text,
+                    marginTop: 1,
+                  },
+                ]}
+              >
                 {subtitle}
               </Text>
             ) : null}
@@ -430,7 +457,9 @@ function DestinationPicker({
   const [open, setOpen] = useState(false);
   return (
     <View style={[styles.field, { flex: 1 }]}>
-      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
+        {label}
+      </Text>
       <TouchableOpacity
         style={[
           styles.pickerBtn,
@@ -448,13 +477,25 @@ function DestinationPicker({
         <Ionicons name="location-outline" size={18} color={theme.text} />
         <View style={{ flex: 1 }}>
           <Text
-            style={[styles.pickerBtnText, { color: cityValue ? theme.textStrong : theme.text, flex: 0 }]}
+            style={[
+              styles.pickerBtnText,
+              { color: cityValue ? theme.textStrong : theme.text, flex: 0 },
+            ]}
             numberOfLines={1}
           >
             {cityValue || '—'}
           </Text>
           {agenceValue ? (
-            <Text style={[{ ...typography.body, fontSize: typography.sizes.xs, color: theme.text, marginTop: 1 }]}>
+            <Text
+              style={[
+                {
+                  ...typography.body,
+                  fontSize: typography.sizes.xs,
+                  color: theme.text,
+                  marginTop: 1,
+                },
+              ]}
+            >
               {agenceValue}
             </Text>
           ) : null}
@@ -462,23 +503,54 @@ function DestinationPicker({
         <Ionicons name="chevron-down" size={16} color={theme.text} />
       </TouchableOpacity>
       {error && (
-        <Text style={[styles.fieldError, { color: colors.error }]}>{error}</Text>
+        <Text style={[styles.fieldError, { color: colors.error }]}>
+          {error}
+        </Text>
       )}
 
-      <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
-        <View style={[styles.cityModalContainer, { backgroundColor: theme.background }]}>
-          <View style={[styles.cityModalHeader, { borderBottomColor: theme.border }]}>
-            <Text style={[styles.cityModalTitle, { color: theme.textStrong }]}>{label}</Text>
+      <Modal
+        visible={open}
+        animationType="slide"
+        onRequestClose={() => setOpen(false)}
+      >
+        <View
+          style={[
+            styles.cityModalContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
+          <View
+            style={[
+              styles.cityModalHeader,
+              { borderBottomColor: theme.border },
+            ]}
+          >
+            <Text style={[styles.cityModalTitle, { color: theme.textStrong }]}>
+              {label}
+            </Text>
             <TouchableOpacity onPress={() => setOpen(false)}>
               <Ionicons name="close" size={24} color={theme.textStrong} />
             </TouchableOpacity>
           </View>
           {loading ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+            <ActivityIndicator
+              size="large"
+              color={colors.primary}
+              style={{ marginTop: 40 }}
+            />
           ) : destinations.length === 0 ? (
             <View style={{ padding: 32, alignItems: 'center' }}>
               <Ionicons name="map-outline" size={40} color={theme.border} />
-              <Text style={[{ ...typography.body, fontSize: typography.sizes.sm, color: theme.text, marginTop: 12 }]}>
+              <Text
+                style={[
+                  {
+                    ...typography.body,
+                    fontSize: typography.sizes.sm,
+                    color: theme.text,
+                    marginTop: 12,
+                  },
+                ]}
+              >
                 Aucune destination configurée
               </Text>
             </View>
@@ -491,25 +563,62 @@ function DestinationPicker({
                   style={[
                     styles.cityModalItem,
                     { borderBottomColor: theme.border },
-                    value === item.pointArriveeNom && { backgroundColor: `${colors.primary}12` },
+                    value === item.pointArriveeNom && {
+                      backgroundColor: `${colors.primary}12`,
+                    },
                   ]}
-                  onPress={() => { onSelect(item); setOpen(false); }}
+                  onPress={() => {
+                    onSelect(item);
+                    setOpen(false);
+                  }}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.cityModalItemText, { color: value === item.pointArriveeNom ? colors.primary : theme.textStrong }]}>
+                    <Text
+                      style={[
+                        styles.cityModalItemText,
+                        {
+                          color:
+                            value === item.pointArriveeNom
+                              ? colors.primary
+                              : theme.textStrong,
+                        },
+                      ]}
+                    >
                       {item.lieuArrive}
                     </Text>
-                    <Text style={[{ ...typography.body, fontSize: typography.sizes.xs, color: theme.text, marginTop: 2 }]}>
+                    <Text
+                      style={[
+                        {
+                          ...typography.body,
+                          fontSize: typography.sizes.xs,
+                          color: theme.text,
+                          marginTop: 2,
+                        },
+                      ]}
+                    >
                       {item.pointArriveeNom}
                     </Text>
                     {item.agenceNom ? (
-                      <Text style={[{ ...typography.body, fontSize: typography.sizes.xs, color: colors.primary, marginTop: 1 }]}>
+                      <Text
+                        style={[
+                          {
+                            ...typography.body,
+                            fontSize: typography.sizes.xs,
+                            color: colors.primary,
+                            marginTop: 1,
+                          },
+                        ]}
+                      >
                         {item.agenceNom}
                       </Text>
                     ) : null}
                   </View>
                   {value === item.pointArriveeNom && (
-                    <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color={colors.primary}
+                    />
                   )}
                 </TouchableOpacity>
               )}
@@ -681,11 +790,18 @@ export default function AgencyNewTrip() {
         // Fetch destinations
         try {
           setDestinationsLoading(true);
-          const destRes = await fetch(`${API_URL}/agence/${agencyData.id}/destinations`, { headers });
+          const destRes = await fetch(
+            `${API_URL}/agence/${agencyData.id}/destinations`,
+            { headers },
+          );
           if (destRes.ok) {
             const destData: Destination[] = await destRes.json();
             const ownGareId = agencyData.gareIds?.[0];
-            setDestinations(ownGareId ? destData.filter(d => d.pointArriveeId !== ownGareId) : destData);
+            setDestinations(
+              ownGareId
+                ? destData.filter(d => d.pointArriveeId !== ownGareId)
+                : destData,
+            );
           }
         } catch {
           // silent
@@ -698,14 +814,18 @@ export default function AgencyNewTrip() {
           const gareId = agencyData.gareIds?.[0];
           if (gareId) {
             try {
-              const gareRes = await fetch(`${API_URL}/gare/${gareId}`, { headers });
+              const gareRes = await fetch(`${API_URL}/gare/${gareId}`, {
+                headers,
+              });
               if (gareRes.ok) {
                 const gare = await gareRes.json();
                 setForm(prev => ({
                   ...prev,
                   lieuDepart: gare.ville || '',
                   pointDeDepart: gare.nomGareRoutiere
-                    ? `${gare.nomGareRoutiere}-${agencyData.longName || agencyData.nom || ''}`
+                    ? `${gare.nomGareRoutiere}-${
+                        agencyData.longName || agencyData.nom || ''
+                      }`
                     : '',
                 }));
               }
@@ -716,10 +836,16 @@ export default function AgencyNewTrip() {
         }
 
         const [vRes, dRes, cRes] = await Promise.allSettled([
-          fetch(`${API_URL}/vehicule/agence/${agencyData.id}?statut=DISPONIBLE`, { headers }),
-          fetch(`${API_URL}/utilisateur/chauffeurs/${agencyData.id}?statut=LIBRE`, {
-            headers,
-          }),
+          fetch(
+            `${API_URL}/vehicule/agence/${agencyData.id}?statut=DISPONIBLE`,
+            { headers },
+          ),
+          fetch(
+            `${API_URL}/utilisateur/chauffeurs/${agencyData.id}?statut=LIBRE`,
+            {
+              headers,
+            },
+          ),
           fetch(`${API_URL}/class-voyage/agence/${agencyData.id}`, { headers }),
         ]);
 
@@ -896,7 +1022,12 @@ export default function AgencyNewTrip() {
           cityValue={form.lieuArrive}
           onSelect={d => {
             update('lieuArrive', d.lieuArrive);
-            update('pointArrivee', d.agenceNom ? `${d.pointArriveeNom}-${d.agenceNom}` : d.pointArriveeNom);
+            update(
+              'pointArrivee',
+              d.agenceNom
+                ? `${d.pointArriveeNom}-${d.agenceNom}`
+                : d.pointArriveeNom,
+            );
             setDestAgenceId(d.agenceId || '');
           }}
           destinations={destinations}
@@ -1042,7 +1173,8 @@ export default function AgencyNewTrip() {
         onSelect={v => {
           update('vehiculeId', v);
           const veh = vehicles.find(x => x.idVehicule === v);
-          if (veh?.nbrPlaces) update('nbrPlaceReservable', String(veh.nbrPlaces));
+          if (veh?.nbrPlaces)
+            update('nbrPlaceReservable', String(veh.nbrPlaces));
         }}
         placeholder={t.selectVehicle}
         options={vehicles.map(v => ({

@@ -6,7 +6,6 @@ import {
   ScrollView,
   FlatList,
   TouchableOpacity,
-  TextInput,
   Image,
   ActivityIndicator,
   RefreshControl,
@@ -33,6 +32,7 @@ import {
   DatePickerModal,
   formatDateDisplay,
 } from '../../../../components/date-picker-modal';
+import { CityPickerModal } from '../../../../components/city-picker-modal';
 import TripPlaceholder from '../../../../assets/placeholders/product.svg';
 import AgencyPlaceholder from '../../../../assets/placeholders/shape.svg';
 import StationPlaceholder from '../../../../assets/placeholders/building.svg';
@@ -177,11 +177,11 @@ export default function Home({
       morning: [
         'Bonjour ! Prêt pour votre prochain voyage ? ☀️',
         'Bonjour ! Une belle journée pour voyager ☀️',
-        'Bonjour ! Où partez-vous aujourd\'hui ? ☀️',
+        "Bonjour ! Où partez-vous aujourd'hui ? ☀️",
         'Bon matin ! Votre prochaine destination vous attend ☀️',
       ],
       afternoon: [
-        'Bonne après-midi ! Où vous emmène-t-on aujourd\'hui ? 🌤️',
+        "Bonne après-midi ! Où vous emmène-t-on aujourd'hui ? 🌤️",
         'Bonne après-midi ! Prêt à prendre la route ? 🌤️',
         'Bonne après-midi ! Un voyage vous attend 🌤️',
         'Bonne après-midi ! Trouvez votre prochain trajet 🌤️',
@@ -190,7 +190,7 @@ export default function Home({
         'Bonsoir ! Un trajet de prévu ce soir ? 🌙',
         'Bonsoir ! Planifiez votre voyage en toute tranquillité 🌙',
         'Bonsoir ! Prêt pour une aventure nocturne ? 🌙',
-        'Bonsoir ! Réservez votre place avant qu\'il ne soit trop tard 🌙',
+        "Bonsoir ! Réservez votre place avant qu'il ne soit trop tard 🌙",
       ],
       night: [
         'Bonne nuit ! Planifiez votre voyage pour demain 🌙',
@@ -216,7 +216,7 @@ export default function Home({
         'Good evening! Got a ride planned tonight? 🌙',
         'Good evening! Plan your trip in peace 🌙',
         'Good evening! Ready for a night adventure? 🌙',
-        'Good evening! Book your seat before it\'s too late 🌙',
+        "Good evening! Book your seat before it's too late 🌙",
       ],
       night: [
         'Good night! Plan your journey for tomorrow 🌙',
@@ -326,41 +326,53 @@ export default function Home({
         const data = await tripsRes.value.json();
         const now = new Date();
         const filtered = (data.content || [])
-          .filter((t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now)
+          .filter(
+            (t: Trip) =>
+              t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now,
+          )
           .slice(0, 6);
         setTrips(filtered);
-        setCache('home_trips', filtered);
+        setCache('client_home_trips', filtered);
       } else {
-        const cached = await getCache<Trip[]>('home_trips');
-        if (cached) { setTrips(cached); anyFromCache = true; }
+        const cached = await getCache<Trip[]>('client_home_trips');
+        if (cached) {
+          setTrips(cached);
+          anyFromCache = true;
+        }
       }
 
       if (agenciesRes.status === 'fulfilled' && agenciesRes.value.ok) {
         const data = await agenciesRes.value.json();
         const list = (data.content || data || []).slice(0, 5);
         setAgencies(list);
-        setCache('home_agencies', list);
+        setCache('client_home_agencies', list);
       } else {
-        const cached = await getCache<Agency[]>('home_agencies');
-        if (cached) { setAgencies(cached); anyFromCache = true; }
+        const cached = await getCache<Agency[]>('client_home_agencies');
+        if (cached) {
+          setAgencies(cached);
+          anyFromCache = true;
+        }
       }
 
       if (garesRes.status === 'fulfilled' && garesRes.value.ok) {
         const data = await garesRes.value.json();
         const list = (data.content || data || []).slice(0, 4);
         setGares(list);
-        setCache('home_gares', list);
+        setCache('client_home_gares', list);
       } else {
-        const cached = await getCache<Gare[]>('home_gares');
-        if (cached) { setGares(cached); anyFromCache = true; }
+        const cached = await getCache<Gare[]>('client_home_gares');
+        if (cached) {
+          setGares(cached);
+          anyFromCache = true;
+        }
       }
 
       setIsOffline(anyFromCache);
     } catch {
       const [cachedTrips, cachedAgencies, cachedGares] = await Promise.all([
-        getCache<Trip[]>('home_trips'),
-        getCache<Agency[]>('home_agencies'),
-        getCache<Gare[]>('home_gares'),
+        getCache<Trip[]>('client_home_trips'),
+        getCache<Agency[]>('client_home_agencies'),
+        getCache<Gare[]>('client_home_gares'),
       ]);
       if (cachedTrips) setTrips(cachedTrips);
       if (cachedAgencies) setAgencies(cachedAgencies);
@@ -448,7 +460,9 @@ export default function Home({
           { backgroundColor: theme.background, borderColor: theme.border },
         ]}
         activeOpacity={0.85}
-        onPress={() => navigation.navigate('TripDetail', { tripId: item.idVoyage })}
+        onPress={() =>
+          navigation.navigate('TripDetail', { tripId: item.idVoyage })
+        }
       >
         {/* Image */}
         <View
@@ -457,9 +471,15 @@ export default function Home({
             { backgroundColor: classColor + '18' },
           ]}
         >
-          {item.smallImage?.startsWith('http')
-            ? <Image source={{ uri: item.smallImage }} style={styles.tripImage} resizeMode="cover" />
-            : <TripPlaceholder width="100%" height="100%" />}
+          {item.smallImage?.startsWith('http') ? (
+            <Image
+              source={{ uri: item.smallImage }}
+              style={styles.tripImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <TripPlaceholder width="100%" height="100%" />
+          )}
           <View style={[styles.classBadge, { backgroundColor: classColor }]}>
             <Text style={styles.classBadgeText}>{item.nomClasseVoyage}</Text>
           </View>
@@ -479,16 +499,29 @@ export default function Home({
               <Ionicons name="calendar-outline" size={11} color={theme.text} />
               <Text style={[styles.tripMetaText, { color: theme.text }]}>
                 {' '}
-                {new Date(item.dateDepartPrev).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'short' })}
+                {new Date(item.dateDepartPrev).toLocaleDateString(
+                  lang === 'fr' ? 'fr-FR' : 'en-GB',
+                  { day: 'numeric', month: 'short' },
+                )}
               </Text>
             </View>
             <View style={styles.tripMetaItem}>
               <Ionicons name="time-outline" size={11} color={theme.text} />
               <Text style={[styles.tripMetaText, { color: theme.text }]}>
                 {' '}
-                {formatDuration(item.dureeVoyage)}
+                {new Date(item.dateDepartPrev).toLocaleTimeString('fr-FR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
               </Text>
             </View>
+          </View>
+          <View style={[styles.tripMetaItem, { marginBottom: spacing.xs }]}>
+            <Ionicons name="hourglass-outline" size={11} color={theme.text} />
+            <Text style={[styles.tripMetaText, { color: theme.text }]}>
+              {' '}
+              {formatDuration(item.dureeVoyage)}
+            </Text>
           </View>
           <View style={[styles.tripMetaItem, { marginBottom: spacing.sm }]}>
             <Ionicons name="people-outline" size={11} color={theme.text} />
@@ -539,7 +572,9 @@ export default function Home({
           { backgroundColor: theme.background, borderColor: theme.border },
         ]}
         activeOpacity={0.85}
-        onPress={() => navigation.navigate('AgencyDetail', { agencyId: item.id })}
+        onPress={() =>
+          navigation.navigate('AgencyDetail', { agencyId: item.id })
+        }
       >
         <View
           style={[
@@ -547,9 +582,16 @@ export default function Home({
             { backgroundColor: theme.backgroundAlt },
           ]}
         >
-          {item.logoUrl && !item.logoUrl.toLowerCase().includes('placeholder')
-            ? <Image source={{ uri: item.logoUrl }} style={{ width: 64, height: 64 }} resizeMode="cover" />
-            : <AgencyPlaceholder width={64} height={64} />}
+          {item.logoUrl &&
+          !item.logoUrl.toLowerCase().includes('placeholder') ? (
+            <Image
+              source={{ uri: item.logoUrl }}
+              style={{ width: 64, height: 64 }}
+              resizeMode="cover"
+            />
+          ) : (
+            <AgencyPlaceholder width={64} height={64} />
+          )}
         </View>
         <Text
           style={[styles.agencyCardName, { color: theme.textStrong }]}
@@ -580,7 +622,11 @@ export default function Home({
           { backgroundColor: theme.background, borderColor: theme.border },
         ]}
         activeOpacity={0.85}
-        onPress={() => navigation.navigate('StationDetail', { stationId: item.idGareRoutiere })}
+        onPress={() =>
+          navigation.navigate('StationDetail', {
+            stationId: item.idGareRoutiere,
+          })
+        }
       >
         <View
           style={[
@@ -588,9 +634,15 @@ export default function Home({
             { backgroundColor: theme.backgroundAlt },
           ]}
         >
-          {item.photoUrl
-            ? <Image source={{ uri: item.photoUrl }} style={styles.gareImage} resizeMode="cover" />
-            : <StationPlaceholder width="100%" height="100%" />}
+          {item.photoUrl ? (
+            <Image
+              source={{ uri: item.photoUrl }}
+              style={styles.gareImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <StationPlaceholder width="100%" height="100%" />
+          )}
         </View>
         <View style={styles.gareContent}>
           <Text
@@ -673,7 +725,12 @@ export default function Home({
         >
           {/* Avatar + Name */}
           <View style={styles.headerLeft}>
-            <View style={[styles.headerAvatar, { backgroundColor: theme.backgroundAlt }]}>
+            <View
+              style={[
+                styles.headerAvatar,
+                { backgroundColor: theme.backgroundAlt },
+              ]}
+            >
               <AvatarPlaceholder width="100%" height="100%" />
             </View>
             <Text
@@ -713,7 +770,9 @@ export default function Home({
 
         {/* ── Greeting ── */}
         <View style={styles.greetingBanner}>
-          <Text style={[styles.greetingBannerText, { color: theme.textStrong }]}>
+          <Text
+            style={[styles.greetingBannerText, { color: theme.textStrong }]}
+          >
             {t.greeting}
           </Text>
         </View>
@@ -731,29 +790,21 @@ export default function Home({
 
           {/* Departure + Arrival */}
           <View style={styles.searchRow}>
-            <View
-              style={[
+            <CityPickerModal
+              value={departure}
+              onSelect={setDeparture}
+              placeholder={t.departurePlaceholder}
+              label={t.departurePlaceholder}
+              theme={theme}
+              containerStyle={[
                 styles.searchField,
                 {
-                  borderColor: theme.border,
+                  borderColor: departure ? colors.primary : theme.border,
                   backgroundColor: theme.backgroundAlt,
                   flex: 1,
                 },
               ]}
-            >
-              <Ionicons
-                name="location-outline"
-                size={15}
-                color={colors.primary}
-              />
-              <TextInput
-                style={[styles.searchFieldText, { color: theme.textStrong }]}
-                placeholder={t.departurePlaceholder}
-                placeholderTextColor={theme.placeholder}
-                value={departure}
-                onChangeText={setDeparture}
-              />
-            </View>
+            />
 
             <TouchableOpacity
               style={[
@@ -772,29 +823,21 @@ export default function Home({
               />
             </TouchableOpacity>
 
-            <View
-              style={[
+            <CityPickerModal
+              value={arrival}
+              onSelect={setArrival}
+              placeholder={t.arrivalPlaceholder}
+              label={t.arrivalPlaceholder}
+              theme={theme}
+              containerStyle={[
                 styles.searchField,
                 {
-                  borderColor: theme.border,
+                  borderColor: arrival ? colors.primary : theme.border,
                   backgroundColor: theme.backgroundAlt,
                   flex: 1,
                 },
               ]}
-            >
-              <Ionicons
-                name="location-outline"
-                size={15}
-                color={colors.primary}
-              />
-              <TextInput
-                style={[styles.searchFieldText, { color: theme.textStrong }]}
-                placeholder={t.arrivalPlaceholder}
-                placeholderTextColor={theme.placeholder}
-                value={arrival}
-                onChangeText={setArrival}
-              />
-            </View>
+            />
           </View>
 
           {/* Date + Passengers */}
@@ -962,7 +1005,10 @@ export default function Home({
         />
 
         {/* ── Partner Agencies ── */}
-        <SectionHeader title={t.partnerAgencies} onPress={() => (navigation as any).navigate('explore')} />
+        <SectionHeader
+          title={t.partnerAgencies}
+          onPress={() => (navigation as any).navigate('explore')}
+        />
         <FlatList
           horizontal
           data={agencies}
@@ -980,7 +1026,11 @@ export default function Home({
         />
 
         {/* ── Nearby Stations ── */}
-        <SectionHeader title={t.nearbyStations} feminine onPress={() => (navigation as any).navigate('explore')} />
+        <SectionHeader
+          title={t.nearbyStations}
+          feminine
+          onPress={() => (navigation as any).navigate('explore')}
+        />
         <FlatList
           horizontal
           data={gares}
@@ -998,7 +1048,11 @@ export default function Home({
         />
 
         {/* ── Promotions ── */}
-        <SectionHeader title={t.promotions} feminine onPress={() => navigation.navigate('Coupons')} />
+        <SectionHeader
+          title={t.promotions}
+          feminine
+          onPress={() => navigation.navigate('Coupons')}
+        />
         <View
           style={[
             styles.promoCard,

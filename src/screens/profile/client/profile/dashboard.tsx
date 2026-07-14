@@ -71,7 +71,7 @@ const STATUS_RESERVATION: Record<
     color: '#d97706',
     bg: '#fef3c720',
   },
-  CONFIRMEE: {
+  CONFIRMER: {
     label: 'Confirmée',
     labelEn: 'Confirmed',
     color: colors.primary,
@@ -89,6 +89,12 @@ const STATUS_RESERVATION: Record<
     color: '#6b7280',
     bg: '#6b728015',
   },
+  VALIDER: {
+    label: 'Validée',
+    labelEn: 'Validated',
+    color: colors.success,
+    bg: `${colors.success}15`,
+  },
 };
 
 const STATUS_PAYMENT: Record<
@@ -105,7 +111,10 @@ function formatTime(dateStr: string | null | undefined): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '';
-  return `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}`;
+  return `${d.getHours().toString().padStart(2, '0')}h${d
+    .getMinutes()
+    .toString()
+    .padStart(2, '0')}`;
 }
 
 function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
@@ -119,6 +128,10 @@ function formatDate(dateStr: string, lang: 'fr' | 'en'): string {
 
 function formatPrice(price: number): string {
   return price.toLocaleString('fr-FR') + ' FCFA';
+}
+
+function isUpcoming(dateStr: string): boolean {
+  return new Date(dateStr) > new Date();
 }
 
 export default function Dashboard() {
@@ -201,8 +214,13 @@ export default function Dashboard() {
         setHistoriques(histData);
         setCache(`client_dashboard_hist_${userId}`, histData);
       } else {
-        const cached = await getCache<Historique[]>(`client_dashboard_hist_${userId}`);
-        if (cached) { setHistoriques(cached); anyFromCache = true; }
+        const cached = await getCache<Historique[]>(
+          `client_dashboard_hist_${userId}`,
+        );
+        if (cached) {
+          setHistoriques(cached);
+          anyFromCache = true;
+        }
       }
 
       if (resListRes.ok) {
@@ -211,14 +229,21 @@ export default function Dashboard() {
         setReservations(content);
         setCache(`client_dashboard_res_${userId}`, content);
       } else {
-        const cached = await getCache<Reservation[]>(`client_dashboard_res_${userId}`);
-        if (cached) { setReservations(cached); anyFromCache = true; }
+        const cached = await getCache<Reservation[]>(
+          `client_dashboard_res_${userId}`,
+        );
+        if (cached) {
+          setReservations(cached);
+          anyFromCache = true;
+        }
       }
 
       setIsOffline(anyFromCache);
     } catch {
       const userRaw2 = await AsyncStorage.getItem('user');
-      const uid = userRaw2 ? JSON.parse(userRaw2)?.userId || JSON.parse(userRaw2)?.id : null;
+      const uid = userRaw2
+        ? JSON.parse(userRaw2)?.userId || JSON.parse(userRaw2)?.id
+        : null;
       if (uid) {
         const [ch, cr] = await Promise.all([
           getCache<Historique[]>(`client_dashboard_hist_${uid}`),
@@ -245,17 +270,16 @@ export default function Dashboard() {
 
   const completed = historiques.filter(h => h.statusHistorique === 'TERMINE');
   const cancelled = historiques.filter(h => h.statusHistorique === 'ANNULE');
-  const destinations = new Set(
-    reservations.map(r => r.voyage.lieuArrive),
-  ).size;
+  const destinations = new Set(reservations.map(r => r.voyage.lieuArrive)).size;
 
-  const paidReservations = reservations.filter(
-    r => r.reservation.statutPayement === 'PAID',
+  const upcomingReservations = reservations.filter(
+    r =>
+      isUpcoming(r.voyage.dateDepartPrev) &&
+      r.reservation.statutReservation !== 'VALIDER',
   );
-  const upcoming = paidReservations.filter(
-    r => new Date(r.voyage.dateDepartPrev) > new Date(),
-  );
-  const recentReservations = (upcoming.length > 0 ? upcoming : paidReservations).slice(0, 3);
+  const recentReservations = (
+    upcomingReservations.length > 0 ? upcomingReservations : reservations
+  ).slice(0, 3);
 
   const ReservationCard = ({ item }: { item: Reservation }) => {
     const statusRes =
@@ -265,6 +289,7 @@ export default function Dashboard() {
       STATUS_PAYMENT[item.reservation.statutPayement] ||
       STATUS_PAYMENT.NO_PAYMENT;
     const isCancelled = item.reservation.statutReservation === 'ANNULEE';
+    const isCash = item.reservation.statutPayement === 'NO_PAYMENT';
 
     return (
       <View
@@ -356,7 +381,7 @@ export default function Dashboard() {
             </Text>
           </TouchableOpacity>
 
-          {!isCancelled && (
+          {!isCancelled && !isCash && (
             <TouchableOpacity
               style={[styles.actionBtn, { borderColor: theme.border }]}
               onPress={() =>
@@ -370,12 +395,27 @@ export default function Dashboard() {
                 size={14}
                 color={theme.textStrong}
               />
-              <Text
-                style={[styles.actionBtnText, { color: theme.textStrong }]}
-              >
+              <Text style={[styles.actionBtnText, { color: theme.textStrong }]}>
                 {t.ticket}
               </Text>
             </TouchableOpacity>
+          )}
+
+          {isCash && !isCancelled && (
+            <View
+              style={[
+                styles.actionBtn,
+                {
+                  borderColor: colors.success,
+                  backgroundColor: `${colors.success}0d`,
+                },
+              ]}
+            >
+              <Ionicons name="cash-outline" size={14} color={colors.success} />
+              <Text style={[styles.actionBtnText, { color: colors.success }]}>
+                {lang === 'fr' ? 'À régler' : 'Pay at agency'}
+              </Text>
+            </View>
           )}
 
           {isCancelled && (
@@ -460,13 +500,23 @@ export default function Dashboard() {
             <View
               style={[
                 styles.statCard,
-                { backgroundColor: theme.background, borderColor: theme.border },
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.border,
+                },
               ]}
             >
               <View
-                style={[styles.statIcon, { backgroundColor: `${colors.primary}10` }]}
+                style={[
+                  styles.statIcon,
+                  { backgroundColor: `${colors.primary}10` },
+                ]}
               >
-                <Ionicons name="calendar-outline" size={22} color={colors.primary} />
+                <Ionicons
+                  name="calendar-outline"
+                  size={22}
+                  color={colors.primary}
+                />
               </View>
               <Text style={[styles.statValue, { color: theme.textStrong }]}>
                 {completed.length}
@@ -478,13 +528,23 @@ export default function Dashboard() {
             <View
               style={[
                 styles.statCard,
-                { backgroundColor: theme.background, borderColor: theme.border },
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.border,
+                },
               ]}
             >
               <View
-                style={[styles.statIcon, { backgroundColor: `${colors.error}10` }]}
+                style={[
+                  styles.statIcon,
+                  { backgroundColor: `${colors.error}10` },
+                ]}
               >
-                <Ionicons name="close-circle-outline" size={22} color={colors.error} />
+                <Ionicons
+                  name="close-circle-outline"
+                  size={22}
+                  color={colors.error}
+                />
               </View>
               <Text style={[styles.statValue, { color: theme.textStrong }]}>
                 {cancelled.length}
@@ -496,7 +556,10 @@ export default function Dashboard() {
             <View
               style={[
                 styles.statCard,
-                { backgroundColor: theme.background, borderColor: theme.border },
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.border,
+                },
               ]}
             >
               <View style={[styles.statIcon, { backgroundColor: '#f0fdf415' }]}>
@@ -512,7 +575,10 @@ export default function Dashboard() {
             <View
               style={[
                 styles.statCard,
-                { backgroundColor: theme.background, borderColor: theme.border },
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.border,
+                },
               ]}
             >
               <View style={[styles.statIcon, { backgroundColor: '#fef9c310' }]}>

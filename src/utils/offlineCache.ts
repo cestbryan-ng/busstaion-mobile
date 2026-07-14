@@ -10,11 +10,7 @@ export const TTL = {
 // [pattern, ttl] — première correspondance gagne
 const TTL_RULES: [RegExp, number][] = [
   // 30 min : données fréquemment mises à jour
-  [/^(home_trips|home_agencies|home_gares)$/, TTL.SHORT],
-  [/^explore_(agencies|gares)$/, TTL.SHORT],
-  [/^trips_list_/, TTL.SHORT],
-  [/^bookings_/, TTL.SHORT],
-  [/^history_/, TTL.SHORT],
+  [/^client_(home_|explore_|trips_list_|bookings_|history_|coupons_)/, TTL.SHORT],
   [/^agency_trips_/, TTL.SHORT],
   [/^bsm_agency_trips_/, TTL.SHORT],
   [/^bsm_agencies_/, TTL.SHORT],
@@ -23,12 +19,8 @@ const TTL_RULES: [RegExp, number][] = [
   [/_dashboard_/, TTL.SHORT],
 
   // 4 h : données modérément stables
-  [/^trip_detail_/, TTL.MEDIUM],
-  [/^trip_[^d]/, TTL.MEDIUM],
-  [/^booking_detail_/, TTL.MEDIUM],
+  [/^client_(trip_detail_|booking_detail_|agency_detail_|agency_trips_|station_)/, TTL.MEDIUM],
   [/^client_dashboard_/, TTL.MEDIUM],
-  [/^station_(detail|agencies|trips)_/, TTL.MEDIUM],
-  [/^agency_detail_/, TTL.MEDIUM],
   [/^bsm_agency_detail_/, TTL.MEDIUM],
   [/^org_agency_detail_/, TTL.MEDIUM],
   [/^org_station_/, TTL.MEDIUM],
@@ -39,10 +31,7 @@ const TTL_RULES: [RegExp, number][] = [
   [/_profile_/, TTL.WEEK],
   [/_classes$/, TTL.WEEK],
   [/^subscription_(plans|billing)_/, TTL.WEEK],
-  [
-    /^org_(service_line|affiliations|affiliation_taxes|my_agencies|profile_)/,
-    TTL.WEEK,
-  ],
+  [/^org_(service_line|affiliations|affiliation_taxes|my_agencies|profile_)/, TTL.WEEK],
   [/^agency_info_/, TTL.WEEK],
   [/^org_employees_/, TTL.WEEK],
   [/^org_vehicles_/, TTL.WEEK],

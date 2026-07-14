@@ -64,7 +64,8 @@ function getClassColor(nomClasse: string): string {
   const upper = nomClasse.toUpperCase();
   if (upper.includes('VIP')) return CLASS_COLORS.VIP;
   if (upper.includes('PREMIUM')) return CLASS_COLORS.PREMIUM;
-  if (upper.includes('STANDARD') || upper.includes('CLASSIQUE')) return CLASS_COLORS.STANDARD;
+  if (upper.includes('STANDARD') || upper.includes('CLASSIQUE'))
+    return CLASS_COLORS.STANDARD;
   return CLASS_COLORS.ECONOMY;
 }
 
@@ -72,7 +73,7 @@ function parseDuration(raw: string | number): number {
   if (typeof raw === 'number') return raw;
   const m = raw.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
   if (!m) return 0;
-  return (parseInt(m[1] || '0') * 60) + parseInt(m[2] || '0');
+  return parseInt(m[1] || '0') * 60 + parseInt(m[2] || '0');
 }
 
 function formatDuration(raw: string | number): string {
@@ -168,10 +169,10 @@ export default function AgencyDetail() {
       if (agencyRes.ok) {
         const agencyData = await agencyRes.json();
         setAgency(agencyData);
-        setCache(`agency_detail_${agencyId}`, agencyData);
+        setCache(`client_agency_detail_${agencyId}`, agencyData);
         setIsOffline(false);
       } else {
-        const cached = await getCache(`agency_detail_${agencyId}`);
+        const cached = await getCache(`client_agency_detail_${agencyId}`);
         if (cached) {
           setAgency(cached);
           setIsOffline(true);
@@ -180,12 +181,15 @@ export default function AgencyDetail() {
       if (tripsRes.ok) {
         const data = await tripsRes.json();
         const now = new Date();
-        const filtered = (data.content || data || []).filter((t: Trip) => t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now);
+        const filtered = (data.content || data || []).filter(
+          (t: Trip) =>
+            t.statusVoyage === 'PUBLIE' && new Date(t.dateDepartPrev) > now,
+        );
         setTrips(filtered);
-        setCache(`agency_trips_${agencyId}`, filtered);
+        setCache(`client_agency_trips_${agencyId}`, filtered);
         setIsOffline(false);
       } else {
-        const cached = await getCache(`agency_trips_${agencyId}`);
+        const cached = await getCache(`client_agency_trips_${agencyId}`);
         if (cached) {
           setTrips(cached);
           setIsOffline(true);
@@ -193,8 +197,8 @@ export default function AgencyDetail() {
       }
     } catch {
       const [cachedAgency, cachedTrips] = await Promise.all([
-        getCache(`agency_detail_${agencyId}`),
-        getCache(`agency_trips_${agencyId}`),
+        getCache(`client_agency_detail_${agencyId}`),
+        getCache(`client_agency_trips_${agencyId}`),
       ]);
       if (cachedAgency) {
         setAgency(cachedAgency);
@@ -251,7 +255,16 @@ export default function AgencyDetail() {
       </View>
       {(!isOnline || isOffline) && <OfflineBanner lang={lang} />}
 
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={isOnline ? onRefresh : undefined} tintColor={colors.primary} />}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={isOnline ? onRefresh : undefined}
+            tintColor={colors.primary}
+          />
+        }
+      >
         {/* Banner */}
         <View style={[styles.banner, { backgroundColor: theme.backgroundAlt }]}>
           <View
@@ -269,7 +282,8 @@ export default function AgencyDetail() {
               { backgroundColor: theme.background, borderColor: theme.border },
             ]}
           >
-            {agency.logoUrl && !agency.logoUrl.toLowerCase().includes('placeholder') ? (
+            {agency.logoUrl &&
+            !agency.logoUrl.toLowerCase().includes('placeholder') ? (
               <Image
                 source={{ uri: agency.logoUrl }}
                 style={styles.logoImage}
@@ -302,7 +316,8 @@ export default function AgencyDetail() {
             <View style={styles.ratingRow}>
               <Ionicons name="star" size={14} color="#f59e0b" />
               <Text style={[styles.ratingText, { color: theme.textStrong }]}>
-                {' '}{agency.rating.toFixed(1)}
+                {' '}
+                {agency.rating.toFixed(1)}
               </Text>
             </View>
           )}
@@ -314,44 +329,82 @@ export default function AgencyDetail() {
           )}
 
           {/* Action buttons */}
-          <View style={[styles.actionButtons, { borderTopColor: theme.border }]}>
+          <View
+            style={[styles.actionButtons, { borderTopColor: theme.border }]}
+          >
             {agency.contact?.phone && (
               <TouchableOpacity
                 style={[styles.actionBtn, { borderColor: theme.border }]}
                 onPress={() => Linking.openURL(`tel:${agency.contact?.phone}`)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="call-outline" size={16} color={colors.primary} />
-                <Text style={[styles.actionBtnText, { color: theme.textStrong }]}>{t.call}</Text>
+                <Ionicons
+                  name="call-outline"
+                  size={16}
+                  color={colors.primary}
+                />
+                <Text
+                  style={[styles.actionBtnText, { color: theme.textStrong }]}
+                >
+                  {t.call}
+                </Text>
               </TouchableOpacity>
             )}
             {agency.contact?.email && (
               <TouchableOpacity
                 style={[styles.actionBtn, { borderColor: theme.border }]}
-                onPress={() => Linking.openURL(`mailto:${agency.contact?.email}`)}
+                onPress={() =>
+                  Linking.openURL(`mailto:${agency.contact?.email}`)
+                }
                 activeOpacity={0.7}
               >
-                <Ionicons name="mail-outline" size={16} color={colors.primary} />
-                <Text style={[styles.actionBtnText, { color: theme.textStrong }]}>{t.email}</Text>
+                <Ionicons
+                  name="mail-outline"
+                  size={16}
+                  color={colors.primary}
+                />
+                <Text
+                  style={[styles.actionBtnText, { color: theme.textStrong }]}
+                >
+                  {t.email}
+                </Text>
               </TouchableOpacity>
             )}
             {agency.contact?.website && (
               <TouchableOpacity
                 style={[styles.actionBtn, { borderColor: theme.border }]}
-                onPress={() => Linking.openURL(`https://${agency.contact?.website}`)}
+                onPress={() =>
+                  Linking.openURL(`https://${agency.contact?.website}`)
+                }
                 activeOpacity={0.7}
               >
-                <Ionicons name="globe-outline" size={16} color={colors.primary} />
-                <Text style={[styles.actionBtnText, { color: theme.textStrong }]}>{t.website}</Text>
+                <Ionicons
+                  name="globe-outline"
+                  size={16}
+                  color={colors.primary}
+                />
+                <Text
+                  style={[styles.actionBtnText, { color: theme.textStrong }]}
+                >
+                  {t.website}
+                </Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
               style={[styles.actionBtn, { borderColor: theme.border }]}
-              onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(agency.location)}`)}
+              onPress={() =>
+                Linking.openURL(
+                  `https://maps.google.com/?q=${encodeURIComponent(
+                    agency.location,
+                  )}`,
+                )
+              }
               activeOpacity={0.7}
             >
               <Ionicons name="map-outline" size={16} color={colors.primary} />
-              <Text style={[styles.actionBtnText, { color: theme.textStrong }]}>{t.itinerary}</Text>
+              <Text style={[styles.actionBtnText, { color: theme.textStrong }]}>
+                {t.itinerary}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -399,18 +452,41 @@ export default function AgencyDetail() {
                   key={trip.idVoyage}
                   style={[
                     styles.tripCard,
-                    { backgroundColor: theme.background, borderColor: theme.border },
+                    {
+                      backgroundColor: theme.background,
+                      borderColor: theme.border,
+                    },
                   ]}
                   activeOpacity={0.85}
-                  onPress={() => navigation.navigate('TripDetail', { tripId: trip.idVoyage })}
+                  onPress={() =>
+                    navigation.navigate('TripDetail', { tripId: trip.idVoyage })
+                  }
                 >
                   {/* Image + badge */}
-                  <View style={[styles.tripImageContainer, { backgroundColor: theme.backgroundAlt }]}>
-                    {trip.smallImage?.startsWith('http')
-                      ? <Image source={{ uri: trip.smallImage }} style={styles.tripImage} resizeMode="cover" />
-                      : <TripPlaceholder width="100%" height="100%" />}
-                    <View style={[styles.classBadge, { backgroundColor: cardClassColor }]}>
-                      <Text style={styles.classBadgeText}>{trip.nomClasseVoyage}</Text>
+                  <View
+                    style={[
+                      styles.tripImageContainer,
+                      { backgroundColor: theme.backgroundAlt },
+                    ]}
+                  >
+                    {trip.smallImage?.startsWith('http') ? (
+                      <Image
+                        source={{ uri: trip.smallImage }}
+                        style={styles.tripImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <TripPlaceholder width="100%" height="100%" />
+                    )}
+                    <View
+                      style={[
+                        styles.classBadge,
+                        { backgroundColor: cardClassColor },
+                      ]}
+                    >
+                      <Text style={styles.classBadgeText}>
+                        {trip.nomClasseVoyage}
+                      </Text>
                     </View>
                   </View>
 
@@ -421,19 +497,45 @@ export default function AgencyDetail() {
                       : `From ${trip.lieuDepart} to ${trip.lieuArrive}`}
                   </Text>
 
-                  {/* Meta : date · durée */}
+                  {/* Meta : date · heure · durée */}
                   <View style={styles.tripMeta}>
-                    <Ionicons name="calendar-outline" size={12} color={theme.text} />
+                    <Ionicons
+                      name="calendar-outline"
+                      size={12}
+                      color={theme.text}
+                    />
                     <Text style={[styles.tripMetaText, { color: theme.text }]}>
-                      {' '}{new Date(trip.dateDepartPrev).toLocaleDateString(
+                      {' '}
+                      {new Date(trip.dateDepartPrev).toLocaleDateString(
                         lang === 'fr' ? 'fr-FR' : 'en-GB',
                         { day: 'numeric', month: 'short', year: 'numeric' },
                       )}
                     </Text>
-                    <Text style={[styles.tripMetaText, { color: theme.text }]}> · </Text>
-                    <Ionicons name="time-outline" size={12} color={theme.text} />
+                    <Ionicons
+                      name="time-outline"
+                      size={12}
+                      color={theme.text}
+                      style={{ marginLeft: 6 }}
+                    />
                     <Text style={[styles.tripMetaText, { color: theme.text }]}>
-                      {' '}{formatDuration(trip.dureeVoyage)}
+                      {' '}
+                      {new Date(trip.dateDepartPrev).toLocaleTimeString('fr-FR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                    <Text style={[styles.tripMetaText, { color: theme.text }]}>
+                      {' '}
+                      ·{' '}
+                    </Text>
+                    <Ionicons
+                      name="hourglass-outline"
+                      size={12}
+                      color={theme.text}
+                    />
+                    <Text style={[styles.tripMetaText, { color: theme.text }]}>
+                      {' '}
+                      {formatDuration(trip.dureeVoyage)}
                     </Text>
                   </View>
 
@@ -449,12 +551,19 @@ export default function AgencyDetail() {
                       />
                     ))}
                     {extra > 0 && (
-                      <Text style={[styles.extraText, { color: theme.text }]}>+{extra}</Text>
+                      <Text style={[styles.extraText, { color: theme.text }]}>
+                        +{extra}
+                      </Text>
                     )}
                   </View>
 
                   {/* Footer */}
-                  <View style={[styles.tripFooter, { borderTopColor: theme.border }]}>
+                  <View
+                    style={[
+                      styles.tripFooter,
+                      { borderTopColor: theme.border },
+                    ]}
+                  >
                     <Text style={[styles.seatsText, { color: theme.text }]}>
                       {t.seats(trip.nbrPlaceRestante)}
                     </Text>
@@ -624,7 +733,12 @@ const styles = StyleSheet.create({
   },
   seatsText: { ...typography.bodyBold, fontSize: typography.sizes.xs },
   tripPrice: { ...typography.bodyBold, fontSize: typography.sizes.md },
-  tripImageContainer: { height: 120, borderRadius: 4, overflow: 'hidden', marginBottom: spacing.xs },
+  tripImageContainer: {
+    height: 120,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: spacing.xs,
+  },
   tripImage: { width: '100%', height: '100%' },
   empty: { alignItems: 'center', paddingVertical: spacing.xl },
   emptyText: { ...typography.body, fontSize: typography.sizes.md },

@@ -15,6 +15,7 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import type { RootStackParamList } from '../../../../navigation';
+import { CITIES } from '../../../../components/city-picker-modal';
 
 export type TripFilters = {
   departure: string;
@@ -24,16 +25,6 @@ export type TripFilters = {
   amenities: string[];
 };
 
-const CITIES = [
-  'Douala',
-  'Yaoundé',
-  'Bafoussam',
-  'Kribi',
-  'Buea',
-  'Garoua',
-  'Bertoua',
-  'Maroua',
-];
 const CLASSES = ['VIP', 'PREMIUM', 'STANDARD', 'ECONOMY'];
 const AMENITIES = [
   'WIFI',
