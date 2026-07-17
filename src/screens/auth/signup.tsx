@@ -23,7 +23,7 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
 import type { RootStackParamList } from '../../navigation';
-import { API_URL, CGU_URL } from '../../utils/config';
+import { API_URL, CGU_URL, PRIVACY_URL } from '../../utils/config';
 
 type Step = 1 | 2 | 3;
 type Role = 'USAGER' | 'ORGANISATION';
@@ -189,6 +189,8 @@ export default function SignUp() {
       login: 'Se connecter',
       acceptCGU: "J'accepte les ",
       cguLink: "conditions générales d'utilisation",
+      andThe: ' et la ',
+      privacyLink: 'politique de confidentialité',
       secureData: 'Vos données sont sécurisées et protégées',
       required: 'Ce champ est requis.',
       minUsername: 'Minimum 3 caractères.',
@@ -252,6 +254,8 @@ export default function SignUp() {
       login: 'Log in',
       acceptCGU: 'I accept the ',
       cguLink: 'terms and conditions',
+      andThe: ' and the ',
+      privacyLink: 'privacy policy',
       secureData: 'Your data is secure and protected',
       required: 'This field is required.',
       minUsername: 'Minimum 3 characters.',
@@ -827,6 +831,13 @@ export default function SignUp() {
                   onPress={() => Linking.openURL(`${CGU_URL}`)}
                 >
                   {t.cguLink}
+                </Text>
+                {t.andThe}
+                <Text
+                  style={[styles.cguLink, { color: colors.primary }]}
+                  onPress={() => Linking.openURL(`${PRIVACY_URL}`)}
+                >
+                  {t.privacyLink}
                 </Text>
               </Text>
             </TouchableOpacity>

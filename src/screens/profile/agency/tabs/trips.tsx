@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  chipsScroll: { borderBottomWidth: 1, maxHeight: 56 },
+  chipsScroll: { borderBottomWidth: 1, maxHeight: 56, flexShrink: 0 },
   chipsContent: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,

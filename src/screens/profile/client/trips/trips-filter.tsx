@@ -15,7 +15,6 @@ import { colors } from '../../../../theme/colors';
 import { typography } from '../../../../theme/typography';
 import { spacing } from '../../../../theme/spacing';
 import type { RootStackParamList } from '../../../../navigation';
-import { CITIES } from '../../../../components/city-picker-modal';
 
 export type TripFilters = {
   departure: string;
@@ -73,10 +72,6 @@ export default function TripsFilter() {
   const initialFilters = route.params?.filters;
 
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
-  const [departure, setDeparture] = useState(
-    initialFilters?.departure || 'Tous',
-  );
-  const [arrival, setArrival] = useState(initialFilters?.arrival || 'Tous');
   const [selectedDate, setSelectedDate] = useState<string | null>(
     initialFilters?.date || null,
   );
@@ -99,8 +94,6 @@ export default function TripsFilter() {
     fr: {
       title: 'Filtres',
       reset: 'Réinitialiser',
-      departure: 'Lieu de départ',
-      arrival: "Lieu d'arrivée",
       date: 'Date de départ',
       travelClass: 'Classe de voyage',
       amenities: 'Équipements',
@@ -126,8 +119,6 @@ export default function TripsFilter() {
     en: {
       title: 'Filters',
       reset: 'Reset',
-      departure: 'Departure',
-      arrival: 'Arrival',
       date: 'Departure date',
       travelClass: 'Travel class',
       amenities: 'Amenities',
@@ -165,8 +156,6 @@ export default function TripsFilter() {
   };
 
   const handleReset = () => {
-    setDeparture('Tous');
-    setArrival('Tous');
     setSelectedDate(null);
     setSelectedClasses(['VIP', 'PREMIUM', 'STANDARD']);
     setSelectedAmenities(AMENITIES);
@@ -174,8 +163,8 @@ export default function TripsFilter() {
 
   const handleApply = () => {
     const filters: TripFilters = {
-      departure: departure === 'Tous' ? '' : departure,
-      arrival: arrival === 'Tous' ? '' : arrival,
+      departure: initialFilters?.departure || '',
+      arrival: initialFilters?.arrival || '',
       date: selectedDate,
       classes: selectedClasses,
       amenities: selectedAmenities,
@@ -355,50 +344,6 @@ export default function TripsFilter() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        {/* ── Departure ── */}
-        <Text style={[styles.sectionLabel, { color: theme.textStrong }]}>
-          {t.departure}
-        </Text>
-        <View style={styles.chipsWrap}>
-          <Chip
-            label={t.all}
-            selected={departure === 'Tous'}
-            onPress={() => setDeparture('Tous')}
-          />
-          {CITIES.map(c => (
-            <Chip
-              key={c}
-              label={c}
-              selected={departure === c}
-              onPress={() => setDeparture(c)}
-            />
-          ))}
-        </View>
-
-        <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-        {/* ── Arrival ── */}
-        <Text style={[styles.sectionLabel, { color: theme.textStrong }]}>
-          {t.arrival}
-        </Text>
-        <View style={styles.chipsWrap}>
-          <Chip
-            label={t.all}
-            selected={arrival === 'Tous'}
-            onPress={() => setArrival('Tous')}
-          />
-          {CITIES.map(c => (
-            <Chip
-              key={c}
-              label={c}
-              selected={arrival === c}
-              onPress={() => setArrival(c)}
-            />
-          ))}
-        </View>
-
-        <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
         {/* ── Date ── */}
         <Text style={[styles.sectionLabel, { color: theme.textStrong }]}>
           {t.date}

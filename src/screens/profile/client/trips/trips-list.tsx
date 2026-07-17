@@ -7,7 +7,6 @@ import {
   ScrollView,
   FlatList,
   TouchableOpacity,
-  TextInput,
   Image,
   ActivityIndicator,
   useColorScheme,
@@ -35,6 +34,7 @@ import {
   formatDateDisplay,
 } from '../../../../components/date-picker-modal';
 import TripPlaceholder from '../../../../assets/placeholders/product.svg';
+import { CityPickerModal } from '../../../../components/city-picker-modal';
 
 type Trip = {
   idVoyage: string;
@@ -624,48 +624,36 @@ export default function TripsList() {
           >
             {/* Departure + Arrival */}
             <View style={styles.searchRow}>
-              <View
-                style={[
+              <CityPickerModal
+                value={departure}
+                onSelect={setDeparture}
+                placeholder={t.departurePlaceholder}
+                label={t.departurePlaceholder}
+                theme={theme}
+                containerStyle={[
                   styles.searchField,
                   {
-                    borderColor: theme.border,
+                    borderColor: departure ? colors.primary : theme.border,
                     backgroundColor: theme.backgroundAlt,
                     flex: 1,
                   },
                 ]}
-              >
-                <Ionicons name="time-outline" size={14} color={theme.text} />
-                <TextInput
-                  style={[styles.searchFieldLabel, { color: theme.textStrong }]}
-                  placeholder={t.departurePlaceholder}
-                  placeholderTextColor={theme.placeholder}
-                  value={departure}
-                  onChangeText={setDeparture}
-                />
-              </View>
-              <View
-                style={[
+              />
+              <CityPickerModal
+                value={arrival}
+                onSelect={setArrival}
+                placeholder={t.arrivalPlaceholder}
+                label={t.arrivalPlaceholder}
+                theme={theme}
+                containerStyle={[
                   styles.searchField,
                   {
-                    borderColor: theme.border,
+                    borderColor: arrival ? colors.primary : theme.border,
                     backgroundColor: theme.backgroundAlt,
                     flex: 1,
                   },
                 ]}
-              >
-                <Ionicons
-                  name="location-outline"
-                  size={14}
-                  color={theme.text}
-                />
-                <TextInput
-                  style={[styles.searchFieldLabel, { color: theme.textStrong }]}
-                  placeholder={t.arrivalPlaceholder}
-                  placeholderTextColor={theme.placeholder}
-                  value={arrival}
-                  onChangeText={setArrival}
-                />
-              </View>
+              />
             </View>
 
             {/* Date */}
