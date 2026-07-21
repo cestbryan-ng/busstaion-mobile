@@ -366,7 +366,7 @@ export default function Historique() {
   }, [loadHistorique]);
 
   const filtered = historiques.filter(h => {
-    if (tab === 'reservations' && h.statusHistorique === 'ANNULE') return false;
+    if (tab === 'reservations' && h.statusHistorique !== 'VALIDER') return false;
     if (tab === 'annulations' && h.statusHistorique !== 'ANNULE') return false;
     if (!isInDateRange(h.dateReservation, dateFilter)) return false;
     if (calMonth !== null) {

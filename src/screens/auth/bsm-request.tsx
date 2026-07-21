@@ -272,24 +272,9 @@ export default function BsmRequest() {
         </Text>
 
         {error !== '' && (
-          <View
-            style={[
-              styles.errorBox,
-              {
-                borderColor: colors.error,
-                backgroundColor: `${colors.error}12`,
-              },
-            ]}
-          >
-            <Ionicons
-              name="alert-circle-outline"
-              size={16}
-              color={colors.error}
-            />
-            <Text style={[styles.errorText, { color: colors.error }]}>
-              {error}
-            </Text>
-          </View>
+          <Text style={[styles.errorText, { color: colors.error }]}>
+            {error}
+          </Text>
         )}
 
         <Field
@@ -496,19 +481,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: spacing.lg,
   },
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderRadius: 6,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-  },
   errorText: {
     ...typography.body,
     fontSize: typography.sizes.xs,
-    flex: 1,
+    textAlign: 'center',
+    marginBottom: spacing.md,
   },
   fieldWrap: {
     marginBottom: spacing.md,

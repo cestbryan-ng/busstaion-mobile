@@ -124,7 +124,7 @@ export default function DrawerMenu({
       support: 'Customer support',
       about: 'About',
       logout: 'Logout',
-      version: 'Version 1.0.1',
+      version: 'Version 1.0.2',
     },
   }[lang];
 
